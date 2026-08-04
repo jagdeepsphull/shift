@@ -1,0 +1,44 @@
+DirectoryIndex index.php
+
+# Disable directory browsing
+Options -Indexes +FollowSymlinks
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Block direct access to the framework/application internals.
+    # `plan/` holds internal assessment documents - not for public eyes.
+    RewriteRule ^(app|vendor|writable|tests|builds|plan|_backup_ci3_[0-9]+)/ - [F,L]
+    RewriteRule ^(spark|env|\.env|composer\.(json|lock)|preload\.php|phpunit\.dist\.xml)$ - [F,L]
+
+    # Redirect Trailing Slashes If Not A Folder...
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} (.+)/$
+    RewriteRule ^ %1 [L,R=301]
+
+    # Send anything that isn't a real file/directory to the front controller.
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^([\s\S]*)$ index.php/$1 [L,NC,QSA]
+
+    # Ensure Authorization header is passed along
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+</IfModule>
+
+<IfModule !mod_rewrite.c>
+    ErrorDocument 404 index.php
+</IfModule>
+
+# Disable server signature
+ServerSignature Off
+
+# Begin EnforceSSL
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{HTTP_HOST} ^(www\.)?reliefstars\.com$ [OR]
+    RewriteCond %{HTTP_HOST} ^(www\.)?reliefshifts\.com$
+    RewriteCond %{HTTPS} !=on
+    RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
+# End EnforceSSL

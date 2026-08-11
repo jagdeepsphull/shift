@@ -68,6 +68,12 @@
                                             <input type="email" class="form-control" name="s_email" placeholder="Enter Email Id" value="<?php echo $s_email;?>">
                                         </div>
                                     </div>
+                                    <div class="col-sm-4">
+                                        <div class="form-group">
+                                            <label>Booking Copy Email</label> <span>Copied on shift-booked e-mails. Leave blank for no copy.</span>
+                                            <input type="email" class="form-control" name="s_agency_copy_email" placeholder="Enter Booking Copy Email" value="<?php echo $s_agency_copy_email ?? '';?>">
+                                        </div>
+                                    </div>
                                 </div>
                                 <!-- /.card-body -->
 

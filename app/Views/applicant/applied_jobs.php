@@ -63,7 +63,7 @@
 											
 											
 										</td>
-                                        <td><?php echo dateformat($jobs->p_dates); ?></td>
+                                        <td data-order="<?php echo shiftDateSortValue($jobs); ?>"><?php echo dateformat($jobs->p_dates); ?></td>
                                         <td><?php echo $jobs->p_shift_time; ?></td>
                                         <td>
 										<?php if(trim((string) $jobs->sj_applied_desc) !== ''){ ?>

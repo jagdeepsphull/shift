@@ -36,7 +36,17 @@
 									</p>
 									<h6><span class="font-weight-bold mr-2">Shift Requested For:</span> <?php echo getShiftForName($jobdetail[0]->p_shift_for); ?></h6>
 									
-									<p class="icon"><i class="lni lni-map-marker"></i> <?php echo $jobdetail[0]->p_name. ', '. $jobdetail[0]->c_name; ?></p>
+									<?php if ($shift_store && trim((string) $shift_store->s_name) !== '') { ?>
+									<h6><span class="font-weight-bold mr-2">Store:</span> <?php echo esc($shift_store->s_name . ($shift_store->s_number !== '' ? ' (' . $shift_store->s_number . ')' : '')); ?></h6>
+									<?php } ?>
+									<p class="icon"><i class="lni lni-map-marker"></i> <?php
+										// The address of the store the shift is at, then city and province.
+										$location = ($shift_store && trim((string) $shift_store->s_address) !== '') ? esc($shift_store->s_address) . ', ' : '';
+										echo $location . $jobdetail[0]->c_name . ', ' . $jobdetail[0]->p_name;
+									?></p>
+									<?php if ($is_booked_viewer && $shift_store && trim((string) $shift_store->s_phone) !== '') { ?>
+									<p class="icon"><i class="lni lni-phone-handset"></i> <?php echo esc($shift_store->s_phone); ?></p>
+									<?php } ?>
 									<p class="icon"><i class="lni lni-wallet"></i> To be disclosed</p>
 									<p class="icon"><i class="lni lni-calendar"></i> <?php echo dateFormat($jobdetail[0]->p_dates); ?></p>
 									<p class="icon"><i class="lni lni-alarm-clock"></i> <?php echo $jobdetail[0]->p_shift_time; ?></p>
@@ -47,10 +57,12 @@
 								<h4 class="single-title mt-2">Job Details</h4>
 								<h6><span class="font-weight-bold mr-2">Softwares: </span><?php echo getSoftwareSkills($jobdetail[0]->p_skills); ?></h6>
 								<h6><span class="font-weight-bold mr-2">Details: </span><?php echo getStoreServices($jobdetail[0]->p_services); ?></h6>
-								<p>
-									<?php //echo $jobdetail[0]->p_jobinfo; ?>
-								</p>
-								
+								<?php /* Saved on every shift form but shown nowhere until now, so anything
+								   the pharmacy wrote about the shift never reached the applicant. */ ?>
+								<?php if (trim(strip_tags((string) $jobdetail[0]->p_jobinfo)) !== '') { ?>
+									<h6 class="font-weight-bold mt-3 mb-2">Additional details</h6>
+									<div class="additional-details"><?php echo $jobdetail[0]->p_jobinfo; ?></div>
+								<?php } ?>
 							</div>
 								
 						</div>

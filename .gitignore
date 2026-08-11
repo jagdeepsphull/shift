@@ -20,6 +20,13 @@ uploads/
 # Backup folders
 _backup*/
 
+# Hand-made archives of the tree (deploy/build.php writes its own into
+# deploy/build/, which is ignored there)
+*.zip
+
+# Scratch output from debugging the export tests
+tests/e2e/row.txt
+
 # IDE
 .vscode/
 .idea/

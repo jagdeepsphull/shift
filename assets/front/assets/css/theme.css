@@ -1,0 +1,1142 @@
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Dancing+Script:wght@600;700&display=swap");
+
+/* ==========================================================================
+   PickAShift front-end theme
+   --------------------------------------------------------------------------
+   Loaded last, after bootstrap.min.css / main.css / responsive.css, so it
+   restyles the existing markup rather than replacing the framework. Anything
+   here is deliberate; the !important flags are answering the legacy theme,
+   which sets the same properties with heavier selectors.
+   ========================================================================== */
+
+:root {
+  --wz-bg: #f3f3f7;
+  --wz-surface: #ffffff;
+  --wz-ink: #0d0d12;
+  --wz-ink-soft: #43434f;
+  --wz-muted: #8f8fa3;
+  --wz-line: #e7e7ee;
+  --wz-purple: #7c3aed;
+  --wz-orange: #f9600b;
+  --wz-grad: linear-gradient(115deg, #a855f7 0%, #7c3aed 22%, #c2410c 62%, #f97316 100%);
+  --wz-radius: 20px;
+  --wz-radius-lg: 28px;
+  --wz-shadow: 0 1px 2px rgba(16, 16, 40, .04), 0 8px 24px rgba(16, 16, 40, .05);
+  --wz-shadow-lg: 0 18px 50px rgba(16, 16, 40, .1);
+  --wz-nav-h: 84px;
+}
+
+/* --------------------------------------------------------------- base ---- */
+
+body {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  background: var(--wz-bg) !important;
+  color: var(--wz-ink);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4, h5, h6,
+.section-title, .head-title {
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  color: var(--wz-ink);
+  font-weight: 800;
+  letter-spacing: -.02em;
+}
+
+/* Bootstrap 5 underlines every link by default; this design does not. */
+a { color: var(--wz-ink); text-decoration: none; }
+a:hover { color: var(--wz-purple); text-decoration: none; }
+
+.wz-shell { max-width: 1360px; margin: 0 auto; padding: 0 24px; }
+
+/* The legacy theme paints most sections; neutralise so the page reads as one
+   surface with cards floating on it. */
+.section-padding { padding: 56px 0 !important; }
+.bg-gray, #services, #features, .about-area { background: transparent !important; }
+
+/* ------------------------------------------------------------- navbar ---- */
+
+.navbar.scrolling-navbar,
+header#header-wrap .navbar {
+  background: var(--wz-bg) !important;
+  box-shadow: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 18px 0 !important;
+  transition: background .25s ease, box-shadow .25s ease;
+}
+
+.navbar.scrolling-navbar.wz-stuck {
+  background: rgba(243, 243, 247, .88) !important;
+  backdrop-filter: saturate(180%) blur(14px);
+  box-shadow: 0 1px 0 var(--wz-line) !important;
+}
+
+.navbar > .container { max-width: 1360px; padding: 0 24px; }
+
+.navbar-brand img { max-height: 44px; width: auto; }
+
+.navbar .navbar-nav { align-items: center; gap: 4px; }
+
+.navbar .nav-item .nav-link {
+  color: var(--wz-ink) !important;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 10px 14px !important;
+  border-radius: 999px;
+  transition: color .2s ease, background .2s ease;
+}
+
+.navbar .nav-item .nav-link:hover { color: var(--wz-purple) !important; }
+
+.navbar .nav-item.active > .nav-link {
+  color: var(--wz-ink) !important;
+  text-decoration: underline;
+  text-underline-offset: 6px;
+  text-decoration-thickness: 2px;
+}
+
+/* The "sign up / login" call to action in the bar. */
+.navbar .ticker-btn,
+.navbar .btn.ticker-btn {
+  background: var(--wz-ink) !important;
+  color: #fff !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  padding: 12px 26px !important;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-left: 10px;
+  box-shadow: none !important;
+}
+
+.navbar .ticker-btn:hover { background: var(--wz-purple) !important; color: #fff !important; }
+
+.navbar-toggler {
+  border: 1px solid var(--wz-line) !important;
+  background: #fff !important;
+  border-radius: 14px !important;
+  width: 46px;
+  height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 !important;
+  color: var(--wz-ink) !important;
+  font-size: 20px;
+}
+
+.navbar .dropdown-menu {
+  border: 1px solid var(--wz-line);
+  border-radius: 16px;
+  box-shadow: var(--wz-shadow-lg);
+  padding: 8px;
+  margin-top: 10px;
+}
+
+.navbar .dropdown-menu .dropdown-item {
+  border-radius: 10px;
+  padding: 0;
+}
+
+.navbar .dropdown-menu .nav-link { padding: 10px 14px !important; }
+.navbar .dropdown-menu .dropdown-item:hover { background: var(--wz-bg); }
+
+/* ---------------------------------------------------------------- hero --- */
+
+#header-wrap { background: transparent; }
+
+/* Pharmacy photo sits under the brand gradient. The gradient stays opaque
+   enough on the left, where the copy sits, to keep the headline readable and
+   to knock back the wording already burned into the artwork. */
+.wz-hero {
+  position: relative;
+  margin: calc(var(--wz-nav-h) + 8px) auto 56px;
+  max-width: 1360px;
+  border-radius: var(--wz-radius-lg);
+  background:
+    linear-gradient(115deg,
+      rgba(168, 85, 247, .94) 0%,
+      rgba(124, 58, 237, .88) 22%,
+      rgba(194, 65, 12, .70) 62%,
+      rgba(249, 115, 22, .62) 100%),
+    url("../img/2.jpg") center / cover no-repeat;
+  background-color: #7c3aed;
+  padding: 84px 24px 40px;
+  text-align: center;
+  isolation: isolate;
+}
+
+/* The grain in the reference is what stops the gradient looking flat. The band
+   deliberately does not clip: the search card overlaps its lower edge. */
+.wz-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: .38;
+  border-radius: inherit;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
+}
+
+/* Magnolia Script is a commercial face, so it cannot be served from a CDN the
+   way the rest of the type is. This block looks for an installed copy first,
+   then a self-hosted webfont under ../fonts/. Both may be absent: a src list
+   that resolves to nothing leaves the family undefined and the stack on
+   .wz-hero h1 falls through to Dancing Script, so the headline stays script
+   either way. Drop magnolia-script.woff2 into assets/front/assets/fonts/ and
+   it takes over with no other edit. */
+@font-face {
+  font-family: 'Magnolia Script';
+  src: local('Magnolia Script'),
+       url('../fonts/magnolia-script.woff2') format('woff2'),
+       url('../fonts/magnolia-script.woff') format('woff');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Headline is the script lettering from the banner artwork. Script faces need
+   the neutral tracking and taller line-height that the sans headline elsewhere
+   does not — the -.02em from the global h1 rule collides the loops. */
+.wz-hero h1 {
+  font-family: 'Magnolia Script', 'Dancing Script', cursive !important;
+  color: #fff;
+  font-size: clamp(42px, 6.4vw, 80px);
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.15;
+  margin: 0 0 18px;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, .28);
+}
+
+.wz-hero p {
+  font-family: 'Plus Jakarta Sans', -apple-system, 'Segoe UI', sans-serif;
+  color: #ffde59;
+  font-size: clamp(16px, 1.8vw, 22px);
+  font-weight: 700;
+  line-height: 1.35;
+  max-width: 720px;
+  margin: 0 auto;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, .22);
+}
+
+.wz-hero .wz-hero-actions { margin-top: 30px; }
+
+/* Search card, floating over the foot of the hero. */
+.wz-searchbar {
+  position: relative;
+  z-index: 3;
+  max-width: 800px;
+  margin: 44px auto -36px;
+  background: #fff;
+  border-radius: 999px;
+  box-shadow: 0 20px 44px rgba(16, 16, 40, .14);
+  padding: 12px 12px 12px 26px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.wz-searchbar .wz-search-icon {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border-radius: 50%;
+  background: var(--wz-bg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--wz-muted);
+}
+
+.wz-searchbar input {
+  flex: 1 1 auto;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--wz-ink);
+  min-width: 0;
+  padding: 8px 0;
+}
+
+.wz-searchbar input::placeholder { color: var(--wz-muted); font-weight: 600; }
+
+/* Shift-date range, to the right of the text search. */
+.wz-searchbar .wz-search-divider {
+  flex: 0 0 1px;
+  width: 1px;
+  height: 26px;
+  background: var(--wz-line);
+}
+
+.wz-search-dates {
+  flex: 0 1 246px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.wz-search-dates input { cursor: pointer; }
+
+.wz-date-clear {
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--wz-bg);
+  color: var(--wz-muted);
+  font-size: 17px;
+  line-height: 1;
+}
+
+.wz-date-clear:hover { background: var(--wz-line); color: var(--wz-ink); }
+
+/* The picker itself, wearing the theme rather than its own default look. */
+.daterangepicker {
+  font-family: inherit;
+  border: 1px solid var(--wz-line);
+  border-radius: 18px;
+  box-shadow: var(--wz-shadow-lg);
+}
+
+.daterangepicker::before, .daterangepicker::after { display: none; }
+
+.daterangepicker .drp-calendar { max-width: 300px; }
+
+.daterangepicker td.available:hover,
+.daterangepicker th.available:hover { background: var(--wz-bg); border-radius: 8px; }
+
+.daterangepicker td.in-range { background: #f1e9ff; color: var(--wz-ink); }
+
+.daterangepicker td.active,
+.daterangepicker td.active:hover { background: var(--wz-purple); color: #fff; }
+
+.daterangepicker td.start-date { border-radius: 8px 0 0 8px; }
+.daterangepicker td.end-date { border-radius: 0 8px 8px 0; }
+.daterangepicker td.start-date.end-date { border-radius: 8px; }
+
+.daterangepicker .ranges li {
+  font-weight: 600;
+  border-radius: 10px;
+  margin: 0 4px;
+}
+
+.daterangepicker .ranges li:hover { background: var(--wz-bg); }
+.daterangepicker .ranges li.active { background: var(--wz-purple); color: #fff; }
+
+/* Inner pages get the same band, shorter and without the search card. */
+.wz-pagehead {
+  position: relative;
+  margin: calc(var(--wz-nav-h) + 8px) auto 44px;
+  max-width: 1360px;
+  border-radius: var(--wz-radius-lg);
+  background: var(--wz-grad);
+  overflow: hidden;
+  padding: 62px 24px;
+  text-align: center;
+  isolation: isolate;
+}
+
+.wz-pagehead::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: .38;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
+}
+
+.wz-pagehead h1 {
+  color: #fff;
+  font-size: clamp(30px, 4.4vw, 52px);
+  font-weight: 800;
+  letter-spacing: -.03em;
+  margin: 0;
+}
+
+.wz-pagehead p {
+  color: rgba(255, 255, 255, .92);
+  font-size: 17px;
+  font-weight: 500;
+  max-width: 640px;
+  margin: 12px auto 0;
+}
+
+.wz-crumbs {
+  margin-top: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, .85);
+}
+
+.wz-crumbs a { color: #fff; }
+
+/* ------------------------------------------------------------- buttons --- */
+
+.wz-btn,
+.btn.btn-common,
+.btn-common {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--wz-ink) !important;
+  color: #fff !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  padding: 14px 30px !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+  box-shadow: none !important;
+  transition: transform .15s ease, background .2s ease;
+}
+
+.wz-btn:hover,
+.btn.btn-common:hover,
+.btn-common:hover { background: var(--wz-purple) !important; color: #fff !important; transform: translateY(-1px); }
+
+/* The Login / Register tabs on the account page, wearing the same pill as the
+   "sign up / login" button in the bar. The open tab is filled purple and the
+   other outlined, so it is clear which one you are on. */
+.wz-authtabs {
+  background: transparent !important;
+  padding: 0 !important;
+  gap: 12px;
+}
+
+.wz-authtabs .nav-item { margin: 0; }
+
+.btn.wz-auth-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff !important;
+  color: var(--wz-ink) !important;
+  border: 1px solid var(--wz-line) !important;
+  border-radius: 999px !important;
+  padding: 12px 30px !important;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.2;
+  box-shadow: none !important;
+  transition: background .2s ease, color .2s ease, border-color .2s ease;
+}
+
+/* The heading inside the link is markup, not a size change. */
+.btn.wz-auth-tab h6 {
+  font: inherit;
+  color: inherit;
+  margin: 0;
+}
+
+.btn.wz-auth-tab:hover,
+.btn.wz-auth-tab:focus {
+  background: var(--wz-purple) !important;
+  border-color: var(--wz-purple) !important;
+  color: #fff !important;
+}
+
+.btn.wz-auth-tab.active,
+.btn.wz-auth-tab.active:hover,
+.btn.wz-auth-tab.active:focus {
+  background: var(--wz-purple) !important;
+  border-color: var(--wz-purple) !important;
+  color: #fff !important;
+}
+
+.wz-btn-light {
+  background: #fff !important;
+  color: var(--wz-ink) !important;
+  border: 1px solid var(--wz-line) !important;
+}
+
+.wz-btn-light:hover { background: var(--wz-bg) !important; color: var(--wz-ink) !important; }
+
+.wz-btn-grad { background: var(--wz-grad) !important; color: #fff !important; }
+.wz-btn-grad:hover { filter: brightness(1.06); color: #fff !important; }
+
+.wz-btn-sm { padding: 9px 18px !important; font-size: 13.5px !important; }
+
+/* -------------------------------------------------------------- filters -- */
+
+.wz-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 0 0 22px;
+}
+
+.wz-tabs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wz-tab {
+  border: 0;
+  background: #fff;
+  color: var(--wz-ink);
+  border-radius: 999px;
+  padding: 12px 24px;
+  font-size: 14.5px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--wz-shadow);
+  transition: background .2s ease, color .2s ease;
+}
+
+.wz-tab:hover { background: #fff; color: var(--wz-purple); }
+.wz-tab.is-active { background: var(--wz-ink); color: #fff; }
+.wz-tab.is-active:hover { color: #fff; }
+
+.wz-select {
+  position: relative;
+  min-width: 230px;
+}
+
+.wz-select select {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  background: #fff;
+  border: 1px solid var(--wz-line);
+  border-radius: 14px;
+  padding: 14px 44px 14px 20px;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--wz-ink);
+  cursor: pointer;
+  outline: 0;
+  box-shadow: var(--wz-shadow);
+}
+
+.wz-select::after {
+  content: "";
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  border-right: 2px solid var(--wz-ink);
+  border-bottom: 2px solid var(--wz-ink);
+  transform: translateY(-70%) rotate(45deg);
+  pointer-events: none;
+}
+
+/* ------------------------------------------------------------ job cards -- */
+
+.wz-jobs { display: flex; flex-direction: column; gap: 14px; }
+
+.wz-job {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: var(--wz-surface);
+  border-radius: var(--wz-radius);
+  padding: 22px 26px;
+  box-shadow: var(--wz-shadow);
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+
+.wz-job:hover { transform: translateY(-2px); box-shadow: var(--wz-shadow-lg); }
+
+.wz-job-icon {
+  flex: 0 0 54px;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: var(--wz-bg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  color: var(--wz-ink);
+}
+
+.wz-job-body { flex: 1 1 auto; min-width: 0; }
+
+.wz-job-title {
+  display: block;
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -.02em;
+  color: var(--wz-ink);
+  margin: 0 0 6px;
+}
+
+/* The whole card opens the shift: the title's anchor is stretched across it,
+   which keeps one link per card rather than nesting anchors in the markup. */
+.wz-job-title::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: var(--wz-radius);
+}
+
+.wz-job-title:hover,
+.wz-job:hover .wz-job-title { color: var(--wz-purple); }
+
+/* Keyboard focus lands on the title link, so ring the card it covers. */
+.wz-job:focus-within { box-shadow: 0 0 0 2px var(--wz-purple), var(--wz-shadow-lg); }
+.wz-job-title:focus { outline: 0; }
+
+.wz-job-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--wz-ink-soft);
+  margin: 0;
+}
+
+.wz-job-meta .sep { color: var(--wz-muted); }
+.wz-job-meta .label { color: var(--wz-muted); font-weight: 600; }
+
+.wz-job-date {
+  flex: 0 0 auto;
+  border: 1px solid var(--wz-line);
+  border-radius: 999px;
+  padding: 10px 22px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--wz-ink);
+  white-space: nowrap;
+}
+
+.wz-empty {
+  background: var(--wz-surface);
+  border-radius: var(--wz-radius);
+  padding: 56px 24px;
+  text-align: center;
+  color: var(--wz-muted);
+  font-weight: 600;
+  box-shadow: var(--wz-shadow);
+}
+
+.wz-more { text-align: center; margin-top: 30px; }
+
+/* ---------------------------------------------------------- content cards */
+
+.wz-card {
+  background: var(--wz-surface);
+  border-radius: var(--wz-radius);
+  padding: 28px;
+  box-shadow: var(--wz-shadow);
+}
+
+.wz-card + .wz-card { margin-top: 18px; }
+
+.wz-section-title {
+  font-size: clamp(26px, 3.2vw, 40px);
+  font-weight: 800;
+  letter-spacing: -.03em;
+  margin: 0 0 10px;
+}
+
+.wz-section-lead {
+  color: var(--wz-ink-soft);
+  font-size: 16.5px;
+  max-width: 720px;
+}
+
+/* The legacy "services" tiles, restyled in place. */
+.services-item {
+  background: var(--wz-surface) !important;
+  border: 0 !important;
+  border-radius: var(--wz-radius) !important;
+  box-shadow: var(--wz-shadow);
+  padding: 30px !important;
+  height: 100%;
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+
+.services-item:hover { transform: translateY(-3px); box-shadow: var(--wz-shadow-lg); }
+
+.services-item .icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: var(--wz-grad);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
+}
+
+.services-item .icon,
+.services-item .icon i { color: #fff !important; font-size: 24px; line-height: 1; }
+
+.services-item .services-content h3 {
+  font-size: 20px;
+  margin-bottom: 10px;
+  text-transform: none !important;
+}
+
+.services-item .services-content h3 a { color: var(--wz-ink); }
+.services-item .services-content h3 a:hover { color: var(--wz-purple); }
+.services-item .services-content p { color: var(--wz-ink-soft); font-size: 15.5px; }
+.services-item .services-content { text-align: left; }
+
+.section-header .section-title {
+  font-size: clamp(26px, 3.4vw, 42px) !important;
+  font-weight: 800 !important;
+  letter-spacing: -.03em;
+}
+
+.section-header .shape { display: none; }
+
+/* --------------------------------------------------------------- forms --- */
+
+.form-control,
+select.form-control,
+textarea.form-control {
+  border: 1px solid var(--wz-line) !important;
+  border-radius: 14px !important;
+  padding: 13px 18px !important;
+  height: auto !important;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--wz-ink);
+  background: #fff !important;
+  box-shadow: none !important;
+}
+
+.form-control:focus {
+  border-color: var(--wz-purple) !important;
+  box-shadow: 0 0 0 4px rgba(124, 58, 237, .12) !important;
+}
+
+label { font-weight: 700; font-size: 14.5px; color: var(--wz-ink); margin-bottom: 7px; }
+
+.form-group { margin-bottom: 18px; }
+
+label.error {
+  color: #d92d20;
+  font-weight: 600;
+  font-size: 13px;
+  margin-top: 6px;
+}
+
+.alert { border: 0; border-radius: 14px; font-weight: 600; }
+.alert-success { background: #e7f8ef; color: #05603a; }
+.alert-danger { background: #fdecea; color: #b42318; }
+.alert-warning { background: #fff5e6; color: #b54708; }
+
+/* Tabs used by the sign-up / login screen. */
+.nav-tabs { border-bottom: 1px solid var(--wz-line); gap: 6px; }
+
+.nav-tabs .nav-link {
+  border: 0 !important;
+  border-radius: 999px !important;
+  font-weight: 700;
+  color: var(--wz-muted) !important;
+  padding: 10px 20px !important;
+}
+
+.nav-tabs .nav-link.active {
+  background: var(--wz-ink) !important;
+  color: #fff !important;
+}
+
+/* -------------------------------------------------------------- tables --- */
+
+.table {
+  background: transparent;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.table thead th {
+  border: 0 !important;
+  border-bottom: 1px solid var(--wz-line) !important;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--wz-muted);
+  padding: 14px 16px !important;
+  white-space: nowrap;
+}
+
+.table tbody td {
+  border: 0 !important;
+  border-bottom: 1px solid var(--wz-line) !important;
+  padding: 16px !important;
+  vertical-align: middle;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--wz-ink-soft);
+}
+
+.table tbody tr:last-child td { border-bottom: 0 !important; }
+.table-striped tbody tr:nth-of-type(odd) { background: transparent !important; }
+.table-hover tbody tr:hover { background: var(--wz-bg) !important; }
+
+.table .btn { border-radius: 999px !important; font-weight: 700; }
+
+/* DataTables chrome, so the generated controls match the rest. */
+.dataTables_wrapper .dataTables_filter input,
+.dataTables_wrapper .dataTables_length select {
+  border: 1px solid var(--wz-line) !important;
+  border-radius: 999px !important;
+  padding: 9px 16px !important;
+  outline: 0;
+  background: #fff;
+}
+
+.dataTables_wrapper .dataTables_info,
+.dataTables_wrapper .dataTables_filter label { color: var(--wz-ink-soft); font-weight: 600; font-size: 14px; }
+
+.dataTables_wrapper .pagination .page-link {
+  border: 0 !important;
+  border-radius: 999px !important;
+  margin: 0 3px;
+  color: var(--wz-ink) !important;
+  font-weight: 700;
+  background: #fff;
+}
+
+.dataTables_wrapper .pagination .active .page-link {
+  background: var(--wz-ink) !important;
+  color: #fff !important;
+}
+
+/* ----------------------------------------------------------- dashboards -- */
+
+.dashboard-wrap { padding-top: 32px !important; }
+
+.side-dashboard {
+  background: var(--wz-surface);
+  border-radius: var(--wz-radius);
+  padding: 24px;
+  box-shadow: var(--wz-shadow);
+  border: 0;
+}
+
+.dashboard-avatar-text h4 { font-size: 19px; font-weight: 800; margin-bottom: 4px; }
+.side-dashboard hr { border-color: var(--wz-line); }
+
+.dashboard-menu ul { list-style: none; padding: 0; margin: 0; }
+
+.dashboard-menu ul li a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--wz-ink-soft);
+  transition: background .2s ease, color .2s ease;
+}
+
+.dashboard-menu ul li a:hover { background: var(--wz-bg); color: var(--wz-ink); }
+
+.dashboard-menu ul li.active > a {
+  background: var(--wz-ink);
+  color: #fff;
+}
+
+.dashboard-body {
+  background: var(--wz-surface);
+  border-radius: var(--wz-radius);
+  padding: 26px;
+  box-shadow: var(--wz-shadow);
+}
+
+.dashboard-caption-header h4 {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -.02em;
+  margin-bottom: 20px;
+}
+
+.dashboard-stat {
+  background: var(--wz-bg);
+  border-radius: var(--wz-radius);
+  padding: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.dashboard-stat h4 { font-size: 30px; font-weight: 800; margin: 0; }
+.dashboard-stat span { color: var(--wz-muted); font-weight: 600; font-size: 14px; }
+.dashboard-stat-icon { font-size: 26px; color: var(--wz-purple); }
+
+.dashboard-gravity-list ul { list-style: none; padding: 0; margin: 0; }
+
+.dashboard-gravity-list li {
+  position: relative;
+  background: var(--wz-bg);
+  border-radius: var(--wz-radius);
+  padding: 20px 22px;
+  margin-bottom: 12px;
+}
+
+.dashboard-gravity-list li h4 { font-size: 17px; font-weight: 800; margin: 0 0 6px; }
+.dashboard-gravity-list li hr { display: none; }
+
+/* -------------------------------------------------------------- footer --- */
+
+footer#footer,
+.footer-area {
+  background: transparent !important;
+  padding: 70px 0 0 !important;
+  margin-top: 40px;
+}
+
+.wz-footer { max-width: 1360px; margin: 0 auto; padding: 0 24px; }
+
+.wz-footer-grid {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr 1fr 1fr;
+  gap: 40px;
+}
+
+.wz-footer h5 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--wz-muted);
+  margin: 0 0 22px;
+}
+
+.wz-footer-brand img { max-height: 46px; width: auto; margin-bottom: 18px; }
+
+.wz-footer address {
+  font-style: normal;
+  color: var(--wz-ink-soft);
+  font-size: 15px;
+  line-height: 1.85;
+  margin: 0;
+}
+
+.wz-footer ul { list-style: none; padding: 0; margin: 0; }
+
+.wz-footer ul li { margin-bottom: 14px; }
+
+.wz-footer ul li a {
+  font-size: 15.5px;
+  font-weight: 700;
+  color: var(--wz-ink);
+}
+
+.wz-footer ul li a:hover { color: var(--wz-purple); }
+
+.wz-footer-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--wz-line);
+  margin-top: 54px;
+  padding: 26px 0 34px;
+}
+
+.wz-social { display: flex; align-items: center; gap: 18px; }
+
+.wz-social a {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--wz-ink);
+  font-size: 19px;
+}
+
+.wz-social a:hover { color: var(--wz-purple); }
+
+.wz-copy { color: var(--wz-ink-soft); font-size: 14.5px; font-weight: 600; margin: 0; }
+
+.back-to-top {
+  background: var(--wz-ink) !important;
+  border-radius: 50% !important;
+  width: 46px;
+  height: 46px;
+  line-height: 46px !important;
+  text-align: center;
+  color: #fff !important;
+  box-shadow: var(--wz-shadow-lg);
+}
+
+/* ==========================================================================
+   Responsive - tablet then phone. The reference is a single column below the
+   medium breakpoint, with the job card stacking its date under the meta line.
+   ========================================================================== */
+
+@media (max-width: 1199px) {
+  .wz-footer-grid { grid-template-columns: 1fr 1fr 1fr; }
+  .wz-footer-grid > :first-child { grid-column: 1 / -1; }
+}
+
+@media (max-width: 991px) {
+  :root { --wz-nav-h: 76px; }
+
+  .navbar .navbar-collapse {
+    background: #fff;
+    border-radius: var(--wz-radius);
+    box-shadow: var(--wz-shadow-lg);
+    padding: 14px;
+    margin-top: 14px;
+  }
+
+  .navbar .navbar-nav { align-items: stretch; gap: 2px; }
+
+  .navbar .nav-item .nav-link {
+    padding: 13px 16px !important;
+    border-radius: 14px;
+  }
+
+  .navbar .nav-item .nav-link:hover { background: var(--wz-bg); }
+
+  .navbar .ticker-btn,
+  .navbar .btn.ticker-btn {
+    display: block;
+    margin: 8px 0 0;
+    text-align: center;
+  }
+
+  .navbar .dropdown-menu { box-shadow: none; border: 0; background: var(--wz-bg); }
+
+  .wz-hero { padding: 60px 20px 74px; border-radius: 24px; }
+  .wz-pagehead { padding: 48px 20px; border-radius: 24px; }
+
+  .wz-searchbar { margin-bottom: -34px; }
+
+  /* Dashboard sidebar sits above the panel rather than beside it. */
+  .dashboard-wrap .side-dashboard { margin-bottom: 20px; }
+  .dashboard-wrap section,
+  section.dashboard-wrap { margin-top: var(--wz-nav-h) !important; }
+}
+
+@media (max-width: 767px) {
+  .wz-shell, .wz-footer, .navbar > .container { padding-left: 16px; padding-right: 16px; }
+
+  .section-padding { padding: 40px 0 !important; }
+
+  .wz-hero {
+    margin-left: 16px;
+    margin-right: 16px;
+    padding: 46px 18px 64px;
+    /* Narrow viewports crop the artwork hard — bias it right so the
+       pharmacists stay in frame instead of a shelf wall. */
+    background-position: 72% center;
+  }
+
+  .wz-pagehead {
+    margin-left: 16px;
+    margin-right: 16px;
+    padding: 38px 18px;
+  }
+
+  .wz-searchbar {
+    border-radius: 22px;
+    padding: 14px;
+    flex-wrap: wrap;
+    margin-bottom: -30px;
+  }
+
+  .wz-searchbar .wz-search-icon { display: none; }
+  .wz-searchbar input { flex: 1 1 100%; text-align: center; }
+  .wz-searchbar .wz-btn { flex: 1 1 100%; }
+
+  /* Stacked: the date range sits on its own row under the text search. */
+  .wz-searchbar .wz-search-divider { display: none; }
+
+  .wz-search-dates {
+    flex: 1 1 100%;
+    justify-content: center;
+    border-top: 1px solid var(--wz-line);
+    padding-top: 12px;
+  }
+
+  .wz-search-dates input { flex: 1 1 auto; }
+
+  /* The calendar icon stays - on a centred row it is what says "date". */
+  .wz-searchbar .wz-search-dates .wz-search-icon {
+    display: inline-flex;
+    flex: 0 0 28px;
+    width: 28px;
+    height: 28px;
+  }
+
+  .wz-toolbar { flex-direction: column; align-items: stretch; }
+
+  .wz-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .wz-tabs::-webkit-scrollbar { display: none; }
+  .wz-tab { flex: 0 0 auto; padding: 11px 20px; }
+  .wz-select { min-width: 0; width: 100%; }
+
+  /* Job card: icon and title on one line, meta under it, date last. */
+  .wz-job {
+    flex-wrap: wrap;
+    gap: 14px;
+    padding: 18px;
+    border-radius: 18px;
+  }
+
+  .wz-job-icon { flex: 0 0 44px; width: 44px; height: 44px; font-size: 19px; }
+
+  .wz-job-body { flex: 1 1 calc(100% - 58px); }
+  .wz-job-title { font-size: 17px; }
+  .wz-job-meta { font-size: 14px; gap: 6px; }
+
+  .wz-job-date {
+    flex: 1 1 100%;
+    text-align: center;
+    padding: 9px 16px;
+  }
+
+  .wz-card { padding: 20px; border-radius: 18px; }
+
+  .wz-footer-grid { grid-template-columns: 1fr 1fr; gap: 30px; }
+  .wz-footer-grid > :first-child { grid-column: 1 / -1; }
+  .wz-footer-bottom { flex-direction: column; align-items: flex-start; }
+
+  .dashboard-body { padding: 18px; }
+  .side-dashboard { padding: 18px; }
+
+  /* Wide tables scroll inside their own box instead of the page. */
+  .table-responsive, .dataTables_wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+
+@media (max-width: 479px) {
+  .wz-footer-grid { grid-template-columns: 1fr; }
+  .wz-job-meta .sep:nth-of-type(n+2) { display: none; }
+  .wz-btn, .btn.btn-common { padding: 12px 22px !important; }
+}

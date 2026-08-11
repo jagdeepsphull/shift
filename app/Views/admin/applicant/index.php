@@ -61,9 +61,17 @@
                     <td><?php echo $user->u_licence_no; ?></td>
                     <td><?php echo $user->u_email; ?></td>
                     <td><?php echo $user->u_phone; ?></td>
-                    <td><?php echo $status[$user->u_status];?></td>
-                    <td><a href="<?php echo base_url($adminpath.'/'.$link.'/edit/'.$user->u_id);?>" class="btn btn-success"><i class="fas fa-edit"></i></a> <!--<a href="<?php echo base_url('sadmin/'.$pageinfo['link'].'/changestatus/'.$user->u_id);?>" class="btn btn-warning">Change Status</a> -->
-					<a href="<?php echo base_url($adminpath.'/'.$link.'/delete/'.$user->u_id);?>"  class="btn btn-danger"  onclick="return confirm('Are you sure? You want to delete')"><i class="fas fa-trash-alt"></i></a></td>
+                    <td><?php if($user->u_status=='1'){?><span class="badge badge-success">Active</span><?php }else{?><span class="badge badge-warning">Pending</span><?php }?></td>
+                    <td><a href="<?php echo base_url($adminpath.'/'.$link.'/edit/'.$user->u_id);?>" class="btn btn-success" title="Edit"><i class="fas fa-edit"></i></a>
+					<?php /* Activating here sends the same approval e-mail the
+					   edit form does, so a new sign-up can be switched on
+					   without opening the record. */ ?>
+					<?php if($user->u_status=='1'){?>
+					<a href="<?php echo base_url($adminpath.'/'.$link.'/changestatus/'.$user->u_id);?>" class="btn btn-secondary" title="Deactivate" onclick="return confirm('Deactivate this account?')"><i class="fas fa-ban"></i></a>
+					<?php }else{?>
+					<a href="<?php echo base_url($adminpath.'/'.$link.'/changestatus/'.$user->u_id);?>" class="btn btn-warning" title="Activate" onclick="return confirm('Activate this account and e-mail the user?')"><i class="fas fa-check"></i></a>
+					<?php }?>
+					<a href="<?php echo base_url($adminpath.'/'.$link.'/delete/'.$user->u_id);?>"  class="btn btn-danger" title="Delete"  onclick="return confirm('Are you sure? You want to delete')"><i class="fas fa-trash-alt"></i></a></td>
                   </tr>
                  
                   

@@ -58,6 +58,21 @@
 											</select>
 										</div>
 									</div>
+									<div class="col-sm-4">
+										<!-- text input -->
+										<div class="form-group">
+											<label>Store (Location)</label>
+											<select class="form-control" name="p_store_id" id="p_store_id" required>
+												<option value="">-- Select Store --</option>
+												<?php if($agency_stores){?>
+												  <?php foreach($agency_stores as $store){?>
+												  <option value="<?php echo $store->s_id;?>" <?php echo ($p_store_id==$store->s_id)?"selected":""; ?> >
+													  <?php echo esc($store->s_name . ($store->s_number !== '' ? ' (' . $store->s_number . ')' : ''));?></option>
+												  <?php } ?>
+												<?php } ?>
+											</select>
+										</div>
+									</div>
                                 <!-- /.card-body -->
 
 								</div>
@@ -140,39 +155,19 @@
 									<div class="col-sm-3">
 										<!-- text input -->
 										<div class="form-group">
-											<label>Software</label>
-											<select required class="form-control" name="p_skills[]" size="4" multiple>
-												<option value="" >-- Choose Software --</option>
-												<?php $p_skills = explode(',' , $p_skills);if($software_skills) {
-													foreach($software_skills as $skills){
-												?>
-													<option value="<?php echo $skills->ss_id ?>" <?php echo in_array($skills->ss_id, $p_skills) ? 'selected' : ''; ?>><?php echo $skills->ss_name ?></option>
-												<?php }
-												}
-												?>
-											</select>
+											<?= view('partials/checkbox_grid', ['name' => 'p_skills', 'label' => 'Software', 'items' => $software_skills, 'idKey' => 'ss_id', 'labelKey' => 'ss_name', 'selected' => $p_skills, 'required' => true,]) ?>
 										</div>
 									</div>
 									<div class="col-sm-3">
 										<!-- text input -->
 										<div class="form-group">
-											<label>Details:</label>
-											<select  requiredclass="form-control" name="p_services[]" size="4" multiple>
-												<option value="" >-- Choose Details --</option>
-												<?php $p_services = explode(',' , $p_services); if($store_service) {
-													foreach($store_service as $services){
-												?>
-													<option value="<?php echo $services->st_id ?>" <?php echo in_array($services->st_id, $p_services) ? 'selected' : ''; ?>><?php echo $services->st_service_name ?></option>
-												<?php }
-												}
-												?>
-											</select>
+											<?= view('partials/checkbox_grid', ['name' => 'p_services', 'label' => 'Details', 'items' => $store_service, 'idKey' => 'st_id', 'labelKey' => 'st_service_name', 'selected' => $p_services, 'required' => true,]) ?>
 										</div>
 									</div>
 									
 									<div class="col-sm-12">
 										<div class="form-group">
-											<label>Enter Shift Detail</label>
+											<label>Additional details</label>
 											<textarea class="form-control" name="p_jobinfo" id="p_jobinfo" ><?php echo $p_jobinfo;?></textarea>
 										</div>
 									</div>
@@ -211,12 +206,12 @@
                                         <div class="form-group">
                                             <label>Shift Approval</label>
                                             <select   class="form-control " name="p_approved" id="p_approved">
-                                                <?php if($approved){ ?>
-                                                <?php foreach($approved as $ky=>$vl){ ?>
+                                                <?php /* Hand-set statuses only - "Inactive (Expired)" belongs
+                                                   to the nightly job, never to a new shift. */ ?>
+                                                <?php foreach($approvedSelectable as $ky=>$vl){ ?>
                                                 <option value="<?php echo $ky; ?>"
                                                     <?php echo ($p_approved==$ky)?"selected":""; ?>>
                                                     <?php echo $vl; ?></option>
-                                                <?php } ?>
                                                 <?php } ?>
                                             </select>
                                         </div>

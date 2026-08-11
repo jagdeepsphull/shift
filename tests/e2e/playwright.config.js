@@ -42,7 +42,13 @@ module.exports = defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        // Bundled Chromium by default, because it ships with Playwright and is
+        // the version the suite is pinned against. Set BROWSER_CHANNEL=chrome
+        // to run the same tests in the Chrome installed on this machine.
+        ...(process.env.BROWSER_CHANNEL ? { channel: process.env.BROWSER_CHANNEL } : {}),
+      },
     },
   ],
 });

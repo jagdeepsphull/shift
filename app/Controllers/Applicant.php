@@ -282,7 +282,7 @@ WHERE
             . 'JOIN post_job pj ON ssaj.p_id = pj.p_id '
             . 'JOIN users u ON u.u_id = ssaj.u_id '
             . "WHERE u.u_id = ? AND ssaj.sj_status = '1' "
-            . 'ORDER BY pj.p_date_start DESC',
+            . 'ORDER BY ' . shiftDateOrderBy('pj'),
             [$this->data['uid']]
         );
 

@@ -18,19 +18,17 @@
 						<?php  $show_registration = isset($show_registration) && $show_registration; ?>
 						
 						<div class="tab-class text-center wow fadeInUp" data-wow-delay="0.3s">
-							<ul class="nav nav-pills d-inline-flex justify-content-end mb-5 bg-light py-2">
-								<li class="nav-item me-2 ms-2 rounded">
-									<a class="btn btn-outline-primary btn-common py-2 <?= $show_registration ? '' : 'active'; ?>" data-bs-toggle="pill" href="#login">
+							<ul class="nav nav-pills wz-authtabs d-inline-flex justify-content-center mb-5">
+								<li class="nav-item">
+									<a class="btn wz-auth-tab <?= $show_registration ? '' : 'active'; ?>" data-bs-toggle="pill" href="#login">
 										<h6 class="mt-n1 mb-0">Login</h6>
 									</a>
 								</li>
-								<li>  &nbsp;&nbsp;&nbsp;</li>
-								<li class="nav-item me-2 rounded">
-									<a class="btn btn-outline-primary btn-common py-2 <?= $show_registration ? 'active' : ''; ?>" data-bs-toggle="pill" href="#register">
+								<li class="nav-item">
+									<a class="btn wz-auth-tab <?= $show_registration ? 'active' : ''; ?>" data-bs-toggle="pill" href="#register">
 										<h6 class="mt-n1 mb-0">Register</h6>
 									</a>
 								</li>
-								
 							</ul>
 							
 							<div class="tab-content text-left">
@@ -96,13 +94,18 @@
 										<div class="row">
 											<div class="col-sm-6">
 												<div class="form-group">
-													<label>Select User Type</label>											
-													<select id="usrtpe"  name="u_usertype" class="form-control">
+													<label>Select User Type</label>
+													<?php /* The first three are all `users.u_usertype` 1 - they differ
+													   by how many stores the login owns and whether it answers to a
+													   pharmacy group, which register() turns into `u_emp_role` and
+													   `u_parent_id` (change request B4). */ ?>
+													<select id="usrtpe"  name="reg_type" class="form-control">
 														<option value="" >-- Select User Type --</option>
-														<?php foreach($usertype as $key=>$val) {?>
-														<option value="<?php echo $key?>" <?php echo ($u_usertype == $key) ? 'Selected' :'' ?>><?php echo $val?></option>
-														<?php }?>
-													</select>	
+														<option value="manager" <?php echo (($reg_type ?? '') === 'manager') ? 'selected' : ''; ?>>Manager</option>
+														<option value="owner_multi" <?php echo (($reg_type ?? '') === 'owner_multi') ? 'selected' : ''; ?>>Owner (Multi Store)</option>
+														<option value="owner_individual" <?php echo (($reg_type ?? '') === 'owner_individual') ? 'selected' : ''; ?>>Owner (Individual Store)</option>
+														<option value="applicant" <?php echo (($reg_type ?? '') === 'applicant') ? 'selected' : ''; ?>>Applicant</option>
+													</select>
 												</div>
 											</div>
 											<div class="col-sm-6 usrsubtpe">
@@ -121,13 +124,34 @@
 											</div>
 										</div>
 												
+										<?php /* "Store Name" for a single-store owner, "Pharmacy Name" for
+										   a multi-store one - the same column either way, relabelled by the
+										   script in front/footer.php. */ ?>
 										<div class="row agncy d-none">
 											<div class="col-sm-6">
 												<div class="form-group">
-													<label>Store Name</label>
+													<label id="compnamelbl">Store Name</label>
 													<input type="text" class="form-control" placeholder="Enter Your Store Name" name="u_comp_name" id="u_comp_name"  value="<?php echo $u_comp_name; ?>">
 												</div>
 											</div>
+
+											<?php /* A manager runs a store on behalf of a multi-store owner,
+											   so the group is who they answer to and is required. An owner
+											   of an individual store answers to nobody and is never asked. */ ?>
+											<?php if (! empty($pharmacy_groups)) { ?>
+											<div class="col-sm-6 grouponly">
+												<div class="form-group">
+													<label>Pharmacy Group</label>
+													<select required name="u_parent_id" id="u_parent_id" class="form-control">
+														<option value="">-- None --</option>
+														<?php foreach ($pharmacy_groups as $group) { ?>
+														<option value="<?php echo $group->u_id; ?>" <?php echo (($u_parent_id ?? '') == $group->u_id) ? 'selected' : ''; ?>>
+															<?php echo esc($group->u_comp_name); ?></option>
+														<?php } ?>
+													</select>
+												</div>
+											</div>
+											<?php } ?>
 										</div>
 
 										<div class="row">
@@ -148,7 +172,10 @@
 											</div>
 										</div>
 										
-										<div class="row">
+										<?php /* Store-specific: a manager registers the person, not a
+										   location, so these are hidden for them and their stores carry
+										   the licence and address instead (change request B4). */ ?>
+										<div class="row storeonly">
 											<div class="col-sm-6">
 												<div class="form-group">
 													<label id="liprov">License Province</label>
@@ -191,8 +218,8 @@
 											</div>
 										</div>
 										
-										<div class="row">                                   
-											
+										<div class="row storeonly">
+
 											<div class="col-sm-3">
 												<!-- text input -->
 												<div class="form-group">

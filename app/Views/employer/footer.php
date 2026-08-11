@@ -180,6 +180,20 @@
 			  "responsive": true,
 			});
 
+			// Candidates who applied to one shift. Its own columns again: the
+			// first is the candidate's name, so it must stay visible and it is
+			// what the list is ordered by.
+			$('#candidatelist').DataTable({
+			   order: [[0, 'asc']],
+			  "paging": true,
+			  "lengthChange": false,
+			  "searching": true,
+			  "ordering": true,
+			  "info": true,
+			  "autoWidth": true,
+			  "responsive": true,
+			});
+
 			// Applications list has its own columns - it must not inherit the
 			// shift list's hidden first column, which here is the applicant name.
 			$('#applicationlist').DataTable({

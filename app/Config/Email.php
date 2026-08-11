@@ -4,21 +4,31 @@ namespace Config;
 
 use CodeIgniter\Config\BaseConfig;
 
+/**
+ * Every property here is overridable from `.env` with an `email.` prefix
+ * (`email.SMTPHost`, `email.SMTPUser`, ...), which is where the credentials
+ * belong — this file is in version control and they are not.
+ */
 class Email extends BaseConfig
 {
-    public string $fromEmail  = '';
-    public string $fromName   = '';
+    public string $fromEmail  = 'pickashift@reliefshifts.com';
+    public string $fromName   = 'PickAShift';
     public string $recipients = '';
 
     /**
      * The "user agent"
      */
-    public string $userAgent = 'CodeIgniter';
+    public string $userAgent = 'PickAShift';
 
     /**
      * The mail sending protocol: mail, sendmail, smtp
+     *
+     * SMTP, always. Bare `mail()` sends straight from the web server, which
+     * fails SPF/DKIM for reliefshifts.com — booking mail then lands in spam or
+     * is dropped with no bounce, and nobody finds out until an applicant says
+     * they never heard back.
      */
-    public string $protocol = 'mail';
+    public string $protocol = 'smtp';
 
     /**
      * The server path to Sendmail.
@@ -46,14 +56,16 @@ class Email extends BaseConfig
     public string $SMTPPass = '';
 
     /**
-     * SMTP Port
+     * SMTP Port. 587 with `SMTPCrypto = 'tls'` is the submission port nearly
+     * every provider wants; 465 means implicit SSL and `SMTPCrypto = ''`.
      */
-    public int $SMTPPort = 25;
+    public int $SMTPPort = 587;
 
     /**
-     * SMTP Timeout (in seconds)
+     * SMTP Timeout (in seconds). 5s is optimistic for a remote relay on a
+     * first connection; a timeout here shows the admin a failed send.
      */
-    public int $SMTPTimeout = 5;
+    public int $SMTPTimeout = 30;
 
     /**
      * Enable persistent SMTP connections
@@ -80,9 +92,10 @@ class Email extends BaseConfig
     public int $wrapChars = 76;
 
     /**
-     * Type of mail, either 'text' or 'html'
+     * Type of mail, either 'text' or 'html'. Every template under
+     * `app/Views/emails/` is HTML.
      */
-    public string $mailType = 'text';
+    public string $mailType = 'html';
 
     /**
      * Character set (utf-8, iso-8859-1, etc.)

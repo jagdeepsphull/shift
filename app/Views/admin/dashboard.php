@@ -117,7 +117,137 @@
         <!-- /.row -->
         <!-- Main row -->
         <div class="row">
-          
+          <div class="col-12">
+            <div class="card card-primary card-outline card-tabs">
+              <div class="card-header p-0 pt-1 border-bottom-0">
+                <div class="d-flex justify-content-between align-items-center pr-3">
+                  <ul class="nav nav-tabs" id="new-tabs" role="tablist">
+                    <li class="nav-item">
+                      <a class="nav-link active" id="tab-apps" data-toggle="pill" href="#pane-apps" role="tab">
+                        New Applications <span class="badge badge-primary"><?php echo count($new_applications); ?></span>
+                      </a>
+                    </li>
+                    <li class="nav-item">
+                      <a class="nav-link" id="tab-emp" data-toggle="pill" href="#pane-emp" role="tab">
+                        New Employers <span class="badge badge-primary"><?php echo count($new_employers); ?></span>
+                      </a>
+                    </li>
+                    <li class="nav-item">
+                      <a class="nav-link" id="tab-app" data-toggle="pill" href="#pane-app" role="tab">
+                        New Applicants <span class="badge badge-primary"><?php echo count($new_applicants); ?></span>
+                      </a>
+                    </li>
+                    <li class="nav-item">
+                      <a class="nav-link" id="tab-shifts" data-toggle="pill" href="#pane-shifts" role="tab">
+                        New Shifts <span class="badge badge-primary"><?php echo count($new_shifts); ?></span>
+                      </a>
+                    </li>
+                  </ul>
+                  <form method="get" class="form-inline">
+                    <label class="mr-2 mb-0 text-muted small">Last</label>
+                    <select name="new_days" class="form-control form-control-sm" onchange="this.form.submit()">
+                      <?php foreach ([7 => '7 days', 14 => '14 days', 30 => '30 days', 90 => '90 days'] as $d => $lbl) { ?>
+                        <option value="<?php echo $d; ?>" <?php echo ($new_days == $d) ? 'selected' : ''; ?>><?php echo $lbl; ?></option>
+                      <?php } ?>
+                    </select>
+                  </form>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="tab-content" id="new-tabs-content">
+
+                  <div class="tab-pane fade show active" id="pane-apps" role="tabpanel">
+                    <?php if (!$new_applications) { ?>
+                      <p class="text-muted mb-0">No new applications in the last <?php echo $new_days; ?> days.</p>
+                    <?php } else { ?>
+                    <div class="table-responsive"><table class="table table-sm table-hover mb-0">
+                      <thead><tr><th>Applicant</th><th>Shift</th><th>Employer</th><th>Status</th><th>Received</th><th></th></tr></thead>
+                      <tbody>
+                      <?php foreach ($new_applications as $r) { ?>
+                        <tr>
+                          <td><?php echo esc($r->u_fname . ' ' . $r->u_lname); ?></td>
+                          <td><?php echo esc($r->p_job_title); ?></td>
+                          <td><?php echo esc($r->u_comp_name); ?></td>
+                          <td><?php echo esc($application_approved[$r->sj_is_approved] ?? '-'); ?></td>
+                          <td><?php echo dateFormat($r->created); ?></td>
+                          <td class="text-right"><a class="btn btn-xs btn-primary" href="<?php echo base_url($adminpath . '/applications/view/' . $r->sj_id); ?>">Open</a></td>
+                        </tr>
+                      <?php } ?>
+                      </tbody>
+                    </table></div>
+                    <?php } ?>
+                  </div>
+
+                  <div class="tab-pane fade" id="pane-emp" role="tabpanel">
+                    <?php if (!$new_employers) { ?>
+                      <p class="text-muted mb-0">No new employers in the last <?php echo $new_days; ?> days.</p>
+                    <?php } else { ?>
+                    <div class="table-responsive"><table class="table table-sm table-hover mb-0">
+                      <thead><tr><th>Store</th><th>Contact</th><th>Email</th><th>Status</th><th>Registered</th><th></th></tr></thead>
+                      <tbody>
+                      <?php foreach ($new_employers as $r) { ?>
+                        <tr>
+                          <td><?php echo esc($r->u_comp_name); ?></td>
+                          <td><?php echo esc($r->u_fname . ' ' . $r->u_lname); ?></td>
+                          <td><?php echo esc($r->u_email); ?></td>
+                          <td><?php echo $r->u_status ? 'Active' : '<span class="text-warning">Pending</span>'; ?></td>
+                          <td><?php echo dateFormat($r->created); ?></td>
+                          <td class="text-right"><a class="btn btn-xs btn-primary" href="<?php echo base_url($adminpath . '/employer/edit/' . $r->u_id); ?>">Open</a></td>
+                        </tr>
+                      <?php } ?>
+                      </tbody>
+                    </table></div>
+                    <?php } ?>
+                  </div>
+
+                  <div class="tab-pane fade" id="pane-app" role="tabpanel">
+                    <?php if (!$new_applicants) { ?>
+                      <p class="text-muted mb-0">No new applicants in the last <?php echo $new_days; ?> days.</p>
+                    <?php } else { ?>
+                    <div class="table-responsive"><table class="table table-sm table-hover mb-0">
+                      <thead><tr><th>Name</th><th>Role</th><th>Email</th><th>Status</th><th>Registered</th><th></th></tr></thead>
+                      <tbody>
+                      <?php foreach ($new_applicants as $r) { ?>
+                        <tr>
+                          <td><?php echo esc($r->u_fname . ' ' . $r->u_lname); ?></td>
+                          <td><?php echo esc($usersubtype[$r->u_usersubtype] ?? '-'); ?></td>
+                          <td><?php echo esc($r->u_email); ?></td>
+                          <td><?php echo $r->u_status ? 'Active' : '<span class="text-warning">Pending</span>'; ?></td>
+                          <td><?php echo dateFormat($r->created); ?></td>
+                          <td class="text-right"><a class="btn btn-xs btn-primary" href="<?php echo base_url($adminpath . '/applicant/edit/' . $r->u_id); ?>">Open</a></td>
+                        </tr>
+                      <?php } ?>
+                      </tbody>
+                    </table></div>
+                    <?php } ?>
+                  </div>
+
+                  <div class="tab-pane fade" id="pane-shifts" role="tabpanel">
+                    <?php if (!$new_shifts) { ?>
+                      <p class="text-muted mb-0">No new shifts in the last <?php echo $new_days; ?> days.</p>
+                    <?php } else { ?>
+                    <div class="table-responsive"><table class="table table-sm table-hover mb-0">
+                      <thead><tr><th>Shift</th><th>Store</th><th>Shift date</th><th>Status</th><th>Posted</th><th></th></tr></thead>
+                      <tbody>
+                      <?php foreach ($new_shifts as $r) { ?>
+                        <tr>
+                          <td><?php echo esc($r->p_job_title); ?></td>
+                          <td><?php echo esc($r->u_comp_name); ?></td>
+                          <td><?php echo dateFormat($r->p_dates); ?></td>
+                          <td><?php echo esc($approved[$r->p_approved] ?? '-'); ?></td>
+                          <td><?php echo dateFormat($r->created); ?></td>
+                          <td class="text-right"><a class="btn btn-xs btn-primary" href="<?php echo base_url($adminpath . '/postjobs/edit/' . $r->p_id); ?>">Open</a></td>
+                        </tr>
+                      <?php } ?>
+                      </tbody>
+                    </table></div>
+                    <?php } ?>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
         <!-- /.row (main row) -->
       </div><!-- /.container-fluid -->

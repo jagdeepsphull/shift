@@ -106,6 +106,19 @@
 <script>
 
 	$(document).ready(function () {
+		// Shift form (postjobs add/edit): the store picker lists the chosen
+		// employer's stores, refreshed whenever the employer changes.
+		if ($('#p_store_id').length && $('#u_id').length) {
+			$('#u_id').on('change', function () {
+				$.ajax({
+					type: 'POST',
+					url: '<?php echo base_url('sadmin/ajax_getstorelist'); ?>',
+					data: { u_id: $(this).val(), sid: '' },
+					success: function (data) { $('#p_store_id').html(data); }
+				});
+			});
+		}
+
 		$("#change-pass").validate({
 				rules: {
 					current_password: {
@@ -168,7 +181,103 @@
 		
 	});
   $(function () {
-	  
+
+	  // ---- Excel / PDF downloads, shared by every admin listing -------------
+	  //
+	  // jszip, pdfmake and buttons.html5 are already loaded above, so the
+	  // downloads are pure configuration.
+
+	  // The <title> is the site name on every admin page, so an export named
+	  // after it would be the same file name on all eleven screens. The page
+	  // heading is what the admin was just looking at.
+	  var screenName = $.trim($('.content-header h1').first().text()).replace(/\s+/g, ' ') || 'Listing';
+
+	  // Excel rejects : \ / ? * [ ] in a sheet name, and Windows rejects most
+	  // of the same in a file name, so anything that is not a word character
+	  // becomes a dash. The date is what makes yesterday's download tell
+	  // itself apart from today's.
+	  var exportStamp = new Date();
+	  var exportFilename = screenName.replace(/[^\w]+/g, '-').replace(/^-+|-+$/g, '')
+		  + '-' + exportStamp.getFullYear()
+		  + '-' + ('0' + (exportStamp.getMonth() + 1)).slice(-2)
+		  + '-' + ('0' + exportStamp.getDate()).slice(-2);
+
+	  // Which columns belong in a download.
+	  //
+	  // Deliberately an index test rather than the ":visible" selector that
+	  // reads so much better. Responsive hides a collapsed column by setting
+	  // display:none on its <th> (dataTables.responsive.js, _setColumnVis),
+	  // and DataTables resolves a bare ":visible" string as a jQuery test
+	  // against those same <th> nodes - so ":visible" would quietly drop
+	  // columns from the spreadsheet whenever the browser window was narrow.
+	  // An index is the same at every window size.
+	  //
+	  // Column 0 is the primary key hidden by the columnDef below, and the
+	  // last column holds the row's buttons; neither means anything in a
+	  // spreadsheet. A photo column has nothing to give one either - the
+	  // exporter strips the <img> and leaves an empty string - so it goes too.
+	  function exportableColumns(lastIndex) {
+		  return function (idx, data, node) {
+			  if (idx === 0 || idx === lastIndex) {
+				  return false;
+			  }
+
+			  return ! /\b(image|photo|logo)\b/i.test($(node).text());
+		  };
+	  }
+
+	  function exportButtons(lastIndex) {
+		  var columns = exportableColumns(lastIndex);
+
+		  return [
+			  {
+				  extend: 'excelHtml5',
+				  text: '<i class="fas fa-file-excel"></i> Excel',
+				  titleAttr: 'Download this list as an Excel file',
+				  className: 'btn-success',
+				  // No title: excelHtml5 writes one as a merged cell ABOVE the
+				  // headings, which pushes the data down a row and stops Excel
+				  // reading the sheet as a plain grid to sort or filter. The
+				  // screen name goes on the sheet tab instead, where it costs
+				  // nothing. Excel refuses [ ] * / \ ? : in a tab name and
+				  // rejects the whole file past 31 characters.
+				  title: null,
+				  sheetName: screenName.replace(/[\[\]\*\/\\\?\:]/g, '').slice(0, 31),
+				  filename: exportFilename,
+				  exportOptions: { columns: columns }
+			  },
+			  {
+				  extend: 'pdfHtml5',
+				  text: '<i class="fas fa-file-pdf"></i> PDF',
+				  titleAttr: 'Download this list as a PDF',
+				  className: 'btn-danger',
+				  title: screenName,
+				  filename: exportFilename,
+				  orientation: 'landscape',
+				  pageSize: 'A4',
+				  exportOptions: { columns: columns },
+				  customize: function (doc) {
+					  // Eight columns of names and e-mail addresses do not fit
+					  // at pdfmake's 12pt default, and its automatic widths are
+					  // sized to content, which lets one long address squeeze
+					  // every other column to nothing. Equal shares of the page
+					  // and a smaller face keep the whole row readable.
+					  doc.defaultStyle.fontSize = 8;
+					  doc.styles.tableHeader.fontSize = 9;
+
+					  var table = doc.content[1].table;
+
+					  if (table.body.length) {
+						  table.widths = $.map(table.body[0], function () { return '*'; });
+					  }
+
+					  doc.content[1].layout = 'lightHorizontalLines';
+				  }
+			  },
+			  'colvis'
+		  ];
+	  }
+
 	  // Every admin list shares this table. A page can set its own default sort
 	  // with data-order-col / data-order-dir on the <table> element, rather than
 	  // inheriting the hidden id column below.
@@ -179,23 +288,43 @@
 		  ? [[0, 'desc']]
 		  : [[parseInt(orderCol, 10), orderDir]];
 
+	  // Read from the markup rather than hard-coded: the eleven screens that
+	  // share this id have between four and nine columns.
+	  var adminLastColumn = $adminTable.find('thead tr').first().find('th').length - 1;
+
 	  $adminTable.DataTable({
 		  columnDefs: [
             {
                 targets: 0,       // Target the first column (index 0)
                 visible: false,   // Make it invisible
                 searchable: false // Optional: Disable searching on the hidden column
+            },
+            {
+                // Every admin list ends with Status then Action. When the
+                // responsive plugin runs out of width it drops columns from the
+                // right, which took the row's buttons - and the pending/active
+                // flag next to them - off the screen. These two are the point of
+                // the row, so a wide data column folds into the expandable child
+                // row ahead of them.
+                targets: -1,
+                responsivePriority: 1
+            },
+            {
+                targets: -2,
+                responsivePriority: 2
             }
         ],
        order: defaultOrder,
 		  "responsive": true, "lengthChange": false, "autoWidth": false,
 		  scrollX: true,
 			scrollCollapse: true,
-		  // "buttons": ["copy", "csv", "excel", "pdf", "print", "colvis"]
-		  "buttons": [ "colvis"]
+		  "buttons": exportButtons(adminLastColumn)
 		}).buttons().container().appendTo('#example1_wrapper .col-md-6:eq(0)');
 	  
-	  $("#res-table-ex").DataTable({
+	  var $resTable = $("#res-table-ex");
+	  var resLastColumn = $resTable.find('thead tr').first().find('th').length - 1;
+
+	  $resTable.DataTable({
 		  columnDefs: [
             {
                 targets: 0,       // Target the first column (index 0)
@@ -207,8 +336,7 @@
 		  "responsive": false, "lengthChange": false, "autoWidth": false,
 		  scrollX: true,
 			scrollCollapse: true,
-		  // "buttons": ["copy", "csv", "excel", "pdf", "print", "colvis"]
-		  "buttons": [ "colvis"]
+		  "buttons": exportButtons(resLastColumn)
 		}).buttons().container().appendTo('#res-table-ex_wrapper .col-md-6:eq(0)');
     
     $('#example2').DataTable({

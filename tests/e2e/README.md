@@ -23,6 +23,7 @@ npm run report       # open the HTML report of the last run
 | Variable      | Default                                          | Purpose                        |
 | ------------- | ------------------------------------------------ | ------------------------------ |
 | `BASE_URL`    | `http://localhost/pickashift`                    | where the site is served       |
+| `BROWSER_CHANNEL` | *(empty — bundled Chromium)*                 | `chrome` runs the suite in the installed Google Chrome |
 | `MYSQL_BIN`   | `C:/wamp64/bin/mysql/mysql9.1.0/bin/mysql.exe`    | client used for fixtures       |
 | `DB_NAME`     | `pickashift`                                     | database                       |
 | `DB_USER`     | `root`                                           | database user                  |
@@ -57,6 +58,17 @@ driven through the UI on the City module:
   switched off first, so the request really reaches the controller)
 * rename → toggle status → delete, each verified against the database
 * a city that other tables still reference cannot be deleted
+
+`specs/employer-multi-store.spec.js` — change request B4, "one login for
+multiple stores" (`plan/change-requests.html#B4`):
+* one login lists its three stores, and another employer cannot see them
+* a shift is posted against a chosen store, and edit can move it to another
+* a shift with no store reference still shows the owner's address, as before
+* the booked applicant sees the chosen store's address and phone, not a sibling store's
+
+The table and column names are collected in `helpers/stores.js`. If the schema
+is missing — most likely `php spark migrate` has not been run — every test in
+the file **skips** with a message naming what is absent, rather than failing.
 
 ## Two things worth knowing
 

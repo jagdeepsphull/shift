@@ -35,7 +35,7 @@ class Front extends BaseController
 
         $this->data['lang'] = $this->session->userdata('site_lang');
 
-        $this->data['shift_for'] = $this->custom->get_where('shift_for', ['sf_status' => 1]);
+        $this->data['shift_for'] = $this->custom->get_where_order('shift_for', ['sf_status' => 1], 'sf_name', 'asc');
 
         $this->data['usertype']      = $this->config->item('usertype');
         $this->data['usersubtype']   = $this->config->item('usersubtype');
@@ -51,8 +51,9 @@ class Front extends BaseController
         $this->data['jobs'] = $this->custom->get_where_order(
             'post_job',
             ['p_status' => 1, 'p_approved' => 1],
-            'p_date_start',
-            'asc'
+            shiftDateOrderBy(),
+            '',
+            false
         );
 
         $this->data['agencylist'] = $this->custom->get_where('users', ['u_usertype' => 1, 'u_status' => 1]);
@@ -70,11 +71,28 @@ class Front extends BaseController
         ci_redirect($this->request->getServer('HTTP_REFERER') ?? base_url());
     }
 
+    /**
+     * The multi-store owners a registering single store can join, A-Z.
+     *
+     * Only approved ones: joining a group that has not been verified yet
+     * would attach a store to an account nobody has checked.
+     */
+    private function pharmacyGroups(): array
+    {
+        return $this->custom->get_where_order(
+            'users',
+            ['u_usertype' => 1, 'u_emp_role' => 1, 'u_status' => 1],
+            'u_comp_name',
+            'asc'
+        );
+    }
+
     public function signup()
     {
         $this->setup();
 
-        $this->data['province'] = $this->custom->get_where('province', ['p_status' => 1]);
+        $this->data['province']        = $this->custom->get_where('province', ['p_status' => 1]);
+        $this->data['pharmacy_groups'] = $this->pharmacyGroups();
         $this->session->set_userdata('site_lang', 'english');
 
         $this->load->front_view('signup', $this->data);
@@ -110,7 +128,14 @@ class Front extends BaseController
 
                     $reset_link = base_url("front/reset_password/{$token}");
 
-                    if (send_email($email, 'Reset Password', '<p>' . $reset_link . '</p>')) {
+                    $body = email_body('reset-password', [
+                        'title'           => 'Reset your password',
+                        'reset_link'      => $reset_link,
+                        'expires_minutes' => 10,
+                        'settings'        => $this->data['settings'],
+                    ]);
+
+                    if (send_email($email, 'Reset Password', $body)) {
                         log_message('info', 'Email sent successfully!');
                     } else {
                         log_message('error', 'Failed to send email.');
@@ -203,11 +228,35 @@ class Front extends BaseController
         );
 
         $this->data['appliedjob'] = $this->custom->get_where('stu_saved_applied_jobs', ['p_id' => $id, 'u_id' => $uid]);
-        $this->data['relatedjobs'] = $this->custom->query('Select pj.*,pr.p_name, cit.c_name ,u.u_comp_name,u.u_company_logo,u.u_licence_no from post_job pj, province pr, city cit, users u where pj.p_province= pr.p_id and p_city=cit.c_id and  pj.u_id=u.u_id and pj.p_approved=1 ');
+        // "Related job posts" in the sidebar - soonest shift first, as elsewhere.
+        $this->data['relatedjobs'] = $this->custom->query(
+            'Select pj.*,pr.p_name, cit.c_name ,u.u_comp_name,u.u_company_logo,u.u_licence_no '
+            . 'from post_job pj, province pr, city cit, users u '
+            . 'where pj.p_province= pr.p_id and p_city=cit.c_id and  pj.u_id=u.u_id and pj.p_approved=1 '
+            . 'ORDER BY ' . shiftDateOrderBy('pj')
+        );
 
         $this->data['applied'] = 0;
         if (count($this->data['appliedjob']) > 0) {
             $this->data['applied'] = 1;
+        }
+
+        // The store (location) the shift is at - for a pre-B4 shift this
+        // falls back to the owner's login columns, so the address shown never
+        // changes retrospectively.
+        $this->data['shift_store'] = ! empty($this->data['jobdetail'])
+            ? shiftStore($this->data['jobdetail'][0])
+            : null;
+
+        // The store's phone is only for the applicant actually booked on this
+        // shift - never for the public page.
+        $this->data['is_booked_viewer'] = false;
+
+        foreach ($this->data['appliedjob'] as $application) {
+            if ($application->sj_is_approved == 1) {
+                $this->data['is_booked_viewer'] = true;
+                break;
+            }
         }
 
         $jobId = $this->data['jobdetail'][0]->p_id ?? $id;
@@ -415,6 +464,8 @@ class Front extends BaseController
 
         $this->session->set_userdata('site_lang', 'english');
 
+        $this->data['pharmacy_groups'] = $this->pharmacyGroups();
+
         $this->load->front_view('signup', $this->data);
     }
 
@@ -422,7 +473,8 @@ class Front extends BaseController
     {
         $this->setup();
 
-        $this->data['province'] = $this->custom->get_where('province', ['p_status' => 1]);
+        $this->data['province']        = $this->custom->get_where('province', ['p_status' => 1]);
+        $this->data['pharmacy_groups'] = $this->pharmacyGroups();
 
         $userData = [];
 
@@ -438,59 +490,120 @@ class Front extends BaseController
             $this->form_validation->set_message('is_unique', 'The %s is already taken');
             $this->form_validation->set_rules('conf_password', 'confirm password', 'required|matches[password]');
 
+            $this->form_validation->set_rules('reg_type', 'User Type', 'required|in_list[manager,owner_multi,owner_individual,applicant]');
+
+            // One dropdown, four kinds of account - change request B4. The
+            // first three are all usertype 1; they differ by how many stores
+            // the login owns (`u_emp_role`) and whether it answers to a
+            // pharmacy group (`u_parent_id`):
+            //   manager          -> usertype 1, role 2, parent required
+            //   owner_multi      -> usertype 1, role 1, adds stores afterwards
+            //   owner_individual -> usertype 1, role 2, parent always 0
+            //   applicant        -> usertype 2, role 0
+            $regType = (string) $this->input->post('reg_type');
+            $isOwner = in_array($regType, ['manager', 'owner_multi', 'owner_individual'], true);
+
+            $userType = $isOwner ? 1 : 2;
+            $empRole  = $regType === 'owner_multi' ? 1 : (($regType === 'manager' || $regType === 'owner_individual') ? 2 : 0);
+
+            // A manager runs a store for somebody, so the group is required.
+            if ($regType === 'manager') {
+                $this->form_validation->set_rules('u_parent_id', 'Pharmacy Group', 'required');
+            }
+
+            // A multi-store owner is never asked for a location: their licence
+            // and address belong to each store they add later.
+            $asksForLocation = ($regType !== 'owner_multi');
+
+            // Only a manager belongs to a group, and the id is checked against
+            // the list rather than trusted, so a posted one cannot attach the
+            // account to an arbitrary user.
+            $parentId = 0;
+
+            if ($regType === 'manager' && $this->input->post('u_parent_id')) {
+                $parent = $this->custom->get_where('users', [
+                    'u_id'       => (int) $this->input->post('u_parent_id'),
+                    'u_usertype' => 1,
+                    'u_emp_role' => 1,
+                    'u_status'   => 1,
+                ]);
+
+                $parentId = $parent ? (int) $parent[0]->u_id : 0;
+            }
+
             $userData = [
                 'u_userid'     => strip_tags((string) $this->input->post('u_email')),
                 'u_pass'       => $this->custom->hashPassword((string) $this->input->post('password')),
                 'u_phone'      => strip_tags((string) $this->input->post('u_phone')),
                 'u_email'      => strip_tags((string) $this->input->post('u_email')),
-                'u_comp_name'  => ($this->input->post('u_usertype') == 1) ? strip_tags((string) $this->input->post('u_comp_name')) : '',
+                'u_comp_name'  => $isOwner ? strip_tags((string) $this->input->post('u_comp_name')) : '',
 
                 'u_fname'      => strip_tags((string) $this->input->post('u_fname')),
                 'u_lname'      => strip_tags((string) $this->input->post('u_lname')),
-                'u_l_provice'  => strip_tags((string) $this->input->post('u_l_provice')),
-                'u_licence_no' => strip_tags((string) $this->input->post('u_licence_no')),
+                // The province and city columns are integers, so an unasked
+                // one is 0 rather than an empty string.
+                'u_l_provice'  => $asksForLocation ? (int) $this->input->post('u_l_provice') : 0,
+                'u_licence_no' => $asksForLocation ? strip_tags((string) $this->input->post('u_licence_no')) : '',
 
-                'u_provice'    => strip_tags((string) $this->input->post('u_provice')),
-                'u_city'       => strip_tags((string) $this->input->post('u_city')),
-                'u_address1'   => strip_tags((string) $this->input->post('u_address1')),
-                'u_pincode'    => strip_tags((string) $this->input->post('u_pincode')),
+                'u_provice'    => $asksForLocation ? (int) $this->input->post('u_provice') : 0,
+                'u_city'       => $asksForLocation ? (int) $this->input->post('u_city') : 0,
+                'u_address1'   => $asksForLocation ? strip_tags((string) $this->input->post('u_address1')) : '',
+                'u_pincode'    => $asksForLocation ? strip_tags((string) $this->input->post('u_pincode')) : '',
 
-                'u_usertype'   => $this->input->post('u_usertype'),
-                'u_usersubtype' => $this->input->post('u_usersubtype'),
+                'u_usertype'   => $userType,
+                'u_usersubtype' => $isOwner ? 0 : $this->input->post('u_usersubtype'),
+                'u_emp_role'   => $empRole,
+                'u_parent_id'  => $parentId,
 
                 'u_ipaddress'  => $this->input->ip_address(),
+
+                // Public sign-up never recorded this, so anyone who registered
+                // themselves was invisible to "new applicants this month".
+                'created'      => date('Y-m-d H:i:s'),
             ];
 
             if ($this->form_validation->run() === true) {
                 if ($user_captcha != $stored_captcha) {
                     $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">Invalid CAPTCHA. Please try again.</div>');
+                } elseif ($regType === 'manager' && $parentId === 0) {
+                    // `required` only proves something was posted; this catches
+                    // an id that is not one of the offered pharmacy groups.
+                    $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">Please choose the pharmacy group you belong to.</div>');
                 } else {
                     $insert = $this->custom->insert('users', $userData);
 
                     if ($insert) {
+                        // A store account's own location, built from the store
+                        // fields on the form. A manager registers a person
+                        // rather than a location - the form does not ask them
+                        // for one - so they add stores afterwards from
+                        // Employer > My Stores.
+                        if ($userData['u_usertype'] == 1 && $userData['u_emp_role'] == 2) {
+                            $this->custom->insert('store', [
+                                'u_id'       => $insert,
+                                's_name'     => $userData['u_comp_name'] !== '' ? $userData['u_comp_name'] : trim($userData['u_fname'] . ' ' . $userData['u_lname']),
+                                's_number'   => $userData['u_licence_no'],
+                                's_province' => (int) $userData['u_provice'],
+                                's_city'     => (int) $userData['u_city'],
+                                's_address'  => $userData['u_address1'],
+                                's_pincode'  => $userData['u_pincode'],
+                                's_phone'    => $userData['u_phone'],
+                                's_status'   => 1,
+                            ]);
+                        }
+
                         $email = $userData['u_email'];
 
                         $this->data['name'] = $userData['u_fname'] . ' ' . $userData['u_lname'];
 
                         $subject      = 'Welcome to ' . $this->data['settings'][0]->s_sitename . '! Your Account is Pending';
-                        $message_user = '<div class="container">
-										<div class="header">
-											<h1>Welcome to ' . $this->data['settings'][0]->s_sitename . '!</h1>
-										</div>
-										<div class="content">
-											<h1>Hello, ' . $this->data['name'] . '!</h1>
-											<p>Your account is currently under review and will be activated upon approval. Once approved, you will receive a confirmation email with further details.</p>
-											<p>In the meantime, if you have any questions, feel free to reach out to our support team</p>
-											<p>We appreciate your patience and look forward to having you as part of our community!</p>
+                        $message_user = email_body('welcome', [
+                            'title'    => 'Welcome to ' . $this->data['settings'][0]->s_sitename . '!',
+                            'name'     => $this->data['name'],
+                            'settings' => $this->data['settings'],
+                        ]);
 
-										</div>
-										<div class="footer">
-											<p>If you have any questions, feel free to <a href="mailto: ' . $this->data['settings'][0]->s_email . '">contact us</a>". We\'re here to help!</p>
-											<p>&copy; ' . date('Y') . $this->data['settings'][0]->s_sitename . '. All rights reserved.</p>
-										</div>
-									</div>';
-
-                        if (send_email($email, $subject, '<p>' . $message_user . '</p>')) {
+                        if (send_email($email, $subject, $message_user)) {
                             log_message('info', 'Email sent successfully!');
                         } else {
                             log_message('error', 'Failed to send email.');
@@ -511,6 +624,10 @@ class Front extends BaseController
             foreach ($userData as $ky => $vl) {
                 $this->data[$ky] = $vl;
             }
+
+            // So the user-type dropdown comes back on the choice that was made,
+            // and the form redraws the right set of fields with it.
+            $this->data['reg_type'] = $regType;
         }
 
         $this->data['show_registration'] = true;
@@ -807,9 +924,12 @@ class Front extends BaseController
 
             $admin_email = $this->data['settings'][0]->s_email;
             $subject     = 'New Contact Us Message';
-            $email_body  = $this->load->view('emails/contact', $data, true);
 
-            if (send_email($admin_email, $subject, '<p>' . $email_body . '</p>')) {
+            // The template is a whole document; the `<p>` that used to wrap it
+            // put a <!DOCTYPE> inside a paragraph, which clients render as text.
+            $body = email_body('contact', $data + ['settings' => $this->data['settings']]);
+
+            if (send_email($admin_email, $subject, $body)) {
                 $this->session->set_flashdata('error_msg', '<div class="alert alert-success">Your message has been sent successfully!</div>');
                 log_message('info', 'Email sent successfully!');
             } else {

@@ -35,7 +35,7 @@
               </div>
               <!-- /.card-header -->
               <div class="card-body table-responsive1 p-2" style="1height: 300px;">
-                <table id="example1" class="table table-bordered table-striped datatablecss" data-order-col="6" data-order-dir="asc">
+                <table id="example1" class="table table-bordered table-striped datatablecss" data-order-col="6" data-order-dir="desc">
                   <thead>
                   <tr>
                     <th>ID</th>
@@ -68,7 +68,7 @@
                     <td><?php echo getCityName($job->p_city); ?></td>
                     <td><?php echo getProvinceName($job->p_province); ?></td>
                     <td><?php echo getShiftForName($job->p_shift_for); ?></td>
-                    <td data-order="<?php echo shiftDateSortValue($job); ?>"><?php echo dateFormat($job->p_dates); ?></td>
+                    <td data-order="<?php echo shiftDateSortValue($job, 'DESC'); ?>"><?php echo dateFormat($job->p_dates); ?></td>
 					<td><?php echo $approved[$job->p_approved];?></td>
                     <td>
 					<?php if($applied_approved === 0 && $job->p_approved != 3){ ?>

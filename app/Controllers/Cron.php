@@ -12,21 +12,36 @@ namespace App\Controllers;
 class Cron extends BaseController
 {
     /**
-     * Close shifts whose date has passed.
+     * Mark shifts whose date has passed as Inactive (Expired).
      *
-     * `post_job.p_dates` is stored as a dd-mm-yyyy string, hence STR_TO_DATE.
+     * The work itself lives in `expire_past_shifts()` so this and the
+     * `jobs:expire` command cannot drift apart.
      */
     public function expire_jobs()
     {
-        $current_date = date('d-m-Y');
+        helper('common');
 
-        $this->db->query(
-            "UPDATE post_job SET p_status = 0 WHERE STR_TO_DATE(p_dates, '%d-%m-%Y') < STR_TO_DATE(?, '%d-%m-%Y')",
-            [$current_date]
-        );
+        echo 'Expired ' . expire_past_shifts() . ' shift(s).';
+    }
 
-        $affected = $this->db->affectedRows();
+    /**
+     * E-mail applicants booked for a shift tomorrow.
+     *
+     * Web-triggered twin of `php spark shifts:remind`, for hosts without
+     * command-line cron. Safe to hit more than once a day.
+     */
+    public function remind_shifts()
+    {
+        helper('common');
 
-        echo 'Expired jobs updated successfully. (' . $affected . ' row(s))';
+        $result = send_shift_reminders();
+
+        if ($result['skipped'] === -1) {
+            echo 'Column sj_reminder_sent_at is missing. Run: php spark migrate';
+
+            return;
+        }
+
+        echo sprintf('Reminders - sent: %d, failed: %d, skipped: %d', $result['sent'], $result['failed'], $result['skipped']);
     }
 }

@@ -17,7 +17,7 @@
                 </div>
                 <!-- row -->
                 <div class="table-responsive">
-                    <table id="joblist" class="table table-hover">
+                    <table id="candidatelist" class="table table-hover">
                         <thead>
                             <tr>
                                 <th>Candidate</th>
@@ -38,7 +38,7 @@
                                 </td>
                                 <td><?php echo $jobuser->u_phone;?></td>
                                 <td><?php echo $jobuser->u_email;?></td>
-                                <td><?php echo dateFormat($jobuser->sj_applied_date);?></td>
+                                <td data-order="<?php echo esc($jobuser->sj_applied_date, 'attr');?>"><?php echo dateFormat($jobuser->sj_applied_date);?></td>
                                 <td><?php echo $appliedstatus[$jobuser->sj_status];?></td>
                                 <td>
 									<a href="#" class="btn btn-success manage-btn" data-toggle="tooltip" data-placement="top" title="" data-original-title="Edit"><i class="lni lni-pencil"></i></a>

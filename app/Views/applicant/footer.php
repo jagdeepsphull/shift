@@ -202,7 +202,12 @@
 		
 		
 		$(function () {
+			// Applied shifts. Column 0 is the internal application id, hidden in the
+			// markup; without an explicit order DataTables sorted on it and undid
+			// the query's ordering. Sort by the shift date (column 3), soonest
+			// first, using the ISO value in each cell's data-order attribute.
 			var tbllist = $('#joblist').DataTable({
+			   order: [[3, 'asc']],
 			  "paging": true,
 			  "lengthChange": false,
 			  "searching": true,

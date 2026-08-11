@@ -79,9 +79,13 @@ class CustomModel
         return $this->db->table($table)->get()->getResult();
     }
 
-    public function get_data_order($table, $order_by, $order = 'asc')
+    /**
+     * @param bool|null $escape false when `$order_by` is an expression rather
+     *                          than a plain column name
+     */
+    public function get_data_order($table, $order_by, $order = 'asc', $escape = null)
     {
-        return $this->db->table($table)->orderBy($order_by, $order)->get()->getResult();
+        return $this->db->table($table)->orderBy($order_by, $order, $escape)->get()->getResult();
     }
 
     public function get_where($table, $where)
@@ -100,12 +104,14 @@ class CustomModel
     }
 
     /**
-     * @param string $order_by column, or a comma separated list of columns
-     * @param string $order    'asc' or 'desc' (CI3 always sorted descending)
+     * @param string    $order_by column, or a comma separated list of columns
+     * @param string    $order    'asc' or 'desc' (CI3 always sorted descending)
+     * @param bool|null $escape   false when `$order_by` is an expression rather
+     *                            than a plain column name
      */
-    public function get_where_order($table, $where, $order_by, $order = 'desc')
+    public function get_where_order($table, $where, $order_by, $order = 'desc', $escape = null)
     {
-        return $this->db->table($table)->orderBy($order_by, $order)->getWhere($where)->getResult();
+        return $this->db->table($table)->orderBy($order_by, $order, $escape)->getWhere($where)->getResult();
     }
 
     /**

@@ -172,16 +172,69 @@
 			  <p>Applications</p>
 			</a>
 		  </li>
-		  
-		  
+		  <li class="nav-item">
+			<a href="<?php echo base_url($adminpath.'/reports');?>" class="nav-link <?php echo($link=='reports')?"active":"";?>">
+			  <i class="nav-icon fas fa-chart-bar"></i>
+			  <p>Reports</p>
+			</a>
+		  </li>
+
+
+		  <?php
+			/* The employer entry is one row in the `menu` table but three kinds
+			   of account behind it (change request B4), so it is drawn as a
+			   treeview: All Employers plus one list per kind. The badge on each
+			   counts the accounts of that kind still waiting to be activated. */
+			$kindslug   = ($link=='employer') ? ($kind ?? '') : '';
+			$pending    = $pendingUsers ?? [];
+			$badge      = function($count){
+				if(!$count){ return ''; }
+				return ' <span class="badge badge-warning right">'.(int)$count.'</span>';
+			};
+		  ?>
 		  <?php if($menuarr) {?>
 			  <?php foreach($menuarr as $ky=>$vl) {?>
-			  <li class="nav-item">
-				<a href="<?php echo base_url($adminpath.'/'.$vl['mlink']);?>" class="nav-link <?php echo($link==$vl['mlink'])?"active":"";?>">
-				  <i class="nav-icon fas fa-th"></i>
-				  <p><?php echo $vl['mname'];?></p>
-				</a>
-			  </li>
+				  <?php if($vl['mlink']=='employer' && !empty($employerKinds)) {?>
+					  <li class="nav-item <?php echo($link=='employer')?"menu-open":"";?>">
+						<a href="#" class="nav-link <?php echo($link=='employer')?"active":"";?>">
+						  <i class="nav-icon fas fa-th"></i>
+						  <p>
+							<?php echo $vl['mname'];?>
+							<i class="right fas fa-angle-left"></i>
+							<?php echo $badge($pending['employer'] ?? 0);?>
+						  </p>
+						</a>
+						<ul class="nav nav-treeview">
+						  <li class="nav-item">
+							<a href="<?php echo base_url($adminpath.'/employer');?>" class="nav-link <?php echo($link=='employer' && $kindslug=='')?"active":"";?>">
+							  <i class="far fa-circle nav-icon"></i>
+							  <p>All Employers</p>
+							</a>
+						  </li>
+						  <?php foreach($employerKinds as $slug=>$empkind) {?>
+						  <li class="nav-item">
+							<a href="<?php echo base_url($adminpath.'/employer/'.$slug);?>" class="nav-link <?php echo($kindslug==$slug)?"active":"";?>">
+							  <i class="far fa-circle nav-icon"></i>
+							  <p>
+								<?php echo $empkind['label'];?>
+								<?php echo $badge($pending[$slug] ?? 0);?>
+							  </p>
+							</a>
+						  </li>
+						  <?php } ?>
+						</ul>
+					  </li>
+				  <?php } else {?>
+					  <li class="nav-item">
+						<a href="<?php echo base_url($adminpath.'/'.$vl['mlink']);?>" class="nav-link <?php echo($link==$vl['mlink'])?"active":"";?>">
+						  <i class="nav-icon fas fa-th"></i>
+						  <p>
+							<?php echo $vl['mname'];?>
+							<?php echo ($vl['mlink']=='applicant') ? $badge($pending['applicant'] ?? 0) : '';?>
+						  </p>
+						</a>
+					  </li>
+				  <?php } ?>
 			  <?php } ?>
 		  <?php } ?>
           

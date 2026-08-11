@@ -75,6 +75,7 @@ class Employer extends BaseController
         $pagesection = $this->uri->segment(2);
 
         $this->data['dashcls'] = ($pagesection === 'dashboard') ? 'active' : '';
+        $this->data['stcls']   = in_array($pagesection, ['stores', 'add_store', 'edit_store'], true) ? 'active' : '';
         $this->data['pjcls']   = ($pagesection === 'post_job') ? 'active' : '';
         $this->data['ajcls']   = ($pagesection === 'all_jobs') ? 'active' : '';
         $this->data['lgcls']   = ($pagesection === 'logout') ? 'active' : '';
@@ -117,7 +118,15 @@ class Employer extends BaseController
 
         $this->session->unset_userdata('error_msg');
 
-        $this->joblists       = $this->custom->get_where('post_job', ['u_id' => $this->userinfo[0]->u_id]);
+        // "Recent Shift Jobs" on the dashboard - soonest shift first, matching
+        // the full list at employer/all_jobs rather than the record number.
+        $this->joblists = $this->custom->get_where_order(
+            'post_job',
+            ['u_id' => $this->userinfo[0]->u_id],
+            shiftDateOrderBy(),
+            '',
+            false
+        );
         $this->data['restot'] = $this->custom->query("select count(p_id) as totjobs from post_job where u_id = '" . $this->userinfo[0]->u_id . "'");
 
         $this->data['joblists'] = $this->joblists;
@@ -135,6 +144,7 @@ class Employer extends BaseController
 
         if ($this->input->post('savepostjob')) {
             $this->form_validation->set_rules('p_shift_for', 'Shift Requested For', 'required');
+            $this->form_validation->set_rules('p_store_id', 'Store', 'required');
 
             $rowData = cleanArray($this->input->post());
 
@@ -144,8 +154,14 @@ class Employer extends BaseController
             // Keep the sortable date column in step with the text one.
             $rowData['p_date_start'] = parseShiftDate($rowData['p_dates'] ?? null);
 
-            $rowData['p_province'] = $this->userinfo[0]->u_provice;
-            $rowData['p_city']     = $this->userinfo[0]->u_city;
+            // The shift belongs to a chosen store (location) - one this login
+            // owns - and its province/city come from that store rather than
+            // from the login row (change request B4).
+            $store = $this->ownStore((int) $this->input->post('p_store_id'));
+
+            $rowData['p_store_id'] = $store ? $store->s_id : 0;
+            $rowData['p_province'] = ($store && $store->s_province) ? $store->s_province : $this->userinfo[0]->u_provice;
+            $rowData['p_city']     = ($store && $store->s_city) ? $store->s_city : $this->userinfo[0]->u_city;
 
             $rowData['created']   = date('Y-m-d H:i:s');
             $rowData['modified']  = date('Y-m-d H:i:s');
@@ -153,7 +169,13 @@ class Employer extends BaseController
             $rowData['p_status']  = 0;
             unset($rowData['savepostjob'], $rowData['files']);
 
-            if (insertQry('post_job', $rowData, 'newjob')) {
+            if (! $store) {
+                $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">Please choose one of your stores.</div>');
+
+                foreach ($rowData as $ky => $vl) {
+                    $this->data[$ky] = $vl;
+                }
+            } elseif (insertQry('post_job', $rowData, 'newjob')) {
                 $id = $this->db->insertID();
 
                 $shiftID              = 'PAS-' . $id;
@@ -171,12 +193,20 @@ class Employer extends BaseController
             getTableInfo($this->dbname, 'post_job');
         }
 
-        $this->data['shift_for']       = $this->custom->get_where('shift_for', ['sf_status' => 1]);
+        $this->data['shift_for']       = $this->custom->get_where_order('shift_for', ['sf_status' => 1], 'sf_name', 'asc');
         $this->data['province']        = $this->custom->get_where('province', ['p_status' => 1]);
         $this->data['city']            = $this->custom->get_where('city', ['c_status' => 1]);
         $this->data['hourly_rate']     = $this->custom->get_where('hourly_rate', ['hr_status' => 1]);
         $this->data['software_skills'] = $this->custom->get_where('software_skills', ['ss_status' => 1]);
         $this->data['store_service']   = $this->custom->get_where('store_service', ['st_status' => 1]);
+
+        // The login's active stores, for the location picker on the form.
+        $this->data['stores'] = $this->custom->get_where_order(
+            'store',
+            ['u_id' => $this->userinfo[0]->u_id, 's_status' => 1],
+            's_name',
+            'asc'
+        );
 
         $this->job_owner         = $this->custom->get_where('post_job', ['u_id' => $this->userinfo[0]->u_id]);
         $this->data['job_owner'] = $this->job_owner;
@@ -199,6 +229,7 @@ class Employer extends BaseController
         if ($count) {
             if ($this->input->post('savepostjob')) {
                 $this->form_validation->set_rules('p_shift_for', 'Shift Requested For', 'required');
+                $this->form_validation->set_rules('p_store_id', 'Store', 'required');
 
                 $rowData = cleanArray($this->input->post());
 
@@ -207,8 +238,12 @@ class Employer extends BaseController
                 $rowData['p_jobinfo']  = $this->input->post('p_jobinfo');
                 $rowData['p_date_start'] = parseShiftDate($rowData['p_dates'] ?? null);
 
-                $rowData['p_province'] = $this->userinfo[0]->u_provice;
-                $rowData['p_city']     = $this->userinfo[0]->u_city;
+                // Same as on create: the location comes off the chosen store.
+                $store = $this->ownStore((int) $this->input->post('p_store_id'));
+
+                $rowData['p_store_id'] = $store ? $store->s_id : 0;
+                $rowData['p_province'] = ($store && $store->s_province) ? $store->s_province : $this->userinfo[0]->u_provice;
+                $rowData['p_city']     = ($store && $store->s_city) ? $store->s_city : $this->userinfo[0]->u_city;
 
                 $rowData['created']  = date('Y-m-d H:i:s');
                 $rowData['modified'] = date('Y-m-d H:i:s');
@@ -216,7 +251,13 @@ class Employer extends BaseController
                 $rowData['p_status'] = 0;
                 unset($rowData['savepostjob'], $rowData['files']);
 
-                if (updateQry('post_job', $rowData, ['p_id' => $id])) {
+                if (! $store) {
+                    $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">Please choose one of your stores.</div>');
+
+                    foreach ($rowData as $ky => $vl) {
+                        $this->data[$ky] = $vl;
+                    }
+                } elseif (updateQry('post_job', $rowData, ['p_id' => $id])) {
                     ci_redirect('employer/all_jobs');
                 } else {
                     foreach ($rowData as $ky => $vl) {
@@ -231,12 +272,20 @@ class Employer extends BaseController
             ci_redirect('employer/all_jobs');
         }
 
-        $this->data['shift_for']       = $this->custom->get_where('shift_for', ['sf_status' => 1]);
+        $this->data['shift_for']       = $this->custom->get_where_order('shift_for', ['sf_status' => 1], 'sf_name', 'asc');
         $this->data['province']        = $this->custom->get_where('province', ['p_status' => 1]);
         $this->data['city']            = $this->custom->get_where('city', ['c_status' => 1]);
         $this->data['hourly_rate']     = $this->custom->get_where('hourly_rate', ['hr_status' => 1]);
         $this->data['software_skills'] = $this->custom->get_where('software_skills', ['ss_status' => 1]);
         $this->data['store_service']   = $this->custom->get_where('store_service', ['st_status' => 1]);
+
+        // The login's active stores, for the location picker on the form.
+        $this->data['stores'] = $this->custom->get_where_order(
+            'store',
+            ['u_id' => $this->userinfo[0]->u_id, 's_status' => 1],
+            's_name',
+            'asc'
+        );
 
         $this->job_owner         = $this->custom->get_where('post_job', ['u_id' => $this->userinfo[0]->u_id]);
         $this->data['job_owner'] = $this->job_owner;
@@ -277,12 +326,152 @@ class Employer extends BaseController
         $this->jobslist         = $this->custom->get_where_order(
             'post_job',
             ['u_id' => $this->userinfo[0]->u_id],
-            'p_date_start',
-            'asc'
+            shiftDateOrderBy(),
+            '',
+            false
         );
         $this->data['jobslist'] = $this->jobslist;
 
         $this->load->owner_inner_view('all_jobs', $this->data);
+    }
+
+    /**
+     * The login's stores (locations) - change request B4.
+     *
+     * One login owns many stores; every shift is posted against one of them.
+     */
+    public function stores()
+    {
+        $this->setup();
+
+        if ($this->session->userdata('userType') != '1') {
+            ci_redirect('front/login');
+        }
+
+        $this->data['stores'] = $this->custom->get_where_order(
+            'store',
+            ['u_id' => $this->userinfo[0]->u_id],
+            's_name',
+            'asc'
+        );
+
+        // A store-role login has its single location; only a manager (or an
+        // employer from before the feature) adds more.
+        $this->data['can_add_store'] = (($this->userinfo[0]->u_emp_role ?? 0) != 2);
+
+        $this->load->owner_inner_view('stores', $this->data);
+    }
+
+    public function add_store()
+    {
+        $this->setup();
+
+        if ($this->session->userdata('userType') != '1') {
+            ci_redirect('front/login');
+        }
+
+        if (($this->userinfo[0]->u_emp_role ?? 0) == 2) {
+            $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">A store account cannot add stores. Ask your manager.</div>');
+            ci_redirect('employer/stores');
+        }
+
+        if ($this->input->post('savestore')) {
+            $this->form_validation->set_rules('s_name', 'Store Name', 'required');
+            $this->form_validation->set_rules('s_number', 'Store Number', 'required');
+
+            $rowData = $this->storeRowFromPost();
+
+            if (insertQry('store', $rowData)) {
+                ci_redirect('employer/stores');
+            }
+
+            foreach ($rowData as $ky => $vl) {
+                $this->data[$ky] = $vl;
+            }
+        } else {
+            getTableInfo($this->dbname, 'store');
+        }
+
+        $this->data['province'] = $this->custom->get_where('province', ['p_status' => 1]);
+
+        $this->load->owner_inner_view('add_store', $this->data);
+    }
+
+    public function edit_store()
+    {
+        $this->setup();
+
+        $id = (int) $this->uri->segment(3);
+
+        if ($this->session->userdata('userType') != '1') {
+            ci_redirect('front/login');
+        }
+
+        // Only a store this login owns.
+        $count = $this->custom->get_where_count('store', ['s_id' => $id, 'u_id' => $this->userinfo[0]->u_id]);
+
+        if (! $count) {
+            $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">Invalid Store</div>');
+            ci_redirect('employer/stores');
+        }
+
+        if ($this->input->post('savestore')) {
+            $this->form_validation->set_rules('s_name', 'Store Name', 'required');
+            $this->form_validation->set_rules('s_number', 'Store Number', 'required');
+
+            $rowData = $this->storeRowFromPost();
+
+            if (updateQry('store', $rowData, ['s_id' => $id, 'u_id' => $this->userinfo[0]->u_id])) {
+                ci_redirect('employer/stores');
+            }
+
+            foreach ($rowData as $ky => $vl) {
+                $this->data[$ky] = $vl;
+            }
+        } else {
+            getTableInfo($this->dbname, 'store', ['s_id' => $id]);
+        }
+
+        $this->data['province'] = $this->custom->get_where('province', ['p_status' => 1]);
+
+        $this->load->owner_inner_view('edit_store', $this->data);
+    }
+
+    /**
+     * The store columns as posted, owned by the logged-in employer.
+     */
+    private function storeRowFromPost(): array
+    {
+        return [
+            'u_id'       => $this->userinfo[0]->u_id,
+            's_name'     => strip_tags((string) $this->input->post('s_name')),
+            's_number'   => strip_tags((string) $this->input->post('s_number')),
+            's_province' => (int) $this->input->post('s_province'),
+            's_city'     => (int) $this->input->post('s_city'),
+            's_address'  => strip_tags((string) $this->input->post('s_address')),
+            's_pincode'  => strip_tags((string) $this->input->post('s_pincode')),
+            's_phone'    => strip_tags((string) $this->input->post('s_phone')),
+            's_status'   => $this->input->post('s_status') !== null ? (int) $this->input->post('s_status') : 1,
+            'modified'   => date('Y-m-d H:i:s'),
+        ];
+    }
+
+    /**
+     * One of the logged-in employer's active stores, or null.
+     */
+    private function ownStore(int $storeId)
+    {
+        if ($storeId <= 0) {
+            return null;
+        }
+
+        $rows = $this->custom->get_where('store', [
+            's_id'     => $storeId,
+            'u_id'     => $this->userinfo[0]->u_id,
+            's_status' => 1,
+        ]);
+
+        return $rows[0] ?? null;
     }
 
     public function applications()

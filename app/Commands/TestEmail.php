@@ -34,11 +34,22 @@ class TestEmail extends BaseCommand
         }
 
         $settings = config('AppSettings');
-        $subject  = 'Test message from ' . $settings->mailFromName;
-        $body     = '<p>This is a test message sent at ' . date('Y-m-d H:i:s') . '.</p>'
-                  . '<p>If it reached you, mail delivery from this server is working.</p>';
+        $mail     = config('Email');
 
-        CLI::write("Sending to {$to} as {$settings->mailFromEmail} ...");
+        if ($mail->protocol === 'smtp' && $mail->SMTPHost === '') {
+            CLI::error('No SMTP host configured. Set email.SMTPHost, email.SMTPUser and email.SMTPPass in .env.');
+
+            return;
+        }
+
+        $subject = 'Test message from ' . $settings->mailFromName;
+        $body    = email_body('test', [
+            'title'   => 'Delivery test',
+            'sent_at' => date('Y-m-d H:i:s'),
+            'host'    => $mail->protocol === 'smtp' ? $mail->SMTPHost . ':' . $mail->SMTPPort : $mail->protocol,
+        ]);
+
+        CLI::write("Sending to {$to} as {$settings->mailFromEmail} via {$mail->protocol} ...");
 
         if (send_email($to, $subject, $body)) {
             CLI::write('Accepted for delivery. Check the inbox, and the junk folder.', 'green');

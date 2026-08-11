@@ -165,6 +165,7 @@
                                 <ul>
                                     <li class="<?php echo $pjcls; ?>"><a href="<?php echo base_url('employer/post_job'); ?>"><i class="ti-ruler-pencil"></i>Post New Shift </a></li>
                                     <li class="<?php echo $ajcls; ?>"><a href="<?php echo base_url('employer/all_jobs'); ?>"><i class="ti-briefcase"></i>All Shifts</a></li>
+                                    <li class="<?php echo $stcls; ?>"><a href="<?php echo base_url('employer/stores'); ?>"><i class="ti-home"></i>My Stores</a></li>
                                     <?php /* <li class="<?php echo $dashcls; ?>"><a href="<?php echo base_url('employer/dashboard')?>"><i class="ti-dashboard"></i>Dashboard</a></li>
                                     <li class="<?php echo $apcls; ?>"><a href="<?php echo base_url('employer/applications'); ?>"><i class="ti-user"></i>Applications</a></li>
                                     <li class="<?php echo $sccls; ?>"><a href="<?php echo base_url('employer/search_candidates'); ?>"><i class="ti-briefcase"></i>Search Candidates</a></li>

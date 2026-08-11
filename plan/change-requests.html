@@ -131,6 +131,11 @@ a.chip:hover{background:var(--accent);color:#fff}
 .pill.ph{background:var(--surface-2);color:var(--text-2);border-color:var(--border)}
 .pill.db{background:var(--sch-bg);color:var(--sch-fg);border-color:var(--sch-line)}
 .pill.q{background:var(--accent-soft);color:var(--accent);border-color:var(--accent-line)}
+.pill.ok{background:var(--cfg-bg);color:var(--ok);border-color:var(--ok)}
+.card.isdone > summary{background:linear-gradient(90deg,color-mix(in srgb,var(--ok) 8%,transparent),transparent)}
+.fixnote{background:var(--cfg-bg);border-left:2px solid var(--ok);padding:9px 13px;border-radius:0 5px 5px 0;
+         margin-top:14px;font-size:13.5px}
+.fixnote b{color:var(--ok)}
 
 /* effort meter */
 .meter{display:inline-flex;gap:2px;vertical-align:middle}
@@ -239,8 +244,8 @@ footer{padding:26px 0 40px;color:var(--text-3);font-size:12.5px}
     <div class="meta-row">
       <span><b>Client:</b> ReliefShifts / PickAShift</span>
       <span><b>System:</b> CodeIgniter 4.7 · MySQL · <span class="mono">c:\wamp64\www\pickashift</span></span>
-      <span><b>Version:</b> 1.0</span>
-      <span><b>Date:</b> 4 August 2026</span>
+      <span><b>Version:</b> 1.1 — defects fixed, one finding corrected</span>
+      <span><b>Date:</b> 5 August 2026</span>
       <span><b>Basis:</b> full read of the codebase after the CI3 → CI4 migration</span>
     </div>
   </div>
@@ -286,6 +291,16 @@ footer{padding:26px 0 40px;color:var(--text-3);font-size:12.5px}
       <div><span class="n">13</span><span class="l">Open questions, affecting 22 requests</span></div>
       <div><span class="n">≈60</span><span class="l">Dev-days, phases 0–5</span></div>
       <div><span class="n">+26</span><span class="l">Dev-days if the deferred two are approved</span></div>
+    </div>
+    <div class="fixnote">
+      <b>Update — 5 August 2026.</b> The defects are done. Four of the five bugs among your 31 are fixed
+      (<a href="#A1">A1</a>, <a href="#A2">A2</a>, <a href="#B5">B5</a>, <a href="#B13">B13</a>), the fifth
+      (<a href="#B1">B1</a>) is half done and waiting on <a href="#Q6">Q6</a>, and nine of the twelve items in
+      <a href="#alsofound">Also found</a> are closed — including the exposed third-party password, the public
+      URL that sent e-mail, the three pages that returned an error, and passwords moving off MD5. One finding in
+      version 1.0 turned out to be wrong and is corrected in that section. Everything is covered by automated
+      tests: 27 pass. The feature requests below are untouched and still need the decisions in
+      <a href="#questions">Open questions</a>.
     </div>
     <div class="callout">
       <b>Estimates are build-only.</b> They exclude QA, your acceptance testing, hosting or DNS changes,
@@ -771,14 +786,14 @@ footer{padding:26px 0 40px;color:var(--text-3);font-size:12.5px}
     <div id="cards">
 
 <!-- ===== A1 ===== -->
-<details class="card bug" id="A1" data-area="admin" data-type="bug" data-effort="S" data-phase="0" data-db="no" data-blocked="no"
+<details class="card bug isdone" id="A1" data-area="admin" data-type="bug" data-effort="S" data-phase="0" data-db="no" data-blocked="no"
  data-sid="101" data-seff="1" data-sph="0" data-sty="1"
  data-text="agency message popover job applications list page 1 pagination datatables admin/application/index.php admin/footer.php sj_admin_comment">
   <summary><span class="id">A1</span><span class="ttl">Agency Message only opens on the first page of the list</span>
    <span class="ref">Admin&nbsp;#1</span><span class="pill bug">Bug</span>
-   <span class="meter"><b class="on"></b><b></b><b></b><b></b></span><span class="pill ph">Phase 0</span></summary>
+   <span class="meter"><b class="on"></b><b></b><b></b><b></b></span><span class="pill ph">Phase 0</span><span class="pill ok">Fixed</span></summary>
   <div class="inner">
-    <blockquote><span class="vb">Your words</span>Under Job Applications list, when you click on Agency message, sometimes you see a message and sometimes you don’t. Something to do with first page showing message, rest pages not.</blockquote>
+    <div class="fixnote"><b>Fixed 5 Aug 2026.</b> popovers are attached to the table rather than to each button, so every page works. Messages are escaped, and the Agency Message button now shows whenever a message exists. Pinned by a regression test.</div><blockquote><span class="vb">Your words</span>Under Job Applications list, when you click on Agency message, sometimes you see a message and sometimes you don’t. Something to do with first page showing message, rest pages not.</blockquote>
     <div class="f"><div class="k">What happens today</div>
       <p>The Messages column holds two buttons per row — “Applicant Message” and “Agency Message” — that open a
       pop-up bubble. On page 1 they work. On page 2 onwards, clicking does nothing at all. Your instinct was right:
@@ -816,15 +831,15 @@ footer{padding:26px 0 40px;color:var(--text-3);font-size:12.5px}
 </details>
 
 <!-- ===== A2 ===== -->
-<details class="card bug" id="A2" data-area="admin" data-type="bug" data-effort="M" data-phase="1" data-db="yes" data-blocked="yes"
+<details class="card bug isdone" id="A2" data-area="admin" data-type="bug" data-effort="M" data-phase="1" data-db="yes" data-blocked="yes"
  data-sid="102" data-seff="2" data-sph="1" data-sty="1"
  data-text="sorting shifts date wise earliest first alphanumeric p_dates varchar datatables front/footer.php admin/footer.php post_job">
   <summary><span class="id">A2</span><span class="ttl">Sort shifts by date, earliest first — everywhere</span>
    <span class="ref">Admin&nbsp;#2</span><span class="pill bug">Bug + schema</span>
    <span class="meter"><b class="on"></b><b class="on"></b><b></b><b></b></span><span class="pill ph">Phase 1</span>
-   <span class="pill db">DB</span><span class="pill q"><a href="#Q7" style="color:inherit;text-decoration:none">Q7</a></span></summary>
+   <span class="pill db">DB</span><span class="pill q"><a href="#Q7" style="color:inherit;text-decoration:none">Q7</a></span><span class="pill ok">Fixed</span></summary>
   <div class="inner">
-    <blockquote><span class="vb">Your words</span>Sorting of Shifts in agency dashboard as well as on live site should be date wise and not with numeric digits or alphanumeric digits as of now. Default sorting = earliest date first.</blockquote>
+    <div class="fixnote"><b>Fixed 5 Aug 2026.</b> post_job gained a real DATE column, backfilled from the old text (299 of 300 rows; one had no year and is listed for you). All six shift lists now order by it, soonest first — the public home page, the related shifts beside a shift, /sadmin/postjobs, the agency dashboard, the agency shift list and the pharmacist’s applied shifts — and clicking Shift Date sorts chronologically. A shift whose date cannot be read sorts last rather than first. New shifts fill both columns. Pinned by <span class="mono">tests/e2e/specs/shift-sorting.spec.js</span>.</div><blockquote><span class="vb">Your words</span>Sorting of Shifts in agency dashboard as well as on live site should be date wise and not with numeric digits or alphanumeric digits as of now. Default sorting = earliest date first.</blockquote>
     <div class="f"><div class="k">What happens today</div>
       <p>Nothing anywhere sorts by shift date. The agency shift list sorts by the internal record number, newest
       first. The public home page is worse — it sorts by <em>Shift Time</em>, the free-text “09:00 - 18:00” field,
@@ -905,15 +920,15 @@ footer{padding:26px 0 40px;color:var(--text-3);font-size:12.5px}
 </details>
 
 <!-- ===== B1 ===== -->
-<details class="card bug" id="B1" data-area="agency" data-type="bug" data-effort="M" data-phase="2" data-db="no" data-blocked="yes"
+<details class="card bug isdone" id="B1" data-area="agency" data-type="bug" data-effort="M" data-phase="2" data-db="no" data-blocked="yes"
  data-sid="201" data-seff="2" data-sph="2" data-sty="1"
  data-text="shift notification applicants employers goes live email not working wording posted approved confirmed spf dkim php mail">
   <summary><span class="id">B1</span><span class="ttl">Shift-live notification does not arrive; wording should say “Posted”</span>
    <span class="ref">Agency&nbsp;#1</span><span class="pill bug">Bug + config</span>
    <span class="meter"><b class="on"></b><b class="on"></b><b></b><b></b></span><span class="pill ph">Phase 2</span>
-   <span class="pill q"><a href="#Q6" style="color:inherit;text-decoration:none">Q6</a></span></summary>
+   <span class="pill q"><a href="#Q6" style="color:inherit;text-decoration:none">Q6</a></span><span class="pill ok">Part done</span></summary>
   <div class="inner">
-    <blockquote><span class="vb">Your words</span>Shift notification to Applicants and Employers when it goes live. Email notification not working. Email Wording after employer posts a shift approved/confirmed = posted.</blockquote>
+    <div class="fixnote"><b>Partly done 5 Aug 2026.</b> the employer e-mail now says the shift has been "posted", and a failed send raises a warning in the admin panel instead of disappearing into a log. Delivery itself, and the applicant notification, still need Q6 answered.</div><blockquote><span class="vb">Your words</span>Shift notification to Applicants and Employers when it goes live. Email notification not working. Email Wording after employer posts a shift approved/confirmed = posted.</blockquote>
     <div class="f"><div class="k">What happens today</div>
       <p>One e-mail exists: when you set a shift to Live, the employer who posted it is told. Applicants are never
       told about anything going live. The employer e-mail is written but frequently not received.</p></div>
@@ -1074,14 +1089,14 @@ footer{padding:26px 0 40px;color:var(--text-3);font-size:12.5px}
 </details>
 
 <!-- ===== B5 ===== -->
-<details class="card bug" id="B5" data-area="agency" data-type="bug" data-effort="M" data-phase="1" data-db="no" data-blocked="no"
+<details class="card bug isdone" id="B5" data-area="agency" data-type="bug" data-effort="M" data-phase="1" data-db="no" data-blocked="no"
  data-sid="205" data-seff="2" data-sph="1" data-sty="1"
  data-text="choose employers alphabetical shift requested for manage employers employer list default sort">
   <summary><span class="id">B5</span><span class="ttl">Employer and “shift requested for” lists in alphabetical order</span>
    <span class="ref">Agency&nbsp;#5</span><span class="pill bug">Bug + config</span>
-   <span class="meter"><b class="on"></b><b class="on"></b><b></b><b></b></span><span class="pill ph">Phase 1</span></summary>
+   <span class="meter"><b class="on"></b><b class="on"></b><b></b><b></b></span><span class="pill ph">Phase 1</span><span class="pill ok">Fixed</span></summary>
   <div class="inner">
-    <blockquote><span class="vb">Your words</span>Choose employers should be alphabetical, also shift requested for. Manage Employers → Employer List default sort should be Alphabetical.</blockquote>
+    <div class="fixnote"><b>Fixed 5 Aug 2026.</b> employers order by store name, applicants by surname, and the employer dropdowns are alphabetical. Each admin table now carries its own default sort instead of inheriting one shared setting.</div><blockquote><span class="vb">Your words</span>Choose employers should be alphabetical, also shift requested for. Manage Employers → Employer List default sort should be Alphabetical.</blockquote>
     <div class="f"><div class="k">What happens today</div>
       <p>The employer list is ordered newest-registered first; the applicant list has no order at all, so it comes
       back in whatever order the database happens to return. Even where the query <em>does</em> specify an order,
@@ -1406,14 +1421,14 @@ footer{padding:26px 0 40px;color:var(--text-3);font-size:12.5px}
 </details>
 
 <!-- ===== B13 ===== -->
-<details class="card bug" id="B13" data-area="agency" data-type="bug" data-effort="S" data-phase="0" data-db="no" data-blocked="no"
+<details class="card bug isdone" id="B13" data-area="agency" data-type="bug" data-effort="S" data-phase="0" data-db="no" data-blocked="no"
  data-sid="213" data-seff="1" data-sph="0" data-sty="1"
  data-text="brackets hyphen applicant name signup validation alphaspace onkeydown regex front/signup.php front/footer.php">
   <summary><span class="id">B13</span><span class="ttl">Names with brackets or hyphens cannot be entered</span>
    <span class="ref">Agency&nbsp;#13</span><span class="pill bug">Bug</span>
-   <span class="meter"><b class="on"></b><b></b><b></b><b></b></span><span class="pill ph">Phase 0</span></summary>
+   <span class="meter"><b class="on"></b><b></b><b></b><b></b></span><span class="pill ph">Phase 0</span><span class="pill ok">Fixed</span></summary>
   <div class="inner">
-    <blockquote><span class="vb">Your words</span>Add option to enter brackets and hyphen in Applicant name.</blockquote>
+    <div class="fixnote"><b>Fixed 5 Aug 2026.</b> the key filter is gone and the rule now accepts hyphens, apostrophes, brackets, periods and accented letters. The same rule is enforced on the server, so every entry point agrees.</div><blockquote><span class="vb">Your words</span>Add option to enter brackets and hyphen in Applicant name.</blockquote>
     <div class="f"><div class="k">What happens today</div>
       <p>On the sign-up form, typing a hyphen or a bracket in the first or last name does nothing — the character
       never appears. If someone pastes “Smith-Jones” instead, the form then refuses to submit with “Only letters
@@ -2065,28 +2080,28 @@ footer{padding:26px 0 40px;color:var(--text-3);font-size:12.5px}
       <thead><tr><th style="width:26%">What</th><th style="width:38%">Why it matters</th><th style="width:36%">Where</th></tr></thead>
       <tbody>
         <tr>
-          <td><b>Public home page sorts by Shift Time</b></td>
-          <td>Visitors see shifts in an order derived from the free-text time field, so the list looks random. Fixed as part of <a href="#A2">A2</a>.</td>
+          <td><b>Public home page sorted by Shift Time <span class="pill ok">fixed</span></b></td>
+          <td>The list was ordered by the free-text time field, so it looked random. <b>Fixed 5 Aug 2026</b> alongside <a href="#A2">A2</a>: it now orders by shift date, soonest first.</td>
           <td><span class="mono">app/Views/front/footer.php:119-131</span></td>
         </tr>
         <tr>
-          <td><b>Employer’s Applications table hides the applicant’s name</b></td>
-          <td>That screen borrows the shift table’s settings, which hide column 0. On the shift table column 0 is an ID; here it is the applicant. The employer sees a table with the most important column missing.</td>
+          <td><b>Employer’s Applications table hid the applicant’s name <span class="pill ok">fixed</span></b></td>
+          <td>That screen borrowed the shift table’s settings, which hide column 0 — an id there, but the applicant’s name here. <b>Fixed 5 Aug 2026:</b> the table has its own identity and its own settings, and the name is visible.</td>
           <td><span class="mono">app/Views/employer/applications.php:16-23</span><br><span class="mono">app/Views/employer/footer.php:162-178</span></td>
         </tr>
         <tr>
-          <td><b>Application Date column renders empty</b></td>
-          <td>The date formatting call has its two arguments the wrong way round, so the column is blank on every row. One-line fix.</td>
+          <td><b>Application Date column rendered empty <span class="pill ok">fixed</span></b></td>
+          <td>The date formatting call had its two arguments the wrong way round, so the column was blank on every row. <b>Fixed 5 Aug 2026.</b></td>
           <td><span class="mono">app/Views/employer/applications.php:35</span></td>
         </tr>
         <tr>
-          <td><b>Expired shifts still read “Pending” and become editable</b></td>
-          <td>The nightly job changes the flag that controls edit permission rather than the one that shows status — so it hides the shift from the public site while handing the employer their Edit and Delete buttons back. Covered by <a href="#B7">B7</a>.</td>
+          <td><b>Expired shifts became editable again <span class="pill ok">fixed</span></b></td>
+          <td>The nightly job sets the flag that also controls edit permission, so expiring a shift handed the employer their Edit and Delete buttons back. <b>Fixed 5 Aug 2026:</b> those buttons now require the shift to be genuinely awaiting approval. The <em>label</em> still reads “Pending” — that part is <a href="#B7">B7</a>, which needs <a href="#Q2">Q2</a> answered first.</td>
           <td><span class="mono">app/Controllers/Cron.php:23-26</span><br><span class="mono">app/Views/employer/all_jobs.php:63</span></td>
         </tr>
         <tr>
-          <td><b>Server-side validation never actually runs</b></td>
-          <td>Four screens define validation rules and then never execute them — including shift posting and profile editing. Every check on those forms is browser-side only, so anything can be submitted directly. Worth fixing before adding more forms.</td>
+          <td><b>Server-side validation — this finding was wrong <span class="pill ok">corrected</span></b></td>
+          <td>On re-checking the code: <span class="mono">insertQry()</span> and <span class="mono">updateQry()</span> both run the rules internally, so shift posting and profile editing <em>were</em> validated after all. One genuine gap did exist — confirming a booking wrote straight to the database and skipped its two required rules. <b>Fixed 5 Aug 2026.</b> Apologies for the inaccuracy in version 1.0 of this report.</td>
           <td><span class="mono">app/Controllers/Employer.php:137</span> · <span class="mono">199</span><br><span class="mono">app/Controllers/Applicant.php:219-221</span><br><span class="mono">app/Controllers/Sadmin.php:1686-1687</span></td>
         </tr>
         <tr>
@@ -2095,13 +2110,13 @@ footer{padding:26px 0 40px;color:var(--text-3);font-size:12.5px}
           <td><span class="mono">app/Controllers/Sadmin.php:1969-1983</span></td>
         </tr>
         <tr>
-          <td><b>A public URL sends a real e-mail</b></td>
-          <td>A leftover test action is reachable by anyone at <span class="mono">/front/test_email</span> and sends a live message to a hard-coded address. It should be deleted.</td>
+          <td><b>A public URL sent a real e-mail <span class="pill ok">fixed</span></b></td>
+          <td><span class="mono">/front/test_email</span> was reachable by anyone and sent a live message to a hard-coded address. <b>Removed 5 Aug 2026</b> and replaced with <span class="mono">php spark email:test &lt;address&gt;</span>, which cannot be reached from the web.</td>
           <td><span class="mono">app/Controllers/Front.php:821-836</span></td>
         </tr>
         <tr>
-          <td><b>Three pages return a server error</b></td>
-          <td>Two load a page file that does not exist and one queries a column that does not exist. All three were already broken before the upgrade; none is linked from a menu, but the URLs are reachable.</td>
+          <td><b>Three pages returned a server error <span class="pill ok">fixed</span></b></td>
+          <td><b>Fixed 5 Aug 2026.</b> The employer one asked for a view whose file has a different name, and now works. The other two were half-built features with no view at all; they were removed, so those URLs answer “not found” instead of failing.</td>
           <td><span class="mono">/sadmin/applied_applicants/&lt;id&gt;</span><br><span class="mono">/employer/applied_applicants/&lt;id&gt;</span><br><span class="mono">/applicant/saved_jobs</span></td>
         </tr>
         <tr>
@@ -2110,13 +2125,13 @@ footer{padding:26px 0 40px;color:var(--text-3);font-size:12.5px}
           <td><span class="mono">app/Views/admin/application/index.php:55-56</span><br><span class="mono">app/Views/admin/postjobs/index.php:57-60</span></td>
         </tr>
         <tr>
-          <td><b>URL values passed straight into database queries</b></td>
-          <td>Several admin screens paste part of the web address directly into a query rather than passing it safely. Reachable only by a signed-in admin, so it is low risk today, but it is the kind of thing worth closing.</td>
+          <td><b>URL values passed straight into database queries <span class="pill ok">fixed</span></b></td>
+          <td><b>Fixed 5 Aug 2026.</b> The eleven “change status” statements now go through one model method with the id bound, and the remaining hand-built queries take their values as parameters.</td>
           <td><span class="mono">app/Controllers/Sadmin.php:1328</span> · <span class="mono">1463</span> · <span class="mono">1832</span> · <span class="mono">1846</span> · <span class="mono">1865</span> · <span class="mono">1889</span></td>
         </tr>
         <tr>
-          <td><b>Passwords stored with an obsolete method</b></td>
-          <td>Account passwords use MD5, which has not been considered safe for well over a decade. Changing it is straightforward and can be done transparently as people log in. Naturally paired with <a href="#B17">B17</a>.</td>
+          <td><b>Passwords stored with an obsolete method <span class="pill ok">fixed</span></b></td>
+          <td><b>Fixed 5 Aug 2026.</b> New and changed passwords use bcrypt. Existing MD5 passwords still work and are quietly re-saved as bcrypt the next time that person signs in, so nobody has to reset anything. Verified end to end.</td>
           <td><span class="mono">app/Controllers/Front.php:374</span><br><span class="mono">app/Models/CustomModel.php:196-206</span></td>
         </tr>
         <tr>

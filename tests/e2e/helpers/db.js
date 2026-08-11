@@ -27,10 +27,15 @@ function args() {
  * @returns {string}
  */
 function query(sql) {
-  return execFileSync(MYSQL_BIN, [...args(), '-e', sql], {
+  const out = execFileSync(MYSQL_BIN, [...args(), '-e', sql], {
     encoding: 'utf8',
     windowsHide: true,
-  }).trim();
+  });
+
+  // The client ends its lines with CRLF on Windows. Trimming the whole string
+  // only clears the last one, so splitting a multi-row result would leave a
+  // stray '\r' on the end of every value but the last.
+  return out.replace(/\r\n/g, '\n').trim();
 }
 
 /**

@@ -44,11 +44,18 @@ class Sadmin extends BaseController
             }
 
             $this->data['menuarr'] = $menuarr;
+
+            // The sidebar splits Manage Employers by the kind chosen at
+            // registration and badges each entry with how many of that kind are
+            // still waiting to be activated.
+            $this->data['employerKinds'] = $this->config->item('employerKinds');
+            $this->data['pendingUsers']  = $this->pendingUserCounts();
         }
 
         $this->data['usersubtype']          = $this->config->item('usersubtype');
         $this->data['posttype']             = $this->config->item('posttype');
         $this->data['approved']             = $this->config->item('approved');
+        $this->data['approvedSelectable']   = $this->config->item('approvedSelectable');
         $this->data['application_approved'] = $this->config->item('application_approved');
 
         $this->data['gender']        = $this->config->item('gender');
@@ -58,6 +65,54 @@ class Sadmin extends BaseController
         $this->data['featured']      = $this->config->item('featured');
         $this->data['status']        = $this->config->item('status');
         $this->data['qualification'] = $this->config->item('qualification');
+    }
+
+    /**
+     * How many accounts of each kind are still deactivated, for the sidebar
+     * badges. One grouped query rather than one per entry, because `setup()`
+     * runs on every back-office page.
+     *
+     * @return array<string, int> keyed by `employerKinds` slug, plus the
+     *                            'applicant' and 'employer' totals
+     */
+    private function pendingUserCounts(): array
+    {
+        $counts = ['applicant' => 0, 'employer' => 0];
+
+        foreach (array_keys((array) $this->config->item('employerKinds')) as $slug) {
+            $counts[$slug] = 0;
+        }
+
+        $rows = $this->custom->query(
+            'SELECT u_usertype, u_emp_role, (u_parent_id > 0) AS has_parent, COUNT(*) AS total
+               FROM users
+              WHERE u_status = 0 AND u_usertype IN (1, 2)
+           GROUP BY u_usertype, u_emp_role, has_parent'
+        );
+
+        foreach ($rows ?: [] as $row) {
+            $total = (int) $row->total;
+
+            if ((int) $row->u_usertype === 2) {
+                $counts['applicant'] += $total;
+
+                continue;
+            }
+
+            $counts['employer'] += $total;
+
+            // `has_parent` is 0/1, which is all employerKindSlug() looks at.
+            $slug = employerKindSlug([
+                'u_emp_role'  => $row->u_emp_role,
+                'u_parent_id' => $row->has_parent,
+            ]);
+
+            if ($slug !== '' && isset($counts[$slug])) {
+                $counts[$slug] += $total;
+            }
+        }
+
+        return $counts;
     }
 
     public function index()
@@ -169,6 +224,52 @@ class Sadmin extends BaseController
         $this->data['applicationslist'] = $this->custom->query('select ssa.*, u.u_comp_name, pj.p_shift_time, pj.p_dates from stu_saved_applied_jobs ssa, users u, post_job pj where ssa.agency_id=u.u_id and  ssa.p_id = pj.p_id ');
 
         $this->data['booked_applications'] = $this->custom->query('select ssa.*, u.u_comp_name, pj.p_shift_time, pj.p_dates from stu_saved_applied_jobs ssa, users u, post_job pj where ssa.agency_id=u.u_id and  ssa.p_id = pj.p_id and ssa.sj_is_approved = 1 ');
+
+        // "What's new" panel. The window is a plain number of days rather than
+        // "since you last looked": a per-admin last-seen marker needs a column,
+        // and a fixed window is at least the same for everyone reading it.
+        $days  = (int) ($this->input->get('new_days') ?: 7);
+        $days  = max(1, min($days, 90));
+        $since = date('Y-m-d H:i:s', strtotime("-{$days} days"));
+
+        $this->data['new_days']  = $days;
+        $this->data['new_since'] = $since;
+
+        $this->data['new_applications'] = $this->custom->query(
+            'SELECT ssa.sj_id, ssa.created, ssa.sj_is_approved, pj.p_job_title, pj.p_dates,
+                    ap.u_fname, ap.u_lname, em.u_comp_name
+               FROM stu_saved_applied_jobs ssa
+               JOIN post_job pj ON pj.p_id = ssa.p_id
+               JOIN users ap    ON ap.u_id = ssa.u_id
+          LEFT JOIN users em    ON em.u_id = ssa.agency_id
+              WHERE ssa.created >= ?
+           ORDER BY ssa.created DESC
+              LIMIT 25',
+            [$since]
+        );
+
+        $this->data['new_employers'] = $this->custom->query(
+            'SELECT u_id, u_comp_name, u_fname, u_lname, u_email, u_status, created
+               FROM users WHERE u_usertype = 1 AND created >= ?
+           ORDER BY created DESC LIMIT 25',
+            [$since]
+        );
+
+        $this->data['new_applicants'] = $this->custom->query(
+            'SELECT u_id, u_fname, u_lname, u_email, u_status, u_usersubtype, created
+               FROM users WHERE u_usertype = 2 AND created >= ?
+           ORDER BY created DESC LIMIT 25',
+            [$since]
+        );
+
+        $this->data['new_shifts'] = $this->custom->query(
+            'SELECT pj.p_id, pj.p_job_title, pj.p_dates, pj.p_approved, pj.created, u.u_comp_name
+               FROM post_job pj
+          LEFT JOIN users u ON u.u_id = pj.u_id
+              WHERE pj.created >= ?
+           ORDER BY pj.created DESC LIMIT 25',
+            [$since]
+        );
 
         $this->load->admin_view('dashboard', $this->data);
     }
@@ -756,7 +857,7 @@ class Sadmin extends BaseController
 
         $this->data['validation_errors'] = '';
         $this->data['pageinfo']          = ['title' => 'Shift For', 'link' => $module];
-        $this->data['shift_for']         = $this->custom->get_data($table);
+        $this->data['shift_for']         = $this->custom->get_data_order($table, 'sf_name', 'asc');
 
         switch ($action) {
             default:
@@ -907,7 +1008,7 @@ class Sadmin extends BaseController
 
         $this->data['validation_errors'] = '';
         $this->data['pageinfo']          = ['title' => 'Service', 'link' => $module];
-        $this->data['shift_for']         = $this->custom->get_data($table);
+        $this->data['shift_for']         = $this->custom->get_data_order($table, 'st_service_name', 'asc');
 
         switch ($action) {
             default:
@@ -1054,7 +1155,7 @@ class Sadmin extends BaseController
 
         $this->data['validation_errors'] = '';
         $this->data['pageinfo']          = ['title' => 'Software', 'link' => $module];
-        $this->data['shift_for']         = $this->custom->get_data($table);
+        $this->data['shift_for']         = $this->custom->get_data_order($table, 'ss_name', 'asc');
 
         switch ($action) {
             default:
@@ -1199,17 +1300,47 @@ class Sadmin extends BaseController
     {
         $this->setup();
 
-        $module     = $this->uri->segment(2);
-        $action     = $this->uri->segment(3);
-        $id         = $this->uri->segment(4);
-        $table      = 'users';
-        $idnotFound = 0;
+        $module = $this->uri->segment(2);
+        $action = $this->uri->segment(3);
+        $id     = $this->uri->segment(4);
+        $table  = 'users';
 
-        $this->data['pageinfo'] = ['title' => 'Employer', 'link' => $this->data['link']];
+        $kinds = (array) $this->config->item('employerKinds');
+
+        // The sidebar links each employer kind as /sadmin/employer/<slug>;
+        // anything else in that segment is an action, the way it always was.
+        $kind = isset($kinds[(string) $action]) ? (string) $action : '';
+
+        // add/edit/delete/changestatus carry the list they were reached from as
+        // ?kind=, so saving or activating comes back to that list rather than
+        // dropping the admin into All Employers.
+        if ($kind === '') {
+            $requested = (string) $this->input->get('kind');
+            $kind      = isset($kinds[$requested]) ? $requested : '';
+        }
+
+        $backTo = 'sadmin/' . $module . ($kind !== '' ? '/' . $kind : '');
+
+        $this->data['pageinfo'] = [
+            'title'     => 'Employer',
+            'listtitle' => $kind !== '' ? $kinds[$kind]['label'] : 'All Employers',
+            'link'      => $this->data['link'],
+        ];
+
+        $this->data['kind']   = $kind;
+        $this->data['backTo'] = $backTo;
 
         switch ($action) {
             default:
-                $this->data['users'] = $this->custom->get_where_order('users', ['u_usertype' => 1], 'u_comp_name', 'asc');
+                // Pre-B4 rows carry role 0 and so match no kind - they show up
+                // under All Employers, which is why that entry is kept.
+                $where = ['u_usertype' => 1];
+
+                if ($kind !== '') {
+                    $where = array_merge($where, $kinds[$kind]['filter']);
+                }
+
+                $this->data['users'] = $this->custom->get_where_order('users', $where, 'u_comp_name', 'asc');
 
                 $this->load->admin_view($module . '/index', $this->data);
                 break;
@@ -1229,7 +1360,7 @@ class Sadmin extends BaseController
                     unset($rowData['savedata'], $rowData['u_password']);
 
                     if (insertQry('users', $rowData)) {
-                        ci_redirect('sadmin/' . $module);
+                        ci_redirect($backTo);
                     }
 
                     foreach ($rowData as $ky => $vl) {
@@ -1260,36 +1391,10 @@ class Sadmin extends BaseController
                     if (updateQry($table, $rowData, ['u_id' => $id])) {
                         // Tell the employer as soon as their account goes live.
                         if ($employer_status['u_status'] == 0 && $rowData['u_status'] == 1) {
-                            $email = $employer_status['u_email'];
-
-                            $this->data['name'] = $employer_status['u_fname'] . ' ' . $employer_status['u_lname'];
-
-                            $subject = 'Your Account Has Been Approved – Welcome to ' . $this->data['settings'][0]->s_sitename . '!';
-                            $message = '<div class="container">
-											<div class="header">
-												<h1>Your Account Has Been Approved – Welcome to ' . $this->data['settings'][0]->s_sitename . '!</h1>
-											</div>
-											<div class="content">
-												<h1>Hello, ' . $this->data['name'] . '!</h1>
-												<p>Great news! Your account with ' . $this->data['settings'][0]->s_sitename . ' has been approved and is now active. You can log in using the credentials you provided during registration.</p>
-												<p>In the meantime, if you have any questions, feel free to reach out to our support team at <a href="mailto: ' . $this->data['settings'][0]->s_email . '">' . $this->data['settings'][0]->s_email . '</a></p>
-												<p>Enjoy exploring our platform, and welcome to the ' . $this->data['settings'][0]->s_sitename . ' community!</p>
-
-											</div>
-											<div class="footer">
-												<p>If you have any questions, feel free to <a href="mailto: ' . $this->data['settings'][0]->s_email . '">contact us</a>". We\'re here to help!</p>
-												<p>&copy; ' . date('Y') . $this->data['settings'][0]->s_sitename . '. All rights reserved.</p>
-											</div>
-										</div>';
-
-                            if (send_email($email, $subject, '<p>' . $message . '</p>')) {
-                                log_message('info', 'Email sent successfully!');
-                            } else {
-                                log_message('error', 'Failed to send email.');
-                            }
+                            $this->sendAccountApprovedEmail($employer_status);
                         }
 
-                        ci_redirect('sadmin/' . $module, 'refresh');
+                        ci_redirect($backTo, 'refresh');
                     }
 
                     foreach ($rowData as $ky => $vl) {
@@ -1307,27 +1412,62 @@ class Sadmin extends BaseController
             case 'delete':
                 $this->custom->delete_where($table, ['u_id' => $id]);
 
-                ci_redirect('sadmin/' . $module, 'refresh');
+                ci_redirect($backTo, 'refresh');
                 break;
 
             case 'changestatus':
                 if ($id) {
-                    $original_row = $this->custom->get_where($table, ['u_id' => $id]);
-
-                    if ($original_row) {
-                        $this->custom->toggleStatus($table, 'u_status', 'u_id', $id);
-                        $this->session->set_flashdata('error_msg', '<div class="alert alert-success">Record has been updated.</div>');
-                    }
-
-                    ci_redirect('sadmin/' . $module, 'refresh');
-                } else {
-                    $idnotFound = 1;
+                    $this->toggleUserStatus((int) $id);
                 }
 
-                if ($idnotFound === 1) {
-                    ci_redirect('sadmin/' . $module, 'refresh');
-                }
+                ci_redirect($backTo, 'refresh');
                 break;
+        }
+    }
+
+    /**
+     * Flip a user between active and deactivated from a listing, and send the
+     * approval e-mail when that turns the account on - the activate button has
+     * to behave exactly like setting the status on the edit form.
+     */
+    private function toggleUserStatus(int $id): void
+    {
+        $user = $this->custom->get_where_row('users', ['u_id' => $id]);
+
+        if (! $user) {
+            return;
+        }
+
+        $this->custom->toggleStatus('users', 'u_status', 'u_id', $id);
+
+        if ((int) $user['u_status'] === 0) {
+            $this->sendAccountApprovedEmail($user);
+
+            $this->session->set_flashdata('error_msg', '<div class="alert alert-success">Account activated. The user has been e-mailed.</div>');
+        } else {
+            $this->session->set_flashdata('error_msg', '<div class="alert alert-success">Account deactivated.</div>');
+        }
+    }
+
+    /**
+     * Tell a user their account is live. Used by both the edit form and the
+     * activate button, on employers and applicants alike.
+     *
+     * @param array $user the `users` row as it stood before activation
+     */
+    private function sendAccountApprovedEmail(array $user): void
+    {
+        $subject = 'Your Account Has Been Approved – Welcome to ' . $this->data['settings'][0]->s_sitename . '!';
+        $message = email_body('account-approved', [
+            'title'    => 'Your account has been approved',
+            'name'     => trim($user['u_fname'] . ' ' . $user['u_lname']),
+            'settings' => $this->data['settings'],
+        ]);
+
+        if (send_email($user['u_email'], $subject, $message)) {
+            log_message('info', 'Email sent successfully!');
+        } else {
+            log_message('error', 'Failed to send email.');
         }
     }
 
@@ -1335,11 +1475,10 @@ class Sadmin extends BaseController
     {
         $this->setup();
 
-        $module     = $this->uri->segment(2);
-        $action     = $this->uri->segment(3);
-        $id         = $this->uri->segment(4);
-        $table      = 'users';
-        $idnotFound = 0;
+        $module = $this->uri->segment(2);
+        $action = $this->uri->segment(3);
+        $id     = $this->uri->segment(4);
+        $table  = 'users';
 
         $this->data['pageinfo'] = ['title' => 'Applicant', 'link' => $this->data['link']];
 
@@ -1374,7 +1513,7 @@ class Sadmin extends BaseController
                     getTableInfo($this->dbname, 'users');
                 }
 
-                $this->data['shift_for'] = $this->custom->get_where('shift_for', ['sf_status' => 1]);
+                $this->data['shift_for'] = $this->custom->get_where_order('shift_for', ['sf_status' => 1], 'sf_name', 'asc');
                 $this->data['province']  = $this->custom->get_data('province');
 
                 $this->load->admin_view($module . '/add', $this->data);
@@ -1394,33 +1533,7 @@ class Sadmin extends BaseController
 
                     if (updateQry($table, $rowData, ['u_id' => $id])) {
                         if ($applicant_status['u_status'] == 0 && $rowData['u_status'] == 1) {
-                            $email = $applicant_status['u_email'];
-
-                            $this->data['name'] = $applicant_status['u_fname'] . ' ' . $applicant_status['u_lname'];
-
-                            $subject = 'Your Account Has Been Approved – Welcome to ' . $this->data['settings'][0]->s_sitename . '!';
-                            $message = '<div class="container">
-											<div class="header">
-												<h1>Your Account Has Been Approved – Welcome to ' . $this->data['settings'][0]->s_sitename . '!</h1>
-											</div>
-											<div class="content">
-												<h1>Hello, ' . $this->data['name'] . '!</h1>
-												<p>Great news! Your account with ' . $this->data['settings'][0]->s_sitename . ' has been approved and is now active. You can log in using the credentials you provided during registration.</p>
-												<p>In the meantime, if you have any questions, feel free to reach out to our support team at <a href="mailto: ' . $this->data['settings'][0]->s_email . '">' . $this->data['settings'][0]->s_email . '</a></p>
-												<p>Enjoy exploring our platform, and welcome to the ' . $this->data['settings'][0]->s_sitename . ' community!</p>
-
-											</div>
-											<div class="footer">
-												<p>If you have any questions, feel free to <a href="mailto: ' . $this->data['settings'][0]->s_email . '">contact us</a>". We\'re here to help!</p>
-												<p>&copy; ' . date('Y') . $this->data['settings'][0]->s_sitename . '. All rights reserved.</p>
-											</div>
-										</div>';
-
-                            if (send_email($email, $subject, '<p>' . $message . '</p>')) {
-                                log_message('info', 'Email sent successfully!');
-                            } else {
-                                log_message('error', 'Failed to send email.');
-                            }
+                            $this->sendAccountApprovedEmail($applicant_status);
                         }
 
                         ci_redirect('sadmin/' . $module, 'refresh');
@@ -1434,7 +1547,7 @@ class Sadmin extends BaseController
                 }
 
                 $this->data['province']  = $this->custom->get_data('province');
-                $this->data['shift_for'] = $this->custom->get_where('shift_for', ['sf_status' => 1]);
+                $this->data['shift_for'] = $this->custom->get_where_order('shift_for', ['sf_status' => 1], 'sf_name', 'asc');
 
                 $this->load->admin_view($module . '/edit', $this->data);
                 break;
@@ -1447,21 +1560,10 @@ class Sadmin extends BaseController
 
             case 'changestatus':
                 if ($id) {
-                    $original_row = $this->custom->get_where($table, ['u_id' => $id]);
-
-                    if ($original_row) {
-                        $this->custom->toggleStatus($table, 'u_status', 'u_id', $id);
-                        $this->session->set_flashdata('error_msg', '<div class="alert alert-success">Record has been updated.</div>');
-                    }
-
-                    ci_redirect('sadmin/' . $module, 'refresh');
-                } else {
-                    $idnotFound = 1;
+                    $this->toggleUserStatus((int) $id);
                 }
 
-                if ($idnotFound === 1) {
-                    ci_redirect('sadmin/' . $module, 'refresh');
-                }
+                ci_redirect('sadmin/' . $module, 'refresh');
                 break;
         }
     }
@@ -1476,7 +1578,7 @@ class Sadmin extends BaseController
 
         $this->data['pageinfo']        = ['title' => 'Shifts', 'link' => $this->data['link']];
         $this->data['jobs']            = $this->custom->get_data('post_job');
-        $this->data['shift_for']       = $this->custom->get_where('shift_for', ['sf_status' => 1]);
+        $this->data['shift_for']       = $this->custom->get_where_order('shift_for', ['sf_status' => 1], 'sf_name', 'asc');
         $this->data['province']        = $this->custom->get_where('province', ['p_status' => 1]);
         $this->data['city']            = $this->custom->get_where('city', ['c_status' => 1]);
         $this->data['hourly_rate']     = $this->custom->get_where('hourly_rate', ['hr_status' => 1]);
@@ -1485,10 +1587,13 @@ class Sadmin extends BaseController
 
         switch ($action) {
             default:
+                // Latest shift date first here, unlike the applicant-facing
+                // lists: the admin is looking at what has just been posted
+                // rather than shopping for the next shift to work.
                 if ($this->input->get('filter') && $this->input->get('filter') === 'new') {
-                    $jobs = $this->custom->get_where_order('post_job', ['p_approved' => 0], 'p_date_start', 'asc');
+                    $jobs = $this->custom->get_where_order('post_job', ['p_approved' => 0], shiftDateOrderBy('', 'DESC'), '', false);
                 } else {
-                    $jobs = $this->custom->get_data_order('post_job', 'p_date_start', 'asc');
+                    $jobs = $this->custom->get_data_order('post_job', shiftDateOrderBy('', 'DESC'), '', false);
                 }
 
                 $this->data['jobs'] = $jobs;
@@ -1499,13 +1604,20 @@ class Sadmin extends BaseController
             case 'add':
                 if ($this->input->post('savedata')) {
                     $this->form_validation->set_rules('u_id', 'Agency/Owner Name', 'required');
+                    $this->form_validation->set_rules('p_store_id', 'Store', 'required');
 
                     $rowData = cleanArray($this->input->post());
 
                     $u_data = $this->custom->get_where('users', ['u_id' => $this->input->post('u_id')]);
 
-                    $rowData['p_province'] = $u_data[0]->u_provice;
-                    $rowData['p_city']     = $u_data[0]->u_city;
+                    // The shift's location is the chosen store - one belonging
+                    // to the chosen employer - falling back to the employer's
+                    // login columns as before (change request B4).
+                    $store = $this->employerStore((int) $this->input->post('p_store_id'), (int) $this->input->post('u_id'));
+
+                    $rowData['p_store_id'] = $store ? $store->s_id : 0;
+                    $rowData['p_province'] = ($store && $store->s_province) ? $store->s_province : $u_data[0]->u_provice;
+                    $rowData['p_city']     = ($store && $store->s_city) ? $store->s_city : $u_data[0]->u_city;
 
                     $rowData['p_skills']   = implode(',', (array) $this->input->post('p_skills'));
                     $rowData['p_services'] = implode(',', (array) $this->input->post('p_services'));
@@ -1536,6 +1648,13 @@ class Sadmin extends BaseController
 
                 $this->data['agencies'] = $this->custom->get_where_order('users', ['u_usertype' => 1, 'u_status' => 1], 'u_comp_name', 'asc');
 
+                // Stores of the already-chosen employer, so the picker is
+                // populated on a re-render; picking an employer refreshes the
+                // list over ajax_getstorelist.
+                $this->data['agency_stores'] = empty($this->data['u_id'])
+                    ? []
+                    : $this->custom->get_where_order('store', ['u_id' => $this->data['u_id'], 's_status' => 1], 's_name', 'asc');
+
                 $this->load->admin_view('postjobs/add', $this->data);
                 break;
 
@@ -1551,13 +1670,18 @@ class Sadmin extends BaseController
                 if ($applied_approved === 0) {
                     if ($this->input->post('savedata')) {
                         $this->form_validation->set_rules('u_id', 'Agency/Owner Name', 'required');
+                        $this->form_validation->set_rules('p_store_id', 'Store', 'required');
 
                         $rowData = cleanArray($this->input->post());
 
                         $u_data = $this->custom->get_where('users', ['u_id' => $this->input->post('u_id')]);
 
-                        $rowData['p_province'] = $u_data[0]->u_provice;
-                        $rowData['p_city']     = $u_data[0]->u_city;
+                        // Same as on add: the location comes off the chosen store.
+                        $store = $this->employerStore((int) $this->input->post('p_store_id'), (int) $this->input->post('u_id'));
+
+                        $rowData['p_store_id'] = $store ? $store->s_id : 0;
+                        $rowData['p_province'] = ($store && $store->s_province) ? $store->s_province : $u_data[0]->u_provice;
+                        $rowData['p_city']     = ($store && $store->s_city) ? $store->s_city : $u_data[0]->u_city;
 
                         $rowData['p_skills']   = implode(',', (array) $this->input->post('p_skills'));
                         $rowData['p_services'] = implode(',', (array) $this->input->post('p_services'));
@@ -1588,25 +1712,14 @@ class Sadmin extends BaseController
                                 $this->data['name'] = $u_data[0]->u_fname . ' ' . $u_data[0]->u_lname;
 
                                 $subject = 'Your Shift Has Been Posted on ' . $this->data['settings'][0]->s_sitename . '!';
-                                $message = '<div class="container">
-												<div class="header">
-													<h1>Your Shift Has Been Posted on ' . $this->data['settings'][0]->s_sitename . '!</h1>
-												</div>
-												<div class="content">
-													<h1>Hello, ' . $this->data['name'] . '!</h1>
-													<p>Great news! Your shift ' . $shift_approved['p_job_title'] . ' has been posted and is now live on our platform.</p>
-													<p>Applicants can now view and apply for your shift. You will receive notifications when candidates submit their applications.</p>
-													<p>If you have any questions or need any changes to your listing, feel free to contact us at <a href="mailto: ' . $this->data['settings'][0]->s_email . '">' . $this->data['settings'][0]->s_email . '</a></p>
-													<p>Thank you for choosing ' . $this->data['settings'][0]->s_sitename . ' to fill your shift!</p>
+                                $message = email_body('shift-posted', [
+                                    'title'       => 'Your shift is now live',
+                                    'name'        => $this->data['name'],
+                                    'shift_title' => $shift_approved['p_job_title'],
+                                    'settings'    => $this->data['settings'],
+                                ]);
 
-												</div>
-												<div class="footer">
-													<p>If you have any questions, feel free to <a href="mailto: ' . $this->data['settings'][0]->s_email . '">contact us</a>". We\'re here to help!</p>
-													<p>&copy; ' . date('Y') . $this->data['settings'][0]->s_sitename . '. All rights reserved.</p>
-												</div>
-											</div>';
-
-                                if (send_email($email, $subject, '<p>' . $message . '</p>')) {
+                                if (send_email($email, $subject, $message)) {
                                     log_message('info', 'Email sent successfully!');
                                 } else {
                                     log_message('error', 'Failed to send email.');
@@ -1628,6 +1741,10 @@ class Sadmin extends BaseController
                 }
 
                 $this->data['agencies'] = $this->custom->get_where_order('users', ['u_usertype' => 1, 'u_status' => 1], 'u_comp_name', 'asc');
+
+                $this->data['agency_stores'] = empty($this->data['u_id'])
+                    ? []
+                    : $this->custom->get_where_order('store', ['u_id' => $this->data['u_id'], 's_status' => 1], 's_name', 'asc');
 
                 $this->load->admin_view('postjobs/edit', $this->data);
                 break;
@@ -1702,9 +1819,19 @@ class Sadmin extends BaseController
                     $approvedCase = 'CASE WHEN sj_id = ' . (int) $id . ' THEN 1 ELSE 2 END';
                     $commentCase  = 'CASE WHEN sj_id = ' . (int) $id . ' THEN ' . $this->db->escape($rowData['sj_admin_comment']) . ' ELSE sj_admin_comment END';
 
+                    // When the booking happened. This path bypasses updateQry(),
+                    // so the sj_accept_date set above never reached the database
+                    // and every booked row was left NULL - which is why nothing
+                    // could report bookings per month. Only the approved row is
+                    // stamped; the ones being rejected keep theirs unset.
+                    $now         = $this->db->escape(date('Y-m-d H:i:s'));
+                    $acceptCase  = 'CASE WHEN sj_id = ' . (int) $id . ' THEN ' . $now . ' ELSE sj_accept_date END';
+
                     $updated = $this->db->table($table)
                         ->set('sj_is_approved', $approvedCase, false)
                         ->set('sj_admin_comment', $commentCase, false)
+                        ->set('sj_accept_date', $acceptCase, false)
+                        ->set('modified', $now, false)
                         ->where('p_id', $rowData['p_id'])
                         ->update();
 
@@ -1738,42 +1865,21 @@ class Sadmin extends BaseController
 
                             $employer_detail = $this->custom->get_where_row('users', ['u_id' => $user->agency_id]);
 
+                            // The agency keeps a copy of both halves of the booking.
+                            $agency_copy = getAgencyCopyEmail();
+
                             $applicant_email   = $user_email;
                             $applicant_subject = 'Congratulations! You Have Been Approved for Shift ID : ' . $shift_detail['p_job_title'];
-                            $applicant_message = '<div class="container">
-													<div class="header">
-														<h1>Congratulations! You Have Been Approved for Shift ID : ' . $shift_detail['p_job_title'] . ' !</h1>
-													</div>
-													<div class="content">
-														<p>Dear ' . $user_name . ',
+                            $applicant_message = email_body('booking-applicant', [
+                                'title'            => 'You have been approved for a shift',
+                                'name'             => $user_name,
+                                'shift'            => $shift_detail,
+                                'employer'         => $employer_detail,
+                                'approval_comment' => $rowData['sj_admin_comment'],
+                                'settings'         => $this->data['settings'],
+                            ]);
 
-												We are excited to inform you that you have been approved for the Shift ID : ' . $shift_detail['p_job_title'] . ' at ' . $employer_detail['u_comp_name'] . '.</p>
-
-												<p>Here are the details:</p>
-												<ul>
-
-												<li> Store No.: ' . $employer_detail['u_licence_no'] . ' </li>
-												<li> Store addresses: ' . $employer_detail['u_address1'] . ', ' . getCityName($employer_detail['u_city']) . ', ' . getProvinceName($employer_detail['u_provice']) . ', ' . $employer_detail['u_pincode'] . ' </li>
-												<li> Shift Requested For: ' . getShiftForName($shift_detail['p_shift_for']) . ' </li>
-												<li> Shift Date : ' . dateFormat($shift_detail['p_dates']) . ' </li>
-												<li> Shift Time : ' . $shift_detail['p_shift_time'] . ' </li>
-												<li> Posted Shift Rate : CAD$ ' . $shift_detail['p_ac_hourly_rate'] . '/Hour </li>
-												<li> Approval Message : ' . $rowData['sj_admin_comment'] . ' </li>
-												<li> Softwares : ' . getSoftwareSkills($shift_detail['p_skills']) . ' </li>
-												<li> Services : ' . getStoreServices($shift_detail['p_services']) . ' </li>
-
-												</ul>
-
-												<p>We wish you all the best. </p>
-
-												<p>If you have any questions, feel free to contact our support team at ' . $this->data['settings'][0]->s_email . '.</p></div>
-										<div class="footer">
-											<p>If you have any questions, feel free to <a href="mailto: ' . $this->data['settings'][0]->s_email . '">contact us</a>". We wish you all the best !</p>
-											<p>&copy; ' . date('Y') . $this->data['settings'][0]->s_sitename . '. All rights reserved. <a href="' . base_url('terms') . ' "> (Terms & Conditions)</a> </p>
-										</div>
-									</div>';
-
-                            if (send_email($applicant_email, $applicant_subject, '<p>' . $applicant_message . '</p>')) {
+                            if (send_email($applicant_email, $applicant_subject, $applicant_message, $agency_copy)) {
                                 log_message('info', 'Email sent successfully!');
                             } else {
                                 log_message('error', 'Failed to send email.');
@@ -1781,40 +1887,16 @@ class Sadmin extends BaseController
 
                             $employer_email   = $employer_detail['u_email'];
                             $employer_subject = 'A New Applicant Has Been Approved for Shift ID : ' . $shift_detail['p_job_title'];
-                            $employer_message = '<div class="container">
-													<div class="header">
-														<h1>A New Applicant Has Been Approved for  Shift ID : ' . $shift_detail['p_job_title'] . '!</h1>
-													</div>
-													<div class="content">
-														<p>Dear ' . $employer_detail['u_fname'] . ' ' . $employer_detail['u_lname'] . ',
+                            $employer_message = email_body('booking-employer', [
+                                'title'          => 'An applicant has been approved for your shift',
+                                'name'           => $employer_detail['u_fname'] . ' ' . $employer_detail['u_lname'],
+                                'applicant_name' => $user_name,
+                                'applicant'      => $user,
+                                'shift'          => $shift_detail,
+                                'settings'       => $this->data['settings'],
+                            ]);
 
-												We are pleased to inform you that an applicant has been approved for your Shift ID : ' . $shift_detail['p_job_title'] . ' .</p>
-
-												<p>Here are the Applicant details:</p>
-												<ul>
-
-												<li> Applicant Name : ' . $user_name . ' </li>
-												<li> Applicant Licence No.: ' . $user->u_licence_no . ' </li>
-												<li> Licence Province: ' . getProvinceName($user->u_l_provice) . ' </li>
-												<li> Shift Requested For: ' . getShiftForName($shift_detail['p_shift_for']) . ' </li>
-												<li> Shift Date : ' . dateFormat($shift_detail['p_dates']) . ' </li>
-												<li> Shift Time : ' . $shift_detail['p_shift_time'] . ' </li>
-												<li> Shift Rate : CAD$ ' . $shift_detail['p_hourly_rate'] . '/Hour </li>
-												<li> Softwares : ' . getSoftwareSkills($shift_detail['p_skills']) . ' </li>
-												<li> Services : ' . getStoreServices($shift_detail['p_services']) . ' </li>
-
-												</ul>
-
-												<p>We wish you all the best. </p>
-
-												<p>If you have any questions, feel free to contact our support team at ' . $this->data['settings'][0]->s_email . '.</p></div>
-										<div class="footer">
-											<p>If you have any questions, feel free to <a href="mailto: ' . $this->data['settings'][0]->s_email . '">contact us</a>". We wish you all the best !</p>
-											<p>&copy; ' . date('Y') . $this->data['settings'][0]->s_sitename . '. All rights reserved. <a href="' . base_url('terms') . ' "> (Terms & Conditions)</a> </p>
-										</div>
-									</div>';
-
-                            if (send_email($employer_email, $employer_subject, '<p>' . $employer_message . '</p>')) {
+                            if (send_email($employer_email, $employer_subject, $employer_message, $agency_copy)) {
                                 log_message('info', 'Email sent successfully!');
                             } else {
                                 log_message('error', 'Failed to send email.');
@@ -1923,6 +2005,52 @@ class Sadmin extends BaseController
         $this->load->admin_view('settings/edit', $this->data);
     }
 
+    /**
+     * One of the given employer's active stores, or null - so a shift can
+     * only be filed under a store its employer actually owns.
+     */
+    private function employerStore(int $storeId, int $employerId)
+    {
+        if ($storeId <= 0 || $employerId <= 0) {
+            return null;
+        }
+
+        $rows = $this->custom->get_where('store', [
+            's_id'     => $storeId,
+            'u_id'     => $employerId,
+            's_status' => 1,
+        ]);
+
+        return $rows[0] ?? null;
+    }
+
+    /**
+     * `<option>`s for the store picker on the shift form, refreshed when the
+     * employer changes - same shape as ajax_getcitylist above.
+     */
+    public function ajax_getstorelist()
+    {
+        $this->setup();
+
+        $uid = (int) $this->input->post('u_id');
+        $sid = (int) $this->input->post('sid');
+
+        $stores = $this->db->table('store')
+            ->orderBy('s_name', 'asc')
+            ->getWhere(['u_id' => $uid, 's_status' => 1])
+            ->getResult();
+
+        $store_data = '<option value="">-- Select Store --</option>';
+
+        foreach ($stores as $store) {
+            $selected = ($sid == $store->s_id) ? 'selected' : '';
+            $label    = $store->s_name . ($store->s_number !== '' ? ' (' . $store->s_number . ')' : '');
+            $store_data .= '<option value="' . $store->s_id . '" ' . $selected . '>' . esc($label) . '</option>';
+        }
+
+        echo $store_data;
+    }
+
     public function ajax_getcitylist()
     {
         $this->setup();
@@ -1990,6 +2118,133 @@ class Sadmin extends BaseController
             log_message('error', $email->printDebugger(['headers']));
             echo 'Message could not be sent.';
         }
+    }
+
+    /**
+     * Monthly figures: bookings, new employers, new applicants.
+     *
+     * `?export=csv` returns the same rows as a download rather than a page.
+     *
+     * Bookings are dated by `sj_accept_date`, which was never written before
+     * 6 Aug 2026 - see the note in the view. Rows without it fall back to the
+     * date the application arrived, which is the closest thing that exists.
+     */
+    public function reports()
+    {
+        $this->setup();
+
+        $this->data['pageinfo'] = ['title' => 'Reports', 'link' => $this->data['link']];
+
+        $from = $this->input->get('from') ?: date('Y-m-01', strtotime('-11 months'));
+        $to   = $this->input->get('to') ?: date('Y-m-t');
+
+        // Normalise, so a hand-edited URL cannot reach the query as anything
+        // other than a date.
+        $from = date('Y-m-d', strtotime($from) ?: strtotime('-11 months'));
+        $to   = date('Y-m-d', strtotime($to) ?: time());
+
+        $this->data['from'] = $from;
+        $this->data['to']   = $to;
+
+        $bookings = $this->custom->query(
+            "SELECT DATE_FORMAT(COALESCE(sj_accept_date, created), '%Y-%m') AS mth, COUNT(*) AS n
+               FROM stu_saved_applied_jobs
+              WHERE sj_is_approved = 1
+                AND DATE(COALESCE(sj_accept_date, created)) BETWEEN ? AND ?
+           GROUP BY mth",
+            [$from, $to]
+        );
+
+        $employers = $this->custom->query(
+            "SELECT DATE_FORMAT(created, '%Y-%m') AS mth, COUNT(*) AS n
+               FROM users
+              WHERE u_usertype = 1 AND created IS NOT NULL
+                AND DATE(created) BETWEEN ? AND ?
+           GROUP BY mth",
+            [$from, $to]
+        );
+
+        $applicants = $this->custom->query(
+            "SELECT DATE_FORMAT(created, '%Y-%m') AS mth, COUNT(*) AS n
+               FROM users
+              WHERE u_usertype = 2 AND created IS NOT NULL
+                AND DATE(created) BETWEEN ? AND ?
+           GROUP BY mth",
+            [$from, $to]
+        );
+
+        $byMonth = static function (array $rows): array {
+            $out = [];
+
+            foreach ($rows as $r) {
+                $out[$r->mth] = (int) $r->n;
+            }
+
+            return $out;
+        };
+
+        $bookings   = $byMonth($bookings);
+        $employers  = $byMonth($employers);
+        $applicants = $byMonth($applicants);
+
+        // Every month in the range, so a month with nothing in it reads as a
+        // zero rather than vanishing from the table.
+        $rows   = [];
+        $cursor = strtotime(date('Y-m-01', strtotime($from)));
+        $end    = strtotime(date('Y-m-01', strtotime($to)));
+
+        while ($cursor <= $end) {
+            $key    = date('Y-m', $cursor);
+            $rows[] = [
+                'month'      => $key,
+                'label'      => date('M Y', $cursor),
+                'bookings'   => $bookings[$key] ?? 0,
+                'employers'  => $employers[$key] ?? 0,
+                'applicants' => $applicants[$key] ?? 0,
+            ];
+            $cursor = strtotime('+1 month', $cursor);
+        }
+
+        $this->data['rows']   = $rows;
+        $this->data['totals'] = [
+            'bookings'   => array_sum(array_column($rows, 'bookings')),
+            'employers'  => array_sum(array_column($rows, 'employers')),
+            'applicants' => array_sum(array_column($rows, 'applicants')),
+        ];
+
+        if ($this->input->get('export') === 'csv') {
+            $this->exportReportCsv($rows, $from, $to);
+
+            return;
+        }
+
+        $this->load->admin_view('reports/index', $this->data);
+    }
+
+    /** Stream the monthly figures as a CSV download. */
+    private function exportReportCsv(array $rows, string $from, string $to): void
+    {
+        $name = 'pickashift-monthly-' . $from . '-to-' . $to . '.csv';
+
+        header('Content-Type: text/csv; charset=UTF-8');
+        header('Content-Disposition: attachment; filename="' . $name . '"');
+
+        $out = fopen('php://output', 'w');
+        fputcsv($out, ['Month', 'Shifts booked', 'New employers', 'New applicants']);
+
+        foreach ($rows as $r) {
+            fputcsv($out, [$r['label'], $r['bookings'], $r['employers'], $r['applicants']]);
+        }
+
+        fputcsv($out, [
+            'Total',
+            array_sum(array_column($rows, 'bookings')),
+            array_sum(array_column($rows, 'employers')),
+            array_sum(array_column($rows, 'applicants')),
+        ]);
+
+        fclose($out);
+        exit;
     }
 
     /**

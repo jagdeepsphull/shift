@@ -39,12 +39,18 @@ async function readCaptchaCode(context) {
   const file = path.join(SESSION_DIR, `${COOKIE_NAME}${id}`);
 
   // The session is written when the captcha request shuts down; give it a
-  // moment on a slow disk rather than failing the whole test run.
+  // moment on a slow disk rather than failing the whole test run. On Windows a
+  // read landing while PHP still holds the file raises EBUSY, so that is another
+  // reason to wait rather than a failure.
   for (let attempt = 0; attempt < 20; attempt++) {
     if (fs.existsSync(file)) {
-      const raw = fs.readFileSync(file, 'latin1');
-      const match = raw.match(/captcha_code\|s:\d+:"(\d+)"/);
-      if (match) return match[1];
+      try {
+        const raw = fs.readFileSync(file, 'latin1');
+        const match = raw.match(/captcha_code\|s:\d+:"(\d+)"/);
+        if (match) return match[1];
+      } catch (error) {
+        if (error.code !== 'EBUSY' && error.code !== 'EPERM' && error.code !== 'ENOENT') throw error;
+      }
     }
     await new Promise((r) => setTimeout(r, 100));
   }

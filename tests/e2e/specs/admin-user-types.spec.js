@@ -2,11 +2,11 @@
 /**
  * The back office splits employers by the user type chosen at registration.
  *
- * Registration offers Manager, Owner (Multi Store), Owner (Individual Store)
- * and Applicant, but all three employer kinds are one `users.u_usertype` row -
- * they differ by `u_emp_role` and `u_parent_id`. The sidebar has to list them
- * apart so an admin can find a new sign-up of a given kind, and the listing has
- * to activate it without opening the record.
+ * Registration offers Owner, Manager and Applicant. Both employer kinds are
+ * one `users.u_usertype` row and differ only by `u_emp_role` - 1 for an owner,
+ * 2 for a manager. The sidebar has to list them apart so an admin can find a
+ * new sign-up of a given kind, and the listing has to activate it without
+ * opening the record.
  */
 const { test, expect } = require('@playwright/test');
 const { loginAsAdmin, expectNoServerError, filterTable } = require('../helpers/admin');
@@ -14,8 +14,7 @@ const { query, scalar } = require('../helpers/db');
 
 /** One pending sign-up per kind, so each list has exactly one row to find. */
 const SEED = {
-  owner_multi: { email: 'e2e.kind.multi@example.com', company: 'E2E Kind Multi Store' },
-  owner_individual: { email: 'e2e.kind.single@example.com', company: 'E2E Kind Individual' },
+  owner: { email: 'e2e.kind.multi@example.com', company: 'E2E Kind Owner' },
   manager: { email: 'e2e.kind.manager@example.com', company: 'E2E Kind Manager' },
   applicant: { email: 'e2e.kind.applicant@example.com', company: '' },
 };
@@ -55,24 +54,18 @@ test.beforeAll(() => {
 
   // Order matters: a manager answers to a multi-store owner, so the owner has
   // to exist before its `u_parent_id` can point at one.
-  ids.owner_multi = seedUser(SEED.owner_multi.email, {
+  ids.owner = seedUser(SEED.owner.email, {
     usertype: 1,
     role: 1,
     parent: 0,
-    company: SEED.owner_multi.company,
+    company: SEED.owner.company,
   });
 
-  ids.owner_individual = seedUser(SEED.owner_individual.email, {
-    usertype: 1,
-    role: 2,
-    parent: 0,
-    company: SEED.owner_individual.company,
-  });
 
   ids.manager = seedUser(SEED.manager.email, {
     usertype: 1,
     role: 2,
-    parent: ids.owner_multi,
+    parent: ids.owner,
     company: SEED.manager.company,
   });
 
@@ -101,31 +94,30 @@ test('the sidebar lists every employer kind under Manage Employers', async ({ pa
   // are matched in the markup rather than by what is on screen.
   for (const href of [
     '/sadmin/employer',
+    '/sadmin/employer/owner',
     '/sadmin/employer/manager',
-    '/sadmin/employer/owner_multi',
-    '/sadmin/employer/owner_individual',
   ]) {
     await expect(sidebar.locator(`a[href$="${href}"]`), href).toHaveCount(1);
   }
 
-  // Three pending employers were seeded, one of each kind, plus whatever the
+  // Two pending employers were seeded, one of each kind, plus whatever the
   // database already held - the badge has to count at least the seeded ones.
   const badge = sidebar.locator('li.nav-item', { hasText: 'Manage Employers' }).locator('.badge').first();
-  expect(Number(await badge.textContent())).toBeGreaterThanOrEqual(3);
+  expect(Number(await badge.textContent())).toBeGreaterThanOrEqual(2);
 
   await expectNoServerError(page);
 });
 
 test('opening a kind marks it as the current screen', async ({ page }) => {
-  await page.goto('sadmin/employer/owner_multi');
+  await page.goto('sadmin/employer/owner');
 
   const sidebar = page.locator('aside.main-sidebar');
-  const link = sidebar.locator('a[href$="/sadmin/employer/owner_multi"]');
+  const link = sidebar.locator('a[href$="/sadmin/employer/owner"]');
 
   await expect(link).toBeVisible();
   await expect(link).toHaveClass(/active/);
 
-  await expect(page.locator('.content-header h1')).toContainText('Owners (Multi Store)');
+  await expect(page.locator('.content-header h1')).toContainText('Owners');
 
   await expectNoServerError(page);
 });
@@ -133,9 +125,8 @@ test('opening a kind marks it as the current screen', async ({ page }) => {
 test('each kind lists only its own accounts', async ({ page }) => {
   /** @type {Array<[string, string, string[]]>} shown, and what must not be there */
   const cases = [
-    ['owner_multi', SEED.owner_multi.company, [SEED.manager.company, SEED.owner_individual.company]],
-    ['owner_individual', SEED.owner_individual.company, [SEED.manager.company, SEED.owner_multi.company]],
-    ['manager', SEED.manager.company, [SEED.owner_multi.company, SEED.owner_individual.company]],
+    ['owner', SEED.owner.company, [SEED.manager.company]],
+    ['manager', SEED.manager.company, [SEED.owner.company]],
   ];
 
   for (const [slug, shown, hidden] of cases) {
@@ -159,8 +150,7 @@ test('All Employers still shows every kind, including pre-B4 rows', async ({ pag
   const body = await page.content();
 
   for (const company of [
-    SEED.owner_multi.company,
-    SEED.owner_individual.company,
+    SEED.owner.company,
     SEED.manager.company,
   ]) {
     expect(body, `All Employers shows ${company}`).toContain(company);
@@ -168,7 +158,7 @@ test('All Employers still shows every kind, including pre-B4 rows', async ({ pag
 
   // The kind is named on each row, so an account that predates the split is
   // visible here rather than silently absent from all three lists.
-  for (const label of ['Manager', 'Owner (Multi Store)', 'Owner (Individual Store)']) {
+  for (const label of ['Owner', 'Manager']) {
     expect(body, `All Employers names the ${label} kind`).toContain(label);
   }
 

@@ -39,13 +39,38 @@
 									<?php if ($shift_store && trim((string) $shift_store->s_name) !== '') { ?>
 									<h6><span class="font-weight-bold mr-2">Store:</span> <?php echo esc($shift_store->s_name . ($shift_store->s_number !== '' ? ' (' . $shift_store->s_number . ')' : '')); ?></h6>
 									<?php } ?>
+									<?php if ($shift_store && trim((string) ($shift_store->s_location_label ?? '')) !== '') { ?>
+									<?php /* Where the place actually is, when the street address on
+									   its own will not find it - a unit in a plaza, a counter inside
+									   a supermarket. */ ?>
+									<h6><span class="font-weight-bold mr-2">Where to find it:</span> <?php echo esc($shift_store->s_location_label); ?></h6>
+									<?php } ?>
 									<p class="icon"><i class="lni lni-map-marker"></i> <?php
 										// The address of the store the shift is at, then city and province.
 										$location = ($shift_store && trim((string) $shift_store->s_address) !== '') ? esc($shift_store->s_address) . ', ' : '';
 										echo $location . $jobdetail[0]->c_name . ', ' . $jobdetail[0]->p_name;
-									?></p>
+									?>
+									<?php
+										// The pasted pin where the store has one, otherwise a search
+										// for the address just printed. Shown to everyone: knowing
+										// where a shift is is what decides whether to apply for it.
+										$mapLink = $shift_store ? storeMapLink($shift_store) : '';
+									?>
+									<?php if ($mapLink !== '') { ?>
+									<a href="<?php echo esc($mapLink); ?>" target="_blank" rel="noopener noreferrer" class="ml-2">Get directions</a>
+									<?php } ?>
+									</p>
 									<?php if ($is_booked_viewer && $shift_store && trim((string) $shift_store->s_phone) !== '') { ?>
 									<p class="icon"><i class="lni lni-phone-handset"></i> <?php echo esc($shift_store->s_phone); ?></p>
+									<?php } ?>
+									<?php
+										// The store's own page where it has one, else the employer's.
+										$storeWeb = trim((string) ($shift_store->s_website ?? ''));
+										$ownerWeb = trim((string) ($jobdetail[0]->u_website ?? ''));
+										$website  = safeUrl($storeWeb !== '' ? $storeWeb : $ownerWeb);
+									?>
+									<?php if ($website !== '') { ?>
+									<p class="icon"><i class="lni lni-world"></i> <a href="<?php echo esc($website); ?>" target="_blank" rel="noopener noreferrer"><?php echo esc(parse_url($website, PHP_URL_HOST)); ?></a></p>
 									<?php } ?>
 									<p class="icon"><i class="lni lni-wallet"></i> To be disclosed</p>
 									<p class="icon"><i class="lni lni-calendar"></i> <?php echo dateFormat($jobdetail[0]->p_dates); ?></p>

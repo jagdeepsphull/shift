@@ -200,13 +200,10 @@ class Employer extends BaseController
         $this->data['software_skills'] = $this->custom->get_where('software_skills', ['ss_status' => 1]);
         $this->data['store_service']   = $this->custom->get_where('store_service', ['st_status' => 1]);
 
-        // The login's active stores, for the location picker on the form.
-        $this->data['stores'] = $this->custom->get_where_order(
-            'store',
-            ['u_id' => $this->userinfo[0]->u_id, 's_status' => 1],
-            's_name',
-            'asc'
-        );
+        // The login's active stores, for the location picker on the form. A
+        // manager owns none - theirs is the group's store they were assigned -
+        // so this resolves both cases rather than reading ownership directly.
+        $this->data['stores'] = employerStores($this->userinfo[0]);
 
         $this->job_owner         = $this->custom->get_where('post_job', ['u_id' => $this->userinfo[0]->u_id]);
         $this->data['job_owner'] = $this->job_owner;
@@ -279,13 +276,10 @@ class Employer extends BaseController
         $this->data['software_skills'] = $this->custom->get_where('software_skills', ['ss_status' => 1]);
         $this->data['store_service']   = $this->custom->get_where('store_service', ['st_status' => 1]);
 
-        // The login's active stores, for the location picker on the form.
-        $this->data['stores'] = $this->custom->get_where_order(
-            'store',
-            ['u_id' => $this->userinfo[0]->u_id, 's_status' => 1],
-            's_name',
-            'asc'
-        );
+        // The login's active stores, for the location picker on the form. A
+        // manager owns none - theirs is the group's store they were assigned -
+        // so this resolves both cases rather than reading ownership directly.
+        $this->data['stores'] = employerStores($this->userinfo[0]);
 
         $this->job_owner         = $this->custom->get_where('post_job', ['u_id' => $this->userinfo[0]->u_id]);
         $this->data['job_owner'] = $this->job_owner;
@@ -348,16 +342,17 @@ class Employer extends BaseController
             ci_redirect('front/login');
         }
 
-        $this->data['stores'] = $this->custom->get_where_order(
-            'store',
-            ['u_id' => $this->userinfo[0]->u_id],
-            's_name',
-            'asc'
-        );
+        // Deactivated ones included, so they can be seen and turned back on.
+        $this->data['stores'] = employerStores($this->userinfo[0], false);
 
         // A store-role login has its single location; only a manager (or an
         // employer from before the feature) adds more.
         $this->data['can_add_store'] = (($this->userinfo[0]->u_emp_role ?? 0) != 2);
+
+        // A manager is shown their corporate group's store, which they do not
+        // own: edit_store() would refuse it, so the row is listed without the
+        // button rather than with one that leads nowhere.
+        $this->data['store_owner_id'] = (int) $this->userinfo[0]->u_id;
 
         $this->load->owner_inner_view('stores', $this->data);
     }
@@ -449,15 +444,26 @@ class Employer extends BaseController
             's_province' => (int) $this->input->post('s_province'),
             's_city'     => (int) $this->input->post('s_city'),
             's_address'  => strip_tags((string) $this->input->post('s_address')),
+            // Where the place actually is, for an applicant who has the street
+            // address and still cannot find the door.
+            's_location_label' => strip_tags((string) $this->input->post('s_location_label')),
+            // Normalised and scheme-checked rather than stored as typed: these
+            // end up in an href on the shift page and in booking e-mail.
+            's_map_url'  => safeUrl($this->input->post('s_map_url')),
             's_pincode'  => strip_tags((string) $this->input->post('s_pincode')),
             's_phone'    => strip_tags((string) $this->input->post('s_phone')),
+            's_website'  => safeUrl($this->input->post('s_website')),
             's_status'   => $this->input->post('s_status') !== null ? (int) $this->input->post('s_status') : 1,
             'modified'   => date('Y-m-d H:i:s'),
         ];
     }
 
     /**
-     * One of the logged-in employer's active stores, or null.
+     * One of the stores this login may post against, or null.
+     *
+     * Matched against the same list the form offered rather than against
+     * ownership, so a manager's assigned store counts and the rule that decides
+     * it lives in one place.
      */
     private function ownStore(int $storeId)
     {
@@ -465,13 +471,13 @@ class Employer extends BaseController
             return null;
         }
 
-        $rows = $this->custom->get_where('store', [
-            's_id'     => $storeId,
-            'u_id'     => $this->userinfo[0]->u_id,
-            's_status' => 1,
-        ]);
+        foreach (employerStores($this->userinfo[0]) as $store) {
+            if ((int) $store->s_id === $storeId) {
+                return $store;
+            }
+        }
 
-        return $rows[0] ?? null;
+        return null;
     }
 
     public function applications()

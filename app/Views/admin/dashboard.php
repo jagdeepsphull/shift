@@ -1,3 +1,20 @@
+<?php
+/* New employers, then one tab per employer kind, in the order the sidebar
+   lists them. The combined tab stays first and is not just the sum of the
+   others: pre-B4 accounts carry role 0 and belong to no kind, so dropping it
+   would hide them. */
+$employerTabs = [
+    '' => ['label' => 'New Employers', 'empty' => 'employers', 'rows' => $new_employers],
+];
+
+foreach (($employerKinds ?? []) as $kindCode => $kindDef) {
+    $employerTabs[$kindDef['slug']] = [
+        'label' => $kindDef['label'],
+        'empty' => strtolower($kindDef['label']),
+        'rows'  => $new_employers_by_kind[$kindCode] ?? [],
+    ];
+}
+?>
   <!-- Content Wrapper. Contains page content -->
   <div class="content-wrapper">
     <!-- Content Header (Page header) -->
@@ -127,11 +144,13 @@
                         New Applications <span class="badge badge-primary"><?php echo count($new_applications); ?></span>
                       </a>
                     </li>
+                    <?php foreach ($employerTabs as $slug => $tab) { ?>
                     <li class="nav-item">
-                      <a class="nav-link" id="tab-emp" data-toggle="pill" href="#pane-emp" role="tab">
-                        New Employers <span class="badge badge-primary"><?php echo count($new_employers); ?></span>
+                      <a class="nav-link" id="tab-emp<?php echo $slug ? '-' . $slug : ''; ?>" data-toggle="pill" href="#pane-emp<?php echo $slug ? '-' . $slug : ''; ?>" role="tab">
+                        <?php echo esc($tab['label']); ?> <span class="badge badge-primary"><?php echo count($tab['rows']); ?></span>
                       </a>
                     </li>
+                    <?php } ?>
                     <li class="nav-item">
                       <a class="nav-link" id="tab-app" data-toggle="pill" href="#pane-app" role="tab">
                         New Applicants <span class="badge badge-primary"><?php echo count($new_applicants); ?></span>
@@ -178,27 +197,32 @@
                     <?php } ?>
                   </div>
 
-                  <div class="tab-pane fade" id="pane-emp" role="tabpanel">
-                    <?php if (!$new_employers) { ?>
-                      <p class="text-muted mb-0">No new employers in the last <?php echo $new_days; ?> days.</p>
+                  <?php foreach ($employerTabs as $slug => $tab) { ?>
+                  <div class="tab-pane fade" id="pane-emp<?php echo $slug ? '-' . $slug : ''; ?>" role="tabpanel">
+                    <?php if (!$tab['rows']) { ?>
+                      <p class="text-muted mb-0">No new <?php echo esc($tab['empty']); ?> in the last <?php echo $new_days; ?> days.</p>
                     <?php } else { ?>
                     <div class="table-responsive"><table class="table table-sm table-hover mb-0">
                       <thead><tr><th>Store</th><th>Contact</th><th>Email</th><th>Status</th><th>Registered</th><th></th></tr></thead>
                       <tbody>
-                      <?php foreach ($new_employers as $r) { ?>
+                      <?php foreach ($tab['rows'] as $r) { ?>
                         <tr>
                           <td><?php echo esc($r->u_comp_name); ?></td>
                           <td><?php echo esc($r->u_fname . ' ' . $r->u_lname); ?></td>
                           <td><?php echo esc($r->u_email); ?></td>
                           <td><?php echo $r->u_status ? 'Active' : '<span class="text-warning">Pending</span>'; ?></td>
                           <td><?php echo dateFormat($r->created); ?></td>
-                          <td class="text-right"><a class="btn btn-xs btn-primary" href="<?php echo base_url($adminpath . '/employer/edit/' . $r->u_id); ?>">Open</a></td>
+                          <?php /* Carrying the kind through means Save comes back
+                             to this kind's list rather than All Employers, the
+                             same way the sidebar lists link. */ ?>
+                          <td class="text-right"><a class="btn btn-xs btn-primary" href="<?php echo base_url($adminpath . '/employer/edit/' . $r->u_id) . ($slug ? '?kind=' . $slug : ''); ?>">Open</a></td>
                         </tr>
                       <?php } ?>
                       </tbody>
                     </table></div>
                     <?php } ?>
                   </div>
+                  <?php } ?>
 
                   <div class="tab-pane fade" id="pane-app" role="tabpanel">
                     <?php if (!$new_applicants) { ?>

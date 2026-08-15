@@ -26,7 +26,11 @@
   <!-- daterangepicker -->
   <link rel="stylesheet" href="<?php echo base_url();?>assets/admin/plugins/daterangepicker/daterangepicker.css">
   
-  <link href="<?php echo base_url();?>/assets/admin/plugins/select2/css/select2.min.css" rel="stylesheet">
+  <link href="<?php echo base_url();?>assets/admin/plugins/select2/css/select2.min.css" rel="stylesheet">
+  <?php /* The theme makes select2 wear AdminLTE's own form-control: same
+     height, border and focus ring as the inputs beside it. Without it a
+     dropdown is visibly a different control from the field above it. */ ?>
+  <link href="<?php echo base_url();?>assets/admin/plugins/select2-bootstrap4-theme/select2-bootstrap4.min.css" rel="stylesheet">
   <!-- iCheck -->
   <link rel="stylesheet" href="<?php echo base_url();?>assets/admin/plugins/icheck-bootstrap/icheck-bootstrap.min.css">
   <!-- JQVMap -->
@@ -158,6 +162,12 @@
                 </a>
               </li>
               <li class="nav-item">
+                <a href="<?php echo base_url('sadmin/additionaldetails/index');?>" class="nav-link">
+                  <i class="far fa-circle nav-icon"></i>
+                  <p>Additional Details</p>
+                </a>
+              </li>
+              <li class="nav-item">
                 <a href="<?php echo base_url('sadmin/resources/index');?>" class="nav-link">
                   <i class="far fa-circle nav-icon"></i>
                   <p>Resources Menu</p>
@@ -178,6 +188,12 @@
 			  <p>Reports</p>
 			</a>
 		  </li>
+		  <li class="nav-item">
+			<a href="<?php echo base_url($adminpath.'/manageemail');?>" class="nav-link <?php echo($link=='manageemail')?"active":"";?>">
+			  <i class="nav-icon fas fa-envelope"></i>
+			  <p>Manage Email</p>
+			</a>
+		  </li>
 
 
 		  <?php
@@ -185,7 +201,7 @@
 			   of account behind it (change request B4), so it is drawn as a
 			   treeview: All Employers plus one list per kind. The badge on each
 			   counts the accounts of that kind still waiting to be activated. */
-			$kindslug   = ($link=='employer') ? ($kind ?? '') : '';
+			$kindcode   = ($link=='employer') ? (int) ($kind ?? 0) : 0;
 			$pending    = $pendingUsers ?? [];
 			$badge      = function($count){
 				if(!$count){ return ''; }
@@ -195,8 +211,12 @@
 		  <?php if($menuarr) {?>
 			  <?php foreach($menuarr as $ky=>$vl) {?>
 				  <?php if($vl['mlink']=='employer' && !empty($employerKinds)) {?>
-					  <li class="nav-item <?php echo($link=='employer')?"menu-open":"";?>">
-						<a href="#" class="nav-link <?php echo($link=='employer')?"active":"";?>">
+					  <?php /* Stores live inside this treeview, so being on that screen
+					     has to keep it open too - otherwise the sidebar collapses the
+					     branch the admin is standing in. */ ?>
+					  <?php $employerBranch = in_array($link, ['employer','stores'], true); ?>
+					  <li class="nav-item <?php echo $employerBranch?"menu-open":"";?>">
+						<a href="#" class="nav-link <?php echo $employerBranch?"active":"";?>">
 						  <i class="nav-icon fas fa-th"></i>
 						  <p>
 							<?php echo $vl['mname'];?>
@@ -211,17 +231,27 @@
 							  <p>All Employers</p>
 							</a>
 						  </li>
-						  <?php foreach($employerKinds as $slug=>$empkind) {?>
+						  <?php foreach($employerKinds as $kindcodeitem=>$empkind) {?>
 						  <li class="nav-item">
-							<a href="<?php echo base_url($adminpath.'/employer/'.$slug);?>" class="nav-link <?php echo($kindslug==$slug)?"active":"";?>">
+							<a href="<?php echo base_url($adminpath.'/employer/'.$empkind['slug']);?>" class="nav-link <?php echo($kindcode===$kindcodeitem)?"active":"";?>">
 							  <i class="far fa-circle nav-icon"></i>
 							  <p>
 								<?php echo $empkind['label'];?>
-								<?php echo $badge($pending[$slug] ?? 0);?>
+								<?php echo $badge($pending[$kindcodeitem] ?? 0);?>
 							  </p>
 							</a>
 						  </li>
 						  <?php } ?>
+						  <?php /* Stores belong under employers rather than beside them:
+						     a location is only ever reached through the account that
+						     owns it. Not a `menu` row, because the treeview it sits in
+						     is not one either. */ ?>
+						  <li class="nav-item">
+							<a href="<?php echo base_url($adminpath.'/stores');?>" class="nav-link <?php echo($link=='stores')?"active":"";?>">
+							  <i class="far fa-circle nav-icon"></i>
+							  <p>Stores</p>
+							</a>
+						  </li>
 						</ul>
 					  </li>
 				  <?php } else {?>

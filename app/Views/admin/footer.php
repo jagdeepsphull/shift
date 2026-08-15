@@ -61,6 +61,12 @@
 <script src="<?php echo base_url('assets/admin/plugins/datatables-buttons/js/dataTables.buttons.min.js');?>"></script>
 <script src="<?php echo base_url('assets/admin/plugins/datatables-buttons/js/buttons.bootstrap4.min.js');?>"></script>
 <script src="<?php echo base_url('assets/admin/plugins/jszip/jszip.min.js');?>"></script>
+<?php /* pdfmake and its font file are 949 KB gzipped, and only the PDF export
+   button uses them. Loading them lazily was tried and reverted: DataTables
+   fixes its button list at init, so the tables had to wait for the download
+   before drawing at all - the listings took twice as long to appear. With the
+   Expires header now set in .htaccess these are fetched once a day rather than
+   once a page, which is the cheaper half of the problem solved anyway. */ ?>
 <script src="<?php echo base_url('assets/admin/plugins/pdfmake/pdfmake.min.js');?>"></script>
 <script src="<?php echo base_url('assets/admin/plugins/pdfmake/vfs_fonts.js');?>"></script>
 <script src="<?php echo base_url('assets/admin/plugins/datatables-buttons/js/buttons.html5.min.js');?>"></script>
@@ -109,15 +115,154 @@
 		// Shift form (postjobs add/edit): the store picker lists the chosen
 		// employer's stores, refreshed whenever the employer changes.
 		if ($('#p_store_id').length && $('#u_id').length) {
+			// The three tick-box groups a store can hold defaults for.
+			var defaultGroups = ['p_skills', 'p_services', 'p_additional_details'];
+
+			function clearDefaults() {
+				$.each(defaultGroups, function (i, field) {
+					$('#cbg_' + field).find('input[type=checkbox]').prop('checked', false);
+				});
+			}
+
+			// Ask by store, or by employer - the server answers the employer
+			// form only when that employer has a single location, and says
+			// which store it used so the picker can follow.
+			function fillDefaults(ask) {
+				$.ajax({
+					type: 'POST',
+					url: '<?php echo base_url('sadmin/ajax_getstoredefaults'); ?>',
+					data: ask,
+					dataType: 'json',
+					success: function (defaults) {
+						// Asked by employer and the server had no single store
+						// to answer with: leave the form alone. The groups were
+						// already cleared when the employer changed, and by the
+						// time this lands the admin may have picked a store
+						// themselves - overwriting that with blanks is exactly
+						// what they did not ask for.
+						if (ask.u_id && !defaults.s_id) { return; }
+
+						// change.select2 only: the handler on this select would
+						// fetch the very defaults being applied right now.
+						if (defaults.s_id) { $('#p_store_id').val(String(defaults.s_id)).trigger('change.select2'); }
+
+						$.each(defaultGroups, function (i, field) {
+							var $group = $('#cbg_' + field);
+
+							if (!$group.length) { return; }
+
+							// Replace rather than add to what is ticked: the
+							// admin asked for this store, so this store's
+							// defaults are the answer, not the last one's.
+							$group.find('input[type=checkbox]').prop('checked', false);
+
+							$.each(defaults[field] || [], function (j, id) {
+								$group.find('input[value="' + id + '"]').prop('checked', true);
+							});
+
+							$group.removeClass('border-danger');
+						});
+					}
+				});
+			}
+
 			$('#u_id').on('change', function () {
+				var employerId = $(this).val();
+
+				// Whatever was ticked belonged to the employer being left, so
+				// it goes with them. What replaces it depends on how many
+				// locations the new one has.
+				clearDefaults();
+
 				$.ajax({
 					type: 'POST',
 					url: '<?php echo base_url('sadmin/ajax_getstorelist'); ?>',
-					data: { u_id: $(this).val(), sid: '' },
-					success: function (data) { $('#p_store_id').html(data); }
+					data: { u_id: employerId, sid: '' },
+					success: function (data) {
+						$('#p_store_id').html(data).trigger('change.select2');
+
+						// An employer with one location has nothing left to
+						// choose, so the form fills in from it now rather than
+						// waiting for a store to be picked. With several, the
+						// server declines and the fill waits for that choice.
+						if (employerId) { fillDefaults({ u_id: employerId }); }
+					}
 				});
 			});
+
+			// Picking a store fills the groups from what that store offers.
+			// Bound to `change`, so it only ever runs when somebody chooses:
+			// the edit screen loads holding the shift's own saved boxes, and
+			// those are left exactly as they are.
+			$('#p_store_id').on('change', function () {
+				var storeId = $(this).val();
+
+				if (!storeId) { return; }
+
+				fillDefaults({ s_id: storeId });
+			});
 		}
+
+		// "User Type" narrows the employer picker it names in `data-filters` to
+		// one kind of account. Used on the shift forms and the store forms, so
+		// it is written once against that attribute rather than against ids.
+		//
+		// Every employer is already an option in the page, so this is done here
+		// rather than over a request - and the options are rebuilt from a kept
+		// copy rather than hidden, which not every browser honours on <option>.
+		$('select[data-filters]').each(function () {
+			var $kind = $(this);
+			var $employer = $($kind.data('filters'));
+
+			if (!$employer.length) { return; }
+
+			// Rebuilding the options, never the <select> itself, so anything
+			// else bound to it - the store list on the shift form - stays bound.
+			var employerOptions = $employer.find('option').clone();
+
+			$kind.on('change', function () {
+				var want = $kind.val();
+				var chosen = $employer.val();
+
+				$employer.empty();
+
+				employerOptions.each(function () {
+					var $option = $(this);
+					var isPlaceholder = $option.attr('value') === '';
+
+					if (isPlaceholder || want === '' || String($option.data('kind')) === want) {
+						$employer.append($option.clone());
+					}
+				});
+
+				if (chosen && $employer.find('option[value="' + chosen + '"]').length) {
+					$employer.val(chosen);
+				} else {
+					// Whoever was chosen is not this kind. Drop the choice, and
+					// on the shift form the store list that belonged to it,
+					// rather than leaving a value on the form no longer offered.
+					$employer.val('');
+
+					if (chosen) {
+						$('#p_store_id').html('<option value="">-- Select Store --</option>').trigger('change.select2');
+					}
+				}
+
+				// The options under this select were just rebuilt. Tell select2
+				// to redraw from them - and only select2, because the handler on
+				// this select fetches the chosen employer's stores, which is not
+				// something narrowing a list should set off.
+				$employer.trigger('change.select2');
+			});
+
+			// An employer may already be chosen - an edit screen, or a form
+			// coming back from a failed validation. Start on that employer's
+			// kind, otherwise the picker reads "All Employers" over a list the
+			// admin did not narrow.
+			if ($employer.val()) {
+				$kind.val(String($employer.find('option:selected').data('kind') || '')).trigger('change');
+			}
+		});
 
 		$("#change-pass").validate({
 				rules: {
@@ -162,7 +307,7 @@
 		//data:'statecode='+val+'ciid='+ciid,
 		data: {statecode: val, ciid: ciid},
 		success: function(data){
-			$("#city").html(data);
+			$("#city").html(data).trigger('change.select2');
 		}
 		});
 	}
@@ -173,13 +318,121 @@
 
 		pid = $('#hprovince').val();
 		chid = $('#hcity').val();
-		
+
 		getpcities(pid);
-		
-		
-		
-		
+
+
+
+
 	});
+
+	// ---- Employer type, on the back-office employer form -------------------
+	//
+	// The same three kinds public registration offers, and the same rules about
+	// which fields each one is asked for - see the matching block in
+	// front/footer.php. Kept in step with it deliberately: an administrator
+	// adding an employer has to produce the same record the employer would have
+	// produced by registering.
+	$(function () {
+		var kind = $('#emp_kind');
+
+		if (!kind.length) {
+			return;
+		}
+
+		// A field left marked `required` while hidden makes the browser refuse
+		// to submit without ever showing why, so the attribute has to travel
+		// with the visibility.
+		function toggle(nodes, hide) {
+			nodes.toggleClass('d-none', hide);
+
+			nodes.find('input, select, textarea').addBack('input, select, textarea').each(function () {
+				var field = $(this);
+
+				if (field.data('wasRequired') === undefined) {
+					field.data('wasRequired', field.prop('required'));
+				}
+
+				field.prop('required', hide ? false : field.data('wasRequired'));
+			});
+		}
+
+		<?php /* The codes the Employer Type dropdown posts, taken from the same
+		   config it is drawn from - so renumbering a kind moves this with it
+		   rather than leaving a comparison that silently never matches. */ ?>
+		<?php
+		$kindCodeForRole = static function (int $role) {
+		    foreach (config('AppSettings')->employerKinds as $code => $def) {
+		        if ($def['filter']['u_emp_role'] === $role) {
+		            return (string) $code;
+		        }
+		    }
+
+		    return '';
+		};
+		?>
+		var KIND_OWNER = '<?php echo $kindCodeForRole(1); ?>';
+		var KIND_MANAGER = '<?php echo $kindCodeForRole(2); ?>';
+
+		function apply() {
+			var value = kind.val() || '';
+			var isOwner = value === KIND_OWNER;
+			var isManager = value === KIND_MANAGER;
+
+			// Only a manager answers to a corporate group, and only a manager
+			// picks one of that group's stores.
+			toggle($('.grouponly'), !isManager);
+			toggle($('.storepick'), !isManager);
+
+			// Licence and address describe one location, and neither kind is
+			// asked for one: an owner's belong to each store they add
+			// afterwards, and a manager's to the store they picked.
+			toggle($('.storeonly'), isOwner || isManager);
+
+			// The name column is the account's own. A manager has none - the
+			// store they picked already has a name.
+			toggle($('.owneronly'), isManager);
+
+			$('#compnamelbl').text(isOwner ? 'Corporate Group Name' : 'Store Name');
+		}
+
+		apply();
+		kind.on('change', apply);
+
+		// The store list belongs to the chosen group, so it is refilled
+		// whenever that changes - and on load, because a form coming back from
+		// a failed save still has the group and store it was posted with.
+		var group = $('#u_parent_id');
+		var storeSelect = $('#u_store_id');
+
+		if (group.length && storeSelect.length) {
+			function loadGroupStores(keepChosen) {
+				var groupId = group.val();
+
+				if (!groupId) {
+					storeSelect.html('<option value="">-- Select Store --</option>').trigger('change.select2');
+
+					return;
+				}
+
+				$.ajax({
+					type: 'POST',
+					url: '<?php echo base_url($settings[0]->s_frontpath . '/ajax_getstorelist'); ?>',
+					data: { groupid: groupId, storeid: keepChosen ? $('#hstoreid').val() : '' },
+					success: function (data) { storeSelect.html(data).trigger('change.select2'); }
+				});
+			}
+
+			loadGroupStores(true);
+
+			group.on('change', function () {
+				// The store that was chosen belonged to the previous group.
+				$('#hstoreid').val('');
+				loadGroupStores(false);
+			});
+		}
+	});
+
   $(function () {
 
 	  // ---- Excel / PDF downloads, shared by every admin listing -------------
@@ -348,7 +601,7 @@
       "autoWidth": false,
       "responsive": true,
     });
-	  
+
 	// Popovers are attached to the page rather than to the buttons themselves.
 	// DataTables only keeps the current page of rows in the DOM, so binding to
 	// the buttons directly used to leave every row past the first page dead.
@@ -459,7 +712,35 @@
 		  ]
 		});
 	  
-	  $('.select2').select2();
+	  /**
+	   * Dress every dropdown in the back office in select2.
+	   *
+	   * This used to read `$('.select2').select2()`, which matched the two
+	   * selects on the Resources form and nothing else - the plugin was loaded
+	   * on every page and used on one.
+	   *
+	   * `width: '100%'` and nothing else: it writes a percentage onto the
+	   * container, which resolves whenever the field is shown. 'resolve' and
+	   * 'style' read the width at the moment they run, and the employer form
+	   * hides half its rows until a type is chosen - those were measured at 0
+	   * and stayed collapsed once revealed.
+	   *
+	   * Safe to call twice: select2 leaves an initialised element alone.
+	   */
+	  window.applySelect2 = function (root) {
+		  if (!$.fn.select2) { return; }
+
+		  $(root || document).find('select').each(function () {
+			  var $select = $(this);
+
+			  // DataTables owns its length menu and rebuilds it; leave that be.
+			  if ($select.closest('.dataTables_wrapper').length || $select.is('[hidden], [data-no-select2]')) { return; }
+
+			  $select.select2({ width: '100%', theme: 'bootstrap4', minimumResultsForSearch: 8 });
+		  });
+	  };
+
+	  window.applySelect2();
 	  
 	  
 	  

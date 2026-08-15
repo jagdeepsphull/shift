@@ -33,7 +33,11 @@ asort($wz_types);
 
       <div class="wz-select">
         <label class="visually-hidden" for="wz-job-type">Filter by shift type</label>
-        <select id="wz-job-type">
+        <?php /* data-no-select2: theme.js drives this filter with a native
+           addEventListener('change'), and select2 announces a pick through
+           jQuery's trigger - a simulation that native listeners never hear.
+           Dressed up, the filter goes silently dead. */ ?>
+        <select id="wz-job-type" data-no-select2>
           <option value="">Shift Types</option>
           <?php foreach ($wz_types as $wz_type) { ?>
             <option value="<?php echo esc($wz_type, 'attr'); ?>"><?php echo esc($wz_type); ?></option>

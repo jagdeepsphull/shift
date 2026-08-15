@@ -7,12 +7,14 @@
  * The rate here is `p_hourly_rate` — what the employer is billed — which is
  * deliberately not the rate on the applicant's copy of this booking.
  *
- * @var string $name           the employer's contact name
- * @var string $applicant_name
- * @var object $applicant      row from `users`
- * @var array  $shift          row from `post_job`
- * @var array  $settings
+ * @var string      $name           the employer's contact name
+ * @var string      $applicant_name
+ * @var object      $applicant      row from `users`
+ * @var array       $shift          row from `post_job`
+ * @var object|null $store          the shift's store, from `shiftStore()`
+ * @var array       $settings
  */
+$store = $store ?? null;
 ?>
 <?= $this->extend('emails/layout') ?>
 
@@ -25,6 +27,11 @@
     <p style="line-height: 1.6;">Here are their details:</p>
 
     <ul style="line-height: 1.7; padding-left: 20px;">
+        <?php if ($store) { ?>
+        <?php /* Which branch, for a chain: the head office reading this may run
+           a dozen, and "your shift" alone does not say which one. */ ?>
+        <li>Store: <?= esc($store->s_name) ?><?= $store->s_number !== '' ? ' (no. ' . esc($store->s_number) . ')' : '' ?></li>
+        <?php } ?>
         <li>Applicant name: <?= esc($applicant_name) ?></li>
         <li>Licence no.: <?= esc($applicant->u_licence_no) ?></li>
         <li>Licence province: <?= esc(getProvinceName($applicant->u_l_provice)) ?></li>

@@ -43,7 +43,7 @@
                     <th><?php echo $pageinfo['title']; ?> Image</th>
                     <th><?php echo $pageinfo['title']; ?> Name</th>
                     <th><?php echo $pageinfo['title']; ?> Type</th>
-                    <th>License No.</th>
+                    <th>Licence No.</th>
                     <th>Email ID</th>
                     <th>Mobile No.</th>
                     <th>Status</th>
@@ -84,7 +84,7 @@
 					<th><?php echo $pageinfo['title']; ?> Image</th>
                     <th><?php echo $pageinfo['title']; ?> Name</th>
                     <th><?php echo $pageinfo['title']; ?> Type</th>
-                    <th>License No.</th>
+                    <th>Licence No.</th>
                     <th>Email ID</th>
                     <th>Mobile No.</th>
                     <th>Status</th>

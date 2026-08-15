@@ -8,10 +8,12 @@
  * in, submits it, and reads back what the account actually became -
  *
  *   manager          -> u_usertype 1, u_emp_role 2, parent = the chosen group,
- *                       plus a store row for the location it was given
- *   owner_multi      -> u_usertype 1, u_emp_role 1, no parent, no store row
+ *                       and u_store_id = one of that group's existing stores.
+ *                       No store row is created: they join a location rather
+ *                       than describing one, and its name, number and address
+ *                       are copied onto the login
+ *   owner            -> u_usertype 1, u_emp_role 1, no parent, no store row
  *                       (their stores are added afterwards)
- *   owner_individual -> u_usertype 1, u_emp_role 2, no parent, one store row
  *   applicant        -> u_usertype 2, u_emp_role 0, an applicant sub-type
  *
  * and then that the new account is held for approval and, once approved, logs
@@ -21,7 +23,17 @@ const { test, expect } = require('@playwright/test');
 const { settle, expectNoServerError } = require('../helpers/admin');
 const { readCaptchaCode } = require('../helpers/session');
 const { query, scalar } = require('../helpers/db');
-const { GROUP, seedPharmacyGroup, removePharmacyGroup } = require('../helpers/stores');
+const {
+  GROUP,
+  GROUP_STORES,
+  seedPharmacyGroup,
+  removePharmacyGroup,
+  seedGroupStores,
+  removeGroupStores,
+  REG_STORE_SELECT,
+  REG_STORE_ENDPOINT,
+  multiStoreMissing,
+} = require('../helpers/stores');
 
 /** Every fixture account shares this prefix so cleanup can find them all. */
 const PREFIX = 'e2e.reg.';
@@ -29,29 +41,36 @@ const PREFIX = 'e2e.reg.';
 const PASSWORD = 'E2eTest@12345';
 
 /**
- * The four types, and what each should turn into.
+ * The three types, and what each should turn into.
+ *
+ * `key` is the value the dropdown posts, which is the number the database
+ * stores - `registerTypes` in config.
  *
  * `store` is whether registering should also create a row in `store`: a
  * location was described on the form, so the account starts with one. A
  * multi-store owner describes a person, and an applicant is not an employer at
- * all, so neither gets one.
+ * all, so neither gets one. Nor does a manager - `picksStore` says they choose
+ * one of their group's instead, which is a different thing entirely.
  */
 const TYPES = [
   {
-    key: 'manager',
+    key: '2',
     label: 'Manager',
     email: `${PREFIX}manager@example.com`,
-    company: 'E2E Managed Store',
+    // Not typed - copied off the store they pick, which is why it has to be
+    // the seeded store's own name.
+    company: GROUP_STORES[0].name,
     usertype: 1,
     empRole: 2,
     hasGroup: true,
-    asksLocation: true,
-    store: true,
+    picksStore: true,
+    asksLocation: false,
+    store: false,
   },
   {
-    key: 'owner_multi',
-    label: 'Owner (Multi Store)',
-    email: `${PREFIX}ownermulti@example.com`,
+    key: '1',
+    label: 'Owner',
+    email: `${PREFIX}owner@example.com`,
     company: 'E2E Multi Pharmacy',
     usertype: 1,
     empRole: 1,
@@ -60,18 +79,7 @@ const TYPES = [
     store: false,
   },
   {
-    key: 'owner_individual',
-    label: 'Owner (Individual Store)',
-    email: `${PREFIX}ownersingle@example.com`,
-    company: 'E2E Single Store',
-    usertype: 1,
-    empRole: 2,
-    hasGroup: false,
-    asksLocation: true,
-    store: true,
-  },
-  {
-    key: 'applicant',
+    key: '3',
     label: 'Applicant',
     email: `${PREFIX}applicant@example.com`,
     company: '',
@@ -90,6 +98,9 @@ const PHONE = '4160000777';
 /** @type {number} */
 let groupId;
 
+/** @type {Array<{name: string, number: string, address: string, phone: string, id: number}>} */
+let groupStores = [];
+
 /** Remove every account this file registers, and anything hanging off it. */
 function removeFixtures() {
   query(`
@@ -101,14 +112,26 @@ function removeFixtures() {
 
 test.beforeAll(() => {
   removeFixtures();
-  // A manager must pick the pharmacy group they answer to, so there has to be
-  // an approved multi-store owner for the dropdown to offer.
+  // A manager must pick the corporate group they answer to, so there has to be
+  // an approved multi-store owner for the dropdown to offer - and it has to
+  // own a store, or the group is not offered at all and the manager has
+  // nowhere to work.
   groupId = seedPharmacyGroup();
+  groupStores = seedGroupStores(groupId);
 });
 
 test.afterAll(() => {
   removeFixtures();
+  // Before the group: removePharmacyGroup deletes the owner row and would
+  // leave these orphaned, and nothing else sweeps them up.
+  removeGroupStores();
   removePharmacyGroup();
+});
+
+// The manager flow needs the store column; without it the form is the old one.
+test.beforeEach(() => {
+  const missing = multiStoreMissing();
+  test.skip(missing !== null, missing || '');
 });
 
 /**
@@ -148,15 +171,29 @@ async function register(page, type, overrides = {}) {
 
   await page.selectOption('#usrtpe', type.key);
 
-  if (type.usertype === 1) {
+  if (type.usertype === 1 && !type.picksStore) {
     await page.fill('#u_comp_name', type.company);
-  } else {
+  } else if (type.usertype === 2) {
     // An applicant says what kind of applicant they are instead.
     await page.selectOption('#u_usersubtype', { index: 1 });
   }
 
   if (type.hasGroup) {
+    // Choosing the group is what fetches its stores, the same way a province
+    // fetches its cities. The watcher has to be armed before the choice, and
+    // the choice made only once: selecting the value it already holds fires no
+    // change event, so a second select would wait for a request never sent.
+    const stores = type.picksStore
+      ? page.waitForResponse((r) => r.url().includes(REG_STORE_ENDPOINT))
+      : null;
+
     await page.selectOption('#u_parent_id', String(groupId));
+
+    if (stores !== null) {
+      await stores;
+      await expect(page.locator(`${REG_STORE_SELECT} option`)).not.toHaveCount(1);
+      await page.selectOption(REG_STORE_SELECT, String(groupStores[0].id));
+    }
   }
 
   await page.fill('#u_fname', 'Reg');
@@ -183,7 +220,7 @@ async function register(page, type, overrides = {}) {
   await page.fill('#mainpassword', PASSWORD);
   await page.fill('#conf_password', PASSWORD);
 
-  // Both tabs carry a field with id "captcha", so stay inside this form.
+  // Both tabs carry a field named "captcha", so stay inside this form.
   await form.locator('input[name="captcha"]').fill(code);
 
   await Promise.all([
@@ -198,13 +235,14 @@ async function register(page, type, overrides = {}) {
  *
  * @param {string} email
  * @returns {{id: number, usertype: number, subtype: number, empRole: number,
- *            parentId: number, company: string, licence: string, province: number,
- *            city: number, address: string, pincode: string, status: number,
- *            created: string, pass: string}|null}
+ *            parentId: number, storeId: number, company: string, licence: string,
+ *            province: number, city: number, address: string, pincode: string,
+ *            status: number, created: string, pass: string}|null}
  */
 function account(email) {
   const row = scalar(`
     SELECT CONCAT_WS('|', u_id, u_usertype, u_usersubtype, u_emp_role, u_parent_id,
+                     IFNULL(u_store_id, 0),
                      u_comp_name, u_licence_no, u_provice, u_city, u_address1,
                      u_pincode, u_status, IFNULL(created, ''), u_pass)
       FROM users WHERE u_userid = '${email}';
@@ -212,7 +250,7 @@ function account(email) {
 
   if (row === '') return null;
 
-  const [id, usertype, subtype, empRole, parentId, company, licence, province, city,
+  const [id, usertype, subtype, empRole, parentId, storeId, company, licence, province, city,
     address, pincode, status, created, pass] = row.split('|');
 
   return {
@@ -221,6 +259,7 @@ function account(email) {
     subtype: Number(subtype),
     empRole: Number(empRole),
     parentId: Number(parentId),
+    storeId: Number(storeId),
     company,
     licence,
     province: Number(province),
@@ -251,7 +290,7 @@ for (const type of TYPES) {
     expect(user.usertype, 'account side (1 employer / 2 applicant)').toBe(type.usertype);
     expect(user.empRole, 'store role').toBe(type.empRole);
     expect(user.parentId, 'pharmacy group').toBe(type.hasGroup ? groupId : 0);
-    expect(user.company, 'store or pharmacy name').toBe(type.company);
+    expect(user.company, 'store or corporate group name').toBe(type.company);
 
     // Held for approval, and counted as a sign-up of this month.
     expect(user.status, 'a new account waits for the administrator').toBe(0);
@@ -268,7 +307,19 @@ for (const type of TYPES) {
       expect(user.subtype, 'an employer has no applicant type').toBe(0);
     }
 
-    if (type.asksLocation) {
+    if (type.picksStore) {
+      // A manager typed no address at all. Everything here was copied off the
+      // store they chose, so the screens that read these columns off the login
+      // rather than through the store keep working.
+      const chosen = groupStores[0];
+
+      expect(user.storeId, 'the store that was chosen').toBe(chosen.id);
+      expect(user.address, "the store's address, copied").toBe(chosen.address);
+      expect(user.licence, "the store's number, copied").toBe(chosen.number);
+      expect(user.pincode).toBe(POSTCODE);
+      expect(user.province, 'province').toBeGreaterThan(0);
+      expect(user.city, 'city').toBeGreaterThan(0);
+    } else if (type.asksLocation) {
       expect(user.address).toBe(ADDRESS);
       expect(user.pincode).toBe(POSTCODE);
       expect(user.licence).toBe('E2E-REG-1');
@@ -283,11 +334,25 @@ for (const type of TYPES) {
       expect(user.city).toBe(0);
     }
 
+    // Only a manager answers to a store somebody else owns.
+    if (!type.picksStore) {
+      expect(user.storeId, 'an owner owns its stores outright').toBe(0);
+    }
+
     // The store the account starts with, if its type describes one.
     const stores = Number(scalar(`SELECT COUNT(*) FROM store WHERE u_id = ${user.id};`) || 0);
     expect(stores, type.store ? 'the location becomes a store' : 'no store yet').toBe(
       type.store ? 1 : 0,
     );
+
+    if (type.picksStore) {
+      // The point of the change: joining a store must not duplicate it, and
+      // the row stays the group's rather than moving to the manager.
+      expect(
+        scalar(`SELECT u_id FROM store WHERE s_id = ${user.storeId};`),
+        'the store still belongs to the corporate group',
+      ).toBe(String(groupId));
+    }
 
     if (type.store) {
       const store = scalar(`
@@ -368,8 +433,69 @@ for (const type of TYPES) {
   });
 }
 
+test('a manager cannot claim a store belonging to another group', async ({ page }) => {
+  // The dropdown only ever offers the chosen group's stores, so this is what a
+  // hand-edited form looks like: a real, active store id that belongs to
+  // somebody else. The server has to check the pair rather than trust the post,
+  // because the AJAX endpoint's guard says nothing about the save.
+  const email = `${PREFIX}poacher@example.com`;
+
+  const otherOwnerId = Number(
+    scalar(`SELECT u_id FROM users WHERE u_usertype = 1 AND u_id <> ${groupId} LIMIT 1;`) || 0,
+  );
+  test.skip(otherOwnerId === 0, 'no second employer to own a rival store');
+
+  query(`
+    INSERT INTO store (u_id, s_name, s_number, s_province, s_city, s_address, s_pincode, s_phone, s_status)
+    VALUES (${otherOwnerId}, 'E2E Rival Store', 'E2E-R01', 0, 0, '1 Rival Road', 'M5A 1A1', '4160000999', 1);
+  `);
+
+  const rivalId = Number(scalar("SELECT MAX(s_id) FROM store WHERE s_name = 'E2E Rival Store';"));
+
+  try {
+    const code = await openRegistration(page);
+    const form = page.locator('#register-form');
+
+    await page.selectOption('#usrtpe', '2');
+
+    const stores = page.waitForResponse((r) => r.url().includes(REG_STORE_ENDPOINT));
+    await page.selectOption('#u_parent_id', String(groupId));
+    await stores;
+
+    // The rival is not on the list, so put it there the way a tampered form
+    // would, then choose it.
+    await page.locator(REG_STORE_SELECT).evaluate((el, id) => {
+      const option = document.createElement('option');
+      option.value = String(id);
+      option.textContent = 'Rival';
+      el.appendChild(option);
+      /** @type {HTMLSelectElement} */ (el).value = String(id);
+    }, rivalId);
+
+    await page.fill('#u_fname', 'Reg');
+    await page.fill('#u_lname', 'Poacher');
+    await page.fill('#u_email', email);
+    await page.fill('#u_phone', PHONE);
+    await page.fill('#mainpassword', PASSWORD);
+    await page.fill('#conf_password', PASSWORD);
+    await form.locator('input[name="captcha"]').fill(code);
+
+    await Promise.all([
+      page.waitForLoadState('load'),
+      form.locator('[name="signupSubmit"]').click(),
+    ]);
+    await settle(page);
+
+    await expect(page.locator('.alert-danger')).toContainText(/corporate group's stores/i);
+    expect(account(email), 'no account is created from a store that is not the group\'s').toBeNull();
+    await expectNoServerError(page);
+  } finally {
+    query("DELETE FROM store WHERE s_name = 'E2E Rival Store';");
+  }
+});
+
 test('the same email cannot be registered twice', async ({ page }) => {
-  const taken = TYPES[3]; // the applicant registered above
+  const taken = TYPES[2]; // the applicant registered above
 
   await register(page, taken);
   await expectNoServerError(page);
@@ -385,7 +511,7 @@ test('the same email cannot be registered twice', async ({ page }) => {
 });
 
 test('a wrong verification code refuses the registration', async ({ page }) => {
-  const type = TYPES[2]; // owner_individual, a form that fills in completely
+  const type = TYPES[2]; // applicant, a form that fills in completely
   const email = `${PREFIX}captcha@example.com`;
 
   await openRegistration(page);

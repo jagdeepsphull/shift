@@ -10,7 +10,7 @@ test.describe('admin authentication', () => {
   test('login page renders with its verification image', async ({ page }) => {
     await openLogin(page);
 
-    await expect(page.locator('h2')).toHaveText(/login account/i);
+    await expect(page.locator('h1')).toHaveText(/administrator login/i);
     await expect(page.locator('input[name="username"]')).toBeVisible();
     await expect(page.locator('input[name="password"]')).toBeVisible();
     await expect(page.locator('input[name="captcha"]')).toBeVisible();

@@ -21,6 +21,7 @@
  * | owning login            | `store.u_id` -> `users.u_id`               |
  * | store columns           | `s_name`, `s_number`, `s_address`, `s_phone` |
  * | shift -> store          | `post_job.p_store_id`                      |
+ * | manager -> store        | `users.u_store_id`                         |
  * | employer store screens  | `employer/stores`, `employer/add_store`    |
  * | store picker on a shift | `select[name="p_store_id"]`                |
  *
@@ -41,6 +42,13 @@ const STORE_COLUMNS = {
 
 /** The store reference on a shift. */
 const SHIFT_STORE_COLUMN = 'p_store_id';
+
+/** Which of the corporate group's stores a manager runs. */
+const MANAGER_STORE_COLUMN = 'u_store_id';
+
+/** The store picker on public registration, and the endpoint that fills it. */
+const REG_STORE_SELECT = '#u_store_id';
+const REG_STORE_ENDPOINT = 'front/ajax_getstorelist';
 
 /** Employer-facing screens and the store picker on the shift form. */
 const STORE_LIST_URL = 'employer/stores';
@@ -120,6 +128,13 @@ function multiStoreMissing() {
 
   if (!columnExists('post_job', SHIFT_STORE_COLUMN)) {
     missing.push(`\`post_job.${SHIFT_STORE_COLUMN}\``);
+  }
+
+  // A manager picks one of the group's stores instead of describing their own,
+  // and this column records which. Without it the registration specs would
+  // fail on a form that has not been built rather than skipping.
+  if (!columnExists('users', MANAGER_STORE_COLUMN)) {
+    missing.push(`\`users.${MANAGER_STORE_COLUMN}\``);
   }
 
   missingCache =
@@ -214,6 +229,61 @@ function removePharmacyGroup() {
 }
 
 /**
+ * The group's own locations, which a registering manager picks from.
+ *
+ * A separate name prefix from STORES on purpose: removeStores() is a blanket
+ * `LIKE 'E2E Store %'` and seedStores() calls it, so sharing the prefix would
+ * make whichever spec ran second delete the other's rows.
+ */
+const GROUP_STORES = [
+  { name: 'E2E Group Store North', number: 'E2E-G01', address: '11 Group Road', phone: '4160000901' },
+  { name: 'E2E Group Store Central', number: 'E2E-G02', address: '22 Group Avenue', phone: '4160000902' },
+];
+
+/**
+ * Insert the group's stores, replacing any left behind.
+ *
+ * A manager can only register once their group has somewhere to work, so
+ * without this the store dropdown is empty and the group is not even offered.
+ *
+ * @param {number} groupId `users.u_id` of the multi-store owner
+ * @returns {Array<{name: string, number: string, address: string, phone: string, id: number}>}
+ */
+function seedGroupStores(groupId) {
+  removeGroupStores();
+
+  const province = scalar('SELECT p_id FROM province WHERE p_status = 1 LIMIT 1;');
+  const city = scalar('SELECT c_id FROM city WHERE c_status = 1 LIMIT 1;');
+
+  return GROUP_STORES.map((store) => {
+    query(`
+      INSERT INTO \`${STORE_TABLE}\`
+        (\`${STORE_OWNER_COLUMN}\`, \`${STORE_COLUMNS.name}\`, \`${STORE_COLUMNS.number}\`,
+         s_province, s_city,
+         \`${STORE_COLUMNS.address}\`, s_pincode, \`${STORE_COLUMNS.phone}\`, s_status)
+      VALUES
+        (${groupId}, '${store.name}', '${store.number}', ${province}, ${city},
+         '${store.address}', 'M5A 1A1', '${store.phone}', 1);
+    `);
+
+    return {
+      ...store,
+      id: Number(
+        scalar(
+          `SELECT MAX(s_id) FROM \`${STORE_TABLE}\` WHERE \`${STORE_COLUMNS.name}\` = '${store.name}';`,
+        ),
+      ),
+    };
+  });
+}
+
+/** Remove the seeded group stores. Safe to call when the table does not exist. */
+function removeGroupStores() {
+  if (!tableExists(STORE_TABLE)) return;
+  query(`DELETE FROM \`${STORE_TABLE}\` WHERE \`${STORE_COLUMNS.name}\` LIKE 'E2E Group Store %';`);
+}
+
+/**
  * The store a shift is posted against, read back from the database.
  *
  * @param {string} shiftTitle
@@ -230,11 +300,17 @@ function storeIdOfShift(shiftTitle) {
 module.exports = {
   STORES,
   GROUP,
+  GROUP_STORES,
   seedPharmacyGroup,
   removePharmacyGroup,
+  seedGroupStores,
+  removeGroupStores,
   STORE_TABLE,
   STORE_COLUMNS,
   SHIFT_STORE_COLUMN,
+  MANAGER_STORE_COLUMN,
+  REG_STORE_SELECT,
+  REG_STORE_ENDPOINT,
   STORE_LIST_URL,
   STORE_ADD_URL,
   STORE_SELECT,

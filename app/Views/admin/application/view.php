@@ -55,7 +55,7 @@
 												</div>
 												<ul class="list-unstyled mb-4">
 													<li class="mb-3"><a href="mailto:<?php echo $application->u_email; ?>"><i class="far fa-envelope display-25 mr-1 text-secondary"></i><?php echo $application->u_email; ?></a></li>
-													<li class="mb-3"><a href="#!"><i class="fas fa-mobile-alt display-25 mr-1 text-secondary"></i><?php echo $application->u_phone; ?></a></li>
+													<li class="mb-3"><?php echo whatsappPhoneLink($application->u_phone, 'Message ' . $application->u_fname . ' on WhatsApp'); ?></li>
 													<li><a href="#!"><i class="fas fa-map-marker-alt display-25 mr-1 text-secondary"></i><?php echo $application->u_address1.', '.getCityName($application->u_city).', '.getProvinceName($application->u_provice) .', '.$application->u_pincode ; ?></a></li>
 												</ul>
 											</div>
@@ -76,7 +76,7 @@
 												</div>
 												<ul class="list-unstyled mb-4">
 													<li class="mb-3"><a href="mailto:<?php echo $u_email; ?>"><i class="far fa-envelope display-25 mr-1 text-secondary"></i><?php echo $u_email; ?></a></li>
-													<li class="mb-3"><a href="#!"><i class="fas fa-mobile-alt display-25 mr-1 text-secondary"></i><?php echo $u_phone; ?></a></li>
+													<li class="mb-3"><?php echo whatsappPhoneLink($u_phone, 'Message ' . $u_comp_name . ' on WhatsApp'); ?></li>
 													<li><a href="#!"><i class="fas fa-map-marker-alt display-25 mr-1 text-secondary"></i><?php echo $u_address1.', '.getCityName($u_city).', '.getProvinceName($u_provice). ', '.$u_pincode ; ?></a></li>
 												</ul>
 											</div>

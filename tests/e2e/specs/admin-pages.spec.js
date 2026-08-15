@@ -38,6 +38,33 @@ test('dashboard shows the summary tiles', async ({ page }) => {
   await expectNoServerError(page);
 });
 
+test('the what-is-new panel has a tab per employer kind', async ({ page }) => {
+  await page.goto('sadmin/dashboard');
+
+  // The combined tab plus one per kind, in the order the sidebar lists them.
+  for (const [id, label] of [
+    ['tab-emp', /new employers/i],
+    ['tab-emp-manager', /managers/i],
+    ['tab-emp-owner', /owners/i],
+  ]) {
+    const tab = page.locator('#' + id);
+    await expect(tab).toHaveText(label);
+
+    await tab.click();
+
+    const pane = page.locator('#' + String(id).replace('tab-', 'pane-'));
+    await expect(pane).toBeVisible();
+
+    // Either a table of registrations or the empty note - never a blank pane.
+    const rows = await pane.locator('tbody tr').count();
+    if (rows === 0) {
+      await expect(pane.locator('p.text-muted')).toContainText(/in the last \d+ days/i);
+    }
+  }
+
+  await expectNoServerError(page);
+});
+
 test('every list screen renders its table', async ({ page }) => {
   const lists = [
     ['sadmin/city', /city list/i],
@@ -45,6 +72,7 @@ test('every list screen renders its table', async ({ page }) => {
     ['sadmin/hourly', /hourly rate list/i],
     ['sadmin/shift_for', /shift for list/i],
     ['sadmin/storeservice', /service list/i],
+    ['sadmin/additionaldetails', /additional detail list/i],
     ['sadmin/softwareskills', /software list/i],
     ['sadmin/resources', /resources links list/i],
     ['sadmin/employer', /employer/i],
@@ -70,6 +98,7 @@ test('every add form renders', async ({ page }) => {
     ['sadmin/hourly/add', 'hr_name'],
     ['sadmin/shift_for/add', 'sf_name'],
     ['sadmin/storeservice/add', 'st_service_name'],
+    ['sadmin/additionaldetails/add', 'ad_name'],
     ['sadmin/softwareskills/add', 'ss_name'],
     ['sadmin/resources/add', 'm_name'],
     ['sadmin/employer/add', 'u_email'],

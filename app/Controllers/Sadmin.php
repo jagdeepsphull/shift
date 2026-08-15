@@ -72,22 +72,27 @@ class Sadmin extends BaseController
      * badges. One grouped query rather than one per entry, because `setup()`
      * runs on every back-office page.
      *
-     * @return array<string, int> keyed by `employerKinds` slug, plus the
-     *                            'applicant' and 'employer' totals
+     * Keyed by `employerKinds` code, so the sidebar can look a badge up by the
+     * same number it draws the entry from, plus the 'applicant' and 'employer'
+     * totals.
+     *
+     * @return array<int|string, int>
      */
     private function pendingUserCounts(): array
     {
         $counts = ['applicant' => 0, 'employer' => 0];
 
-        foreach (array_keys((array) $this->config->item('employerKinds')) as $slug) {
-            $counts[$slug] = 0;
+        foreach (array_keys((array) $this->config->item('employerKinds')) as $code) {
+            $counts[$code] = 0;
         }
 
+        // The role alone says which kind an account is now, so the group is one
+        // column narrower than it was.
         $rows = $this->custom->query(
-            'SELECT u_usertype, u_emp_role, (u_parent_id > 0) AS has_parent, COUNT(*) AS total
+            'SELECT u_usertype, u_emp_role, COUNT(*) AS total
                FROM users
               WHERE u_status = 0 AND u_usertype IN (1, 2)
-           GROUP BY u_usertype, u_emp_role, has_parent'
+           GROUP BY u_usertype, u_emp_role'
         );
 
         foreach ($rows ?: [] as $row) {
@@ -101,14 +106,10 @@ class Sadmin extends BaseController
 
             $counts['employer'] += $total;
 
-            // `has_parent` is 0/1, which is all employerKindSlug() looks at.
-            $slug = employerKindSlug([
-                'u_emp_role'  => $row->u_emp_role,
-                'u_parent_id' => $row->has_parent,
-            ]);
+            $code = employerKindCode(['u_emp_role' => $row->u_emp_role]);
 
-            if ($slug !== '' && isset($counts[$slug])) {
-                $counts[$slug] += $total;
+            if ($code !== 0 && isset($counts[$code])) {
+                $counts[$code] += $total;
             }
         }
 
@@ -199,6 +200,35 @@ class Sadmin extends BaseController
         return true;
     }
 
+    /**
+     * One `employerKinds` filter as a bound WHERE fragment.
+     *
+     * The filters are written as query-builder arrays (`['u_parent_id >' => 0]`)
+     * because that is how the employer list applies them; the dashboard needs
+     * the same conditions inside a hand-written query. Keys come from config
+     * and never from a request, and the values are bound.
+     *
+     * @param array<string, int> $filter
+     *
+     * @return array{0: string, 1: list<int>} clause and its binds
+     */
+    private function kindFilterSql(array $filter): array
+    {
+        $clauses = [];
+        $binds   = [];
+
+        foreach ($filter as $key => $value) {
+            // 'u_parent_id >' is column and operator in one key, the way the
+            // query builder reads it; a bare key means equality.
+            $parts = explode(' ', trim($key), 2);
+
+            $clauses[] = $parts[0] . ' ' . ($parts[1] ?? '=') . ' ?';
+            $binds[]   = $value;
+        }
+
+        return [implode(' AND ', $clauses), $binds];
+    }
+
     public function dashboard()
     {
         $this->setup();
@@ -221,9 +251,9 @@ class Sadmin extends BaseController
 
         $this->data['jobs'] = $this->custom->get_where('post_job', []);
 
-        $this->data['applicationslist'] = $this->custom->query('select ssa.*, u.u_comp_name, pj.p_shift_time, pj.p_dates from stu_saved_applied_jobs ssa, users u, post_job pj where ssa.agency_id=u.u_id and  ssa.p_id = pj.p_id ');
+        $this->data['applicationslist'] = $this->custom->query('select ssa.*, u.u_comp_name, pj.p_shift_time, pj.p_dates, pj.p_job_title, ap.u_fname AS applicant_fname, ap.u_lname AS applicant_lname from stu_saved_applied_jobs ssa join users u on u.u_id = ssa.agency_id join post_job pj on pj.p_id = ssa.p_id left join users ap on ap.u_id = ssa.u_id where 1 = 1 ');
 
-        $this->data['booked_applications'] = $this->custom->query('select ssa.*, u.u_comp_name, pj.p_shift_time, pj.p_dates from stu_saved_applied_jobs ssa, users u, post_job pj where ssa.agency_id=u.u_id and  ssa.p_id = pj.p_id and ssa.sj_is_approved = 1 ');
+        $this->data['booked_applications'] = $this->custom->query('select ssa.*, u.u_comp_name, pj.p_shift_time, pj.p_dates, pj.p_job_title, ap.u_fname AS applicant_fname, ap.u_lname AS applicant_lname from stu_saved_applied_jobs ssa join users u on u.u_id = ssa.agency_id join post_job pj on pj.p_id = ssa.p_id left join users ap on ap.u_id = ssa.u_id where 1 = 1 and ssa.sj_is_approved = 1 ');
 
         // "What's new" panel. The window is a plain number of days rather than
         // "since you last looked": a per-admin last-seen marker needs a column,
@@ -248,12 +278,34 @@ class Sadmin extends BaseController
             [$since]
         );
 
+        $newEmployerCols = 'u_id, u_comp_name, u_fname, u_lname, u_email, u_status, created';
+
         $this->data['new_employers'] = $this->custom->query(
-            'SELECT u_id, u_comp_name, u_fname, u_lname, u_email, u_status, created
+            'SELECT ' . $newEmployerCols . '
                FROM users WHERE u_usertype = 1 AND created >= ?
            ORDER BY created DESC LIMIT 25',
             [$since]
         );
+
+        // The panel splits new employers the way the sidebar splits the
+        // employer list, a tab per kind. Each kind is asked for on its own
+        // rather than sliced out of the 25 above: a busy week of one kind would
+        // push the others past the limit, and an empty tab reads as "none
+        // registered" rather than "crowded out".
+        $newEmployersByKind = [];
+
+        foreach ((array) $this->config->item('employerKinds') as $code => $kindDef) {
+            [$clause, $binds] = $this->kindFilterSql($kindDef['filter']);
+
+            $newEmployersByKind[$code] = $this->custom->query(
+                'SELECT ' . $newEmployerCols . '
+                   FROM users WHERE u_usertype = 1 AND created >= ? AND ' . $clause . '
+               ORDER BY created DESC LIMIT 25',
+                array_merge([$since], $binds)
+            );
+        }
+
+        $this->data['new_employers_by_kind'] = $newEmployersByKind;
 
         $this->data['new_applicants'] = $this->custom->query(
             'SELECT u_id, u_fname, u_lname, u_email, u_status, u_usersubtype, created
@@ -1143,6 +1195,227 @@ class Sadmin extends BaseController
         }
     }
 
+    /**
+     * The Additional Details master, the same CRUD as Services.
+     *
+     * No dependency guard on delete or change status, unlike `storeservice`:
+     * nothing references `ad_id` yet. Whatever screen comes to use this list
+     * should add one here the way Services checks `post_job.p_services`,
+     * otherwise a row still in use can be removed from under it.
+     */
+    public function additionaldetails()
+    {
+        $this->setup();
+
+        $module     = $this->uri->segment(2);
+        $action     = $this->uri->segment(3);
+        $id         = $this->uri->segment(4);
+        $table      = 'additional_details';
+        $idnotFound = 0;
+
+        $this->data['validation_errors'] = '';
+        $this->data['pageinfo']          = ['title' => 'Additional Detail', 'link' => $module];
+        $this->data['additionaldetails'] = $this->custom->get_data_order($table, 'ad_name', 'asc');
+
+        switch ($action) {
+            default:
+                $this->load->admin_view($module . '/index', $this->data);
+                break;
+
+            case 'add':
+                if ($this->input->post('savedata')) {
+                    $this->form_validation->set_rules('ad_name', 'Additional detail name', 'required|is_unique[additional_details.ad_name]');
+                    $this->form_validation->set_message('is_unique', 'Sorry, the {field} you entered is already taken. Please choose another.');
+
+                    $rowData = cleanArray($this->input->post());
+                    unset($rowData['savedata']);
+
+                    if (insertQry_N($table, $rowData)) {
+                        ci_redirect('sadmin/' . $module);
+                    }
+
+                    foreach ($rowData as $ky => $vl) {
+                        $this->data[$ky] = $vl;
+                    }
+                } else {
+                    getTableInfo($this->dbname, $table);
+                }
+
+                $this->load->admin_view($module . '/add', $this->data);
+                break;
+
+            case 'edit':
+                if ($id) {
+                    $original_row     = $this->custom->get_where($table, ['ad_id' => $id]);
+                    $this->data['id'] = $id;
+
+                    if ($original_row) {
+                        if ($this->input->post('updatedata')) {
+                            $is_unique = ($this->input->post('ad_name') !== $original_row[0]->ad_name)
+                                ? '|is_unique[additional_details.ad_name]'
+                                : '';
+
+                            $this->form_validation->set_rules('ad_name', 'Additional detail name', 'required' . $is_unique);
+                            $this->form_validation->set_message('is_unique', 'Sorry, the {field} you entered is already taken. Please choose another.');
+
+                            $rowData = cleanArray($this->input->post());
+                            unset($rowData['updatedata']);
+
+                            if (updateQry($table, $rowData, ['ad_id' => $id])) {
+                                ci_redirect('sadmin/' . $module);
+                            }
+
+                            foreach ($rowData as $ky => $vl) {
+                                $this->data[$ky] = $vl;
+                            }
+                        } else {
+                            getTableInfo($this->dbname, $table, ['ad_id' => $id]);
+                        }
+
+                        $this->load->admin_view($module . '/edit', $this->data);
+                    } else {
+                        $idnotFound = 1;
+                    }
+                } else {
+                    $idnotFound = 1;
+                }
+
+                if ($idnotFound === 1) {
+                    ci_redirect('sadmin/' . $module);
+                }
+                break;
+
+            case 'changestatus':
+                if ($id) {
+                    $original_row = $this->custom->get_where($table, ['ad_id' => $id]);
+
+                    if ($original_row) {
+                        $this->custom->toggleStatus($table, 'ad_status', 'ad_id', $id);
+                        $this->session->set_flashdata('error_msg', '<div class="alert alert-success">Record has been updated.</div>');
+                        ci_redirect('sadmin/' . $module);
+                    } else {
+                        $idnotFound = 1;
+                    }
+
+                    $this->load->admin_view($module . '/index', $this->data);
+                } else {
+                    $idnotFound = 1;
+                }
+
+                if ($idnotFound === 1) {
+                    ci_redirect('sadmin/' . $module);
+                }
+                break;
+
+            case 'delete':
+                if ($id) {
+                    $original_row = $this->custom->get_where($table, ['ad_id' => $id]);
+
+                    if ($original_row) {
+                        $this->custom->delete_where($table, ['ad_id' => $id]);
+                        $this->session->set_flashdata('error_msg', '<div class="alert alert-success">Record has been deleted.</div>');
+
+                        ci_redirect('sadmin/' . $module);
+                    } else {
+                        $idnotFound = 1;
+                    }
+
+                    $this->load->admin_view($module . '/index', $this->data);
+                } else {
+                    $idnotFound = 1;
+                }
+
+                if ($idnotFound === 1) {
+                    ci_redirect('sadmin/' . $module);
+                }
+                break;
+        }
+    }
+
+    /**
+     * Manage Email: who receives which of the site's e-mails.
+     *
+     * The list shows every account - administrators, employers and applicants
+     * alike - because every one of them can be a recipient. Each row's button
+     * opens the per-user page of checkboxes; a ticked box means "send it", and
+     * what is stored is the inverse (`u_email_blocked`), so a new e-mail type
+     * added to the config later is on for everybody at once.
+     *
+     * The boxes are the e-mails that account can actually be sent, not the
+     * whole list - `emailTypesFor()` decides, from the side of the site they
+     * are on. An applicant was being offered a switch for "your shift is live"
+     * and an employer one for the day-before reminder; neither send site would
+     * ever have looked at them.
+     *
+     * reset-password is not on the page at all - see the note on `emailTypes`
+     * in Config\AppSettings: it is the only channel the reset token travels,
+     * so it is always sent. booking-cancelled is absent for the reason given
+     * there too.
+     */
+    public function manageemail()
+    {
+        $this->setup();
+
+        $module = $this->uri->segment(2);
+        $action = $this->uri->segment(3);
+        $id     = (int) $this->uri->segment(4);
+
+        $this->data['pageinfo']   = ['title' => 'Email', 'link' => $this->data['link']];
+        $this->data['emailTypes'] = (array) $this->config->item('emailTypes');
+
+        switch ($action) {
+            default:
+                $this->data['users'] = $this->custom->get_where_order('users', [], 'u_email', 'asc');
+
+                $this->load->admin_view($module . '/index', $this->data);
+                break;
+
+            case 'permissions':
+                $user = $this->custom->get_where_row('users', ['u_id' => $id]);
+
+                if (! $user) {
+                    $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">Invalid user.</div>');
+                    ci_redirect('sadmin/' . $module);
+                }
+
+                // Only the e-mails this account can actually be sent - an
+                // applicant is never told a shift of theirs is live.
+                $offered = emailTypesFor($user);
+
+                if ($this->input->post('savedata')) {
+                    // Ticked = may receive. Stored = the rest. An all-clear
+                    // form posts no boxes at all, which correctly blocks
+                    // every type rather than being mistaken for "no change".
+                    $allowed = array_map('intval', (array) $this->input->post('email_allowed'));
+                    $blocked = array_diff(array_keys($offered), $allowed);
+
+                    // A form changes only what it showed. Anything blocked on a
+                    // type this account is not offered - set before the list was
+                    // split by side, or by an earlier account type - is carried
+                    // through rather than quietly cleared.
+                    $wasBlocked = array_map('intval', array_filter(explode(',', (string) ($user['u_email_blocked'] ?? '')), 'strlen'));
+                    $blocked    = array_unique(array_merge($blocked, array_diff($wasBlocked, array_keys($offered))));
+
+                    sort($blocked);
+
+                    $this->custom->updateData(
+                        'users',
+                        ['u_email_blocked' => implode(',', $blocked), 'modified' => date('Y-m-d H:i:s')],
+                        ['u_id' => $id]
+                    );
+
+                    $this->session->set_flashdata('error_msg', '<div class="alert alert-success">Email permissions updated.</div>');
+                    ci_redirect('sadmin/' . $module);
+                }
+
+                $this->data['emailTypes'] = $offered;
+                $this->data['user']       = $user;
+
+                $this->load->admin_view($module . '/permissions', $this->data);
+                break;
+        }
+    }
+
     public function softwareskills()
     {
         $this->setup();
@@ -1307,36 +1580,40 @@ class Sadmin extends BaseController
 
         $kinds = (array) $this->config->item('employerKinds');
 
-        // The sidebar links each employer kind as /sadmin/employer/<slug>;
-        // anything else in that segment is an action, the way it always was.
-        $kind = isset($kinds[(string) $action]) ? (string) $action : '';
+        // The sidebar links each employer kind by its slug -
+        // /sadmin/employer/owner - so anything else in that segment is an
+        // action, the way it always was. The slug is only ever a URL: what the
+        // rest of this method carries is the code behind it.
+        $kind = employerKindBySlug((string) $action);
 
         // add/edit/delete/changestatus carry the list they were reached from as
         // ?kind=, so saving or activating comes back to that list rather than
         // dropping the admin into All Employers.
-        if ($kind === '') {
-            $requested = (string) $this->input->get('kind');
-            $kind      = isset($kinds[$requested]) ? $requested : '';
+        if ($kind === 0) {
+            $kind = employerKindBySlug((string) $this->input->get('kind'));
         }
 
-        $backTo = 'sadmin/' . $module . ($kind !== '' ? '/' . $kind : '');
+        $kindSlug = $kind !== 0 ? $kinds[$kind]['slug'] : '';
+        $backTo   = 'sadmin/' . $module . ($kindSlug !== '' ? '/' . $kindSlug : '');
 
         $this->data['pageinfo'] = [
             'title'     => 'Employer',
-            'listtitle' => $kind !== '' ? $kinds[$kind]['label'] : 'All Employers',
+            'listtitle' => $kind !== 0 ? $kinds[$kind]['label'] : 'All Employers',
             'link'      => $this->data['link'],
         ];
 
-        $this->data['kind']   = $kind;
-        $this->data['backTo'] = $backTo;
+        $this->data['kind']     = $kind;
+        $this->data['kindSlug'] = $kindSlug;
+        $this->data['backTo']   = $backTo;
 
         switch ($action) {
             default:
-                // Pre-B4 rows carry role 0 and so match no kind - they show up
-                // under All Employers, which is why that entry is kept.
+                // An account from before the kinds existed carries role 0 and
+                // so matches none of them - it shows up under All Employers,
+                // which is why that entry is kept.
                 $where = ['u_usertype' => 1];
 
-                if ($kind !== '') {
+                if ($kind !== 0) {
                     $where = array_merge($where, $kinds[$kind]['filter']);
                 }
 
@@ -1347,30 +1624,142 @@ class Sadmin extends BaseController
 
             case 'add':
                 if ($this->input->post('savedata')) {
-                    $this->form_validation->set_rules('u_comp_name', 'Employer Name', 'required');
-                    $this->form_validation->set_rules('u_email', 'Email', 'required');
+                    // Employer Name is required below, once the kind is known -
+                    // a manager is never asked for one.
+                    // Same rule the public form uses: the e-mail becomes the
+                    // login id, so it has to be a real address and unused.
+                    $this->form_validation->set_rules('u_email', 'Email', 'required|valid_email|is_unique[users.u_userid]');
                     $this->form_validation->set_rules('u_phone', 'Company Conatct No.', 'required');
+                    // The same name rule the public forms apply: letters, spaces
+                    // and the punctuation real names contain. Without it the back
+                    // office accepted digits and symbols the rest of the site
+                    // rejects, on the very column those forms guard.
+                    $this->form_validation->set_rules('u_fname', 'First Name', ['required', 'regex_match[' . NAME_PATTERN . ']']);
+                    $this->form_validation->set_rules('u_lname', 'Last Name', ['required', 'regex_match[' . NAME_PATTERN . ']']);
+                    $this->form_validation->set_rules('emp_kind', 'Employer Type', 'required|in_list[' . implode(',', array_keys($kinds)) . ']');
+                    $this->form_validation->set_message('is_unique', 'The %s is already taken');
+
+                    $empKind = (string) $this->input->post('emp_kind');
+                    $shape   = employerKindRole($empKind);
+
+                    if ($shape['needsParent']) {
+                        $this->form_validation->set_rules('u_parent_id', 'Corporate Group', 'required');
+                    }
+
+                    // A manager runs one of the group's existing stores and says
+                    // which, rather than describing one of their own. The back
+                    // office used to ignore this and type an address instead,
+                    // which produced a different record from the one the same
+                    // person would have created by registering.
+                    $picksStore = $shape['picksStore'];
+
+                    if ($picksStore) {
+                        $this->form_validation->set_rules('u_store_id', 'Store', 'required');
+                    } else {
+                        // The account's own name - a store for one location, a
+                        // group for a chain. A manager has neither.
+                        $this->form_validation->set_rules('u_comp_name', 'Employer Name', 'required');
+                    }
 
                     $rowData = cleanArray($this->input->post());
 
+                    // The login screen looks accounts up by `u_userid`, and this
+                    // form never wrote it - so every employer added here was
+                    // saved unable to sign in. Registration fills it from the
+                    // e-mail address; this now does the same.
+                    $rowData['u_userid']   = $rowData['u_email'] ?? '';
+                    // Normalised and scheme-checked: it is rendered as a link.
+                    $rowData['u_website']  = safeUrl($this->input->post('u_website'));
                     $rowData['u_pass']     = $this->custom->hashPassword((string) $this->input->post('u_password'));
                     $rowData['created']    = date('Y-m-d H:i:s');
                     $rowData['modified']   = date('Y-m-d H:i:s');
                     $rowData['u_usertype'] = 1;
-                    unset($rowData['savedata'], $rowData['u_password']);
 
-                    if (insertQry('users', $rowData)) {
+                    // The same three-way choice registration offers, saved into
+                    // the same two columns. Without it every employer added here
+                    // landed on role 0 - the pre-B4 shape - and so appeared
+                    // under no kind in the sidebar.
+                    $rowData['u_emp_role']  = $shape['role'];
+                    $rowData['u_parent_id'] = $shape['needsParent'] ? $this->resolvePharmacyGroup($this->input->post('u_parent_id')) : 0;
+
+                    // A manager describes no location and creates no store: the
+                    // one they picked already has both.
+                    $asksForLocation = $shape['asksForLocation'] && ! $picksStore;
+                    $ownsStore       = $shape['ownsStore'] && ! $picksStore;
+
+                    // The store is checked against the group that was just
+                    // resolved, never the posted one - that is what stops a
+                    // hand-edited form attaching a manager to another group's
+                    // location. Same rule registration applies.
+                    $store = ($picksStore && $rowData['u_parent_id'] > 0)
+                        ? $this->resolveGroupStore($this->input->post('u_store_id'), $rowData['u_parent_id'])
+                        : null;
+
+                    $rowData['u_store_id'] = $store ? (int) $store->s_id : 0;
+
+                    // A manager has no company name of their own, exactly as at
+                    // registration.
+                    if ($picksStore) {
+                        $rowData['u_comp_name'] = '';
+                    }
+
+                    // A multi-store owner is not asked for a location; blank the
+                    // columns rather than saving whatever the hidden inputs held.
+                    if (! $asksForLocation) {
+                        $rowData = array_merge($rowData, [
+                            'u_l_provice'  => 0,
+                            'u_licence_no' => '',
+                            'u_provice'    => 0,
+                            'u_city'       => 0,
+                            'u_address1'   => '',
+                            'u_pincode'    => '',
+                        ]);
+                    }
+
+                    // ...and then the store they picked is copied over those
+                    // blanks, which is what registration does. Without it a
+                    // manager added here has no name and no address, and reads
+                    // as an empty row on the employer list and in the employer
+                    // dropdown on both shift forms.
+                    if ($store) {
+                        $rowData = array_merge($rowData, storeSnapshotForManager($store));
+                    }
+
+                    // `emp_kind` picks the shape; it is not a column of its own.
+                    unset($rowData['savedata'], $rowData['u_password'], $rowData['emp_kind']);
+
+                    if ($shape['needsParent'] && $rowData['u_parent_id'] === 0) {
+                        // `required` only proves something was posted; this
+                        // catches an id that is not one of the offered groups.
+                        $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">Please choose the corporate group this manager belongs to.</div>');
+                    } elseif ($picksStore && $rowData['u_store_id'] === 0) {
+                        $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">Please choose one of that group\'s stores for this manager to run.</div>');
+                    } elseif (insertQry('users', $rowData)) {
+                        // A single-location employer's address is their first
+                        // store, exactly as at registration - and without one
+                        // they could never have a shift posted, because the
+                        // shift form only offers stores.
+                        if ($ownsStore) {
+                            $this->createStoreFromEmployer((int) $this->db->insertID(), $rowData);
+                        }
+
                         ci_redirect($backTo);
                     }
 
                     foreach ($rowData as $ky => $vl) {
                         $this->data[$ky] = $vl;
                     }
+
+                    $this->data['emp_kind'] = $empKind;
                 } else {
                     getTableInfo($this->dbname, 'users');
+
+                    // Adding from a kind's own list starts on that kind.
+                    $this->data['emp_kind'] = $kind;
                 }
 
-                $this->data['province'] = $this->custom->get_data('province');
+                $this->data['province']        = $this->custom->get_data('province');
+                $this->data['pharmacy_groups'] = pharmacyGroups();
 
                 $this->load->admin_view($module . '/add', $this->data);
                 break;
@@ -1379,16 +1768,107 @@ class Sadmin extends BaseController
                 $employer_status = $this->custom->get_where_row('users', ['u_id' => $id]);
 
                 if ($this->input->post('savedata')) {
-                    $this->form_validation->set_rules('u_comp_name', 'Employer Name', 'required');
-                    $this->form_validation->set_rules('u_email', 'Email', 'required');
+                    // Employer Name is required below, once the kind is known -
+                    // a manager is never asked for one.
+                    // Ignoring this row, so re-saving without touching the
+                    // e-mail is not rejected as a duplicate of itself.
+                    $this->form_validation->set_rules('u_email', 'Email', 'required|valid_email|is_unique[users.u_userid,u_id,' . (int) $id . ']');
                     $this->form_validation->set_rules('u_phone', 'Company Conatct No.', 'required');
+                    // The same name rule the public forms apply: letters, spaces
+                    // and the punctuation real names contain. Without it the back
+                    // office accepted digits and symbols the rest of the site
+                    // rejects, on the very column those forms guard.
+                    $this->form_validation->set_rules('u_fname', 'First Name', ['required', 'regex_match[' . NAME_PATTERN . ']']);
+                    $this->form_validation->set_rules('u_lname', 'Last Name', ['required', 'regex_match[' . NAME_PATTERN . ']']);
+                    $this->form_validation->set_rules('emp_kind', 'Employer Type', 'required|in_list[' . implode(',', array_keys($kinds)) . ']');
+                    $this->form_validation->set_message('is_unique', 'The %s is already taken');
+
+                    $empKind = (string) $this->input->post('emp_kind');
+                    $shape   = employerKindRole($empKind);
+
+                    if ($shape['needsParent']) {
+                        $this->form_validation->set_rules('u_parent_id', 'Corporate Group', 'required');
+                    }
+
+                    // The same pair of rules the add form applies, so a manager
+                    // edited here is asked exactly what one being created is:
+                    // which of the group's stores they run, and no name of
+                    // their own.
+                    $picksStore = $shape['picksStore'];
+
+                    if ($picksStore) {
+                        $this->form_validation->set_rules('u_store_id', 'Store', 'required');
+                    } else {
+                        $this->form_validation->set_rules('u_comp_name', 'Employer Name', 'required');
+                    }
 
                     $rowData = cleanArray($this->input->post());
 
-                    $rowData['modified'] = date('Y-m-d H:i:s');
-                    unset($rowData['savedata']);
+                    // The e-mail is the login id, so changing one has to change
+                    // the other - otherwise the admin edits the address and the
+                    // employer carries on signing in with the old one.
+                    $rowData['u_userid']  = $rowData['u_email'] ?? '';
+                    $rowData['u_website'] = safeUrl($this->input->post('u_website'));
+                    $rowData['modified']  = date('Y-m-d H:i:s');
 
-                    if (updateQry($table, $rowData, ['u_id' => $id])) {
+                    // Changing this dropdown is how an employer becomes a
+                    // multi-store owner - the 62 accounts that predate the
+                    // feature all sit on role 0 and belong to no kind.
+                    $rowData['u_emp_role']  = $shape['role'];
+                    $rowData['u_parent_id'] = $shape['needsParent'] ? $this->resolvePharmacyGroup($this->input->post('u_parent_id')) : 0;
+
+                    // Checked against the group just resolved, never the posted
+                    // one - the same rule as on add and at registration, and
+                    // what stops a hand-edited form moving a manager onto
+                    // another group's store. Cleared for a kind that has no
+                    // store of somebody else's to run.
+                    $store = ($picksStore && $rowData['u_parent_id'] > 0)
+                        ? $this->resolveGroupStore($this->input->post('u_store_id'), $rowData['u_parent_id'])
+                        : null;
+
+                    $rowData['u_store_id'] = $store ? (int) $store->s_id : 0;
+
+                    // The store's own name and address, copied onto the login
+                    // the way registration and the add form do. It follows the
+                    // manager when they are moved to another branch, which is
+                    // the point of taking it again on every save: the columns
+                    // are hidden on this form, so a stale copy could not be put
+                    // right by hand.
+                    if ($store) {
+                        $rowData = array_merge($rowData, storeSnapshotForManager($store));
+                    } elseif ($picksStore) {
+                        // Refused below, but the name must not be left as the
+                        // account's old one if it somehow reaches the save.
+                        $rowData['u_comp_name'] = '';
+                    }
+
+                    // Unlike the add form, the location columns are left alone
+                    // even for a multi-store owner: a shift created outside the
+                    // store flow carries `p_store_id` 0 and reads its address
+                    // off them, so blanking them would empty a live shift.
+                    unset($rowData['savedata'], $rowData['emp_kind']);
+
+                    $blocked = $this->employerKindChangeBlocker((int) $id, $employer_status, $empKind, $shape);
+
+                    if ($blocked !== '') {
+                        $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">' . $blocked . '</div>');
+                    } elseif ($shape['needsParent'] && $rowData['u_parent_id'] === 0) {
+                        $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">Please choose the corporate group this manager belongs to.</div>');
+                    } elseif ($picksStore && $rowData['u_store_id'] === 0) {
+                        $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">Please choose one of that group\'s stores for this manager to run.</div>');
+                    } elseif (updateQry($table, $rowData, ['u_id' => $id])) {
+                        // An employer added from the back office before it
+                        // created stores has none, so a kind that owns one gets
+                        // it built from their login columns now. Never a
+                        // manager: the store they run is somebody else's, and
+                        // building one from their own columns - which are blank -
+                        // would put a nameless store on the group's list. Add
+                        // draws the same distinction.
+                        if ($shape['ownsStore'] && ! $picksStore
+                            && $this->custom->get_where_count('store', ['u_id' => $id]) === 0) {
+                            $this->createStoreFromEmployer((int) $id, $rowData);
+                        }
+
                         // Tell the employer as soon as their account goes live.
                         if ($employer_status['u_status'] == 0 && $rowData['u_status'] == 1) {
                             $this->sendAccountApprovedEmail($employer_status);
@@ -1400,11 +1880,17 @@ class Sadmin extends BaseController
                     foreach ($rowData as $ky => $vl) {
                         $this->data[$ky] = $vl;
                     }
+
+                    $this->data['emp_kind'] = $empKind;
                 } else {
                     getTableInfo($this->dbname, $table, ['u_id' => $id]);
+
+                    $this->data['emp_kind'] = employerKindCode($employer_status ?: []);
                 }
 
-                $this->data['province'] = $this->custom->get_data('province');
+                $this->data['province']        = $this->custom->get_data('province');
+                $this->data['pharmacy_groups'] = pharmacyGroups();
+                $this->data['store_count']     = $this->custom->get_where_count('store', ['u_id' => $id]);
 
                 $this->load->admin_view($module . '/edit', $this->data);
                 break;
@@ -1423,6 +1909,133 @@ class Sadmin extends BaseController
                 ci_redirect($backTo, 'refresh');
                 break;
         }
+    }
+
+    /**
+     * The posted corporate group, checked against the list that was offered.
+     *
+     * The id is never trusted as posted: without this, a hand-edited form could
+     * attach a manager to any account at all.
+     *
+     * @param mixed $posted
+     * @return int 0 when it is not one of the approved multi-store owners
+     */
+    private function resolvePharmacyGroup($posted): int
+    {
+        $parent = $this->custom->get_where('users', [
+            'u_id'       => (int) $posted,
+            'u_usertype' => 1,
+            'u_emp_role' => 1,
+            'u_status'   => 1,
+        ]);
+
+        return $parent ? (int) $parent[0]->u_id : 0;
+    }
+
+    /**
+     * The store a manager runs, proved to belong to their corporate group.
+     *
+     * Checked against the group that was already resolved, never the posted
+     * one: that pairing is what stops a hand-edited form attaching a manager to
+     * another group's location. Returns null when the pair does not hold, and
+     * the caller refuses the save rather than storing a manager with no store.
+     *
+     * The whole row rather than its id: the caller copies the store's name and
+     * address onto the manager's login, exactly as registration does.
+     *
+     * @param mixed $posted the posted `u_store_id`
+     * @return object|null a `store` row
+     */
+    private function resolveGroupStore($posted, int $groupId)
+    {
+        if ($groupId <= 0) {
+            return null;
+        }
+
+        $stores = $this->custom->get_where('store', [
+            's_id'     => (int) $posted,
+            'u_id'     => $groupId,
+            's_status' => 1,
+        ]);
+
+        return $stores[0] ?? null;
+    }
+
+    /**
+     * Build an employer's first store out of their login columns.
+     *
+     * A single-location employer registers one address, and that address is the
+     * store a shift is posted against - the shift form offers stores and
+     * nothing else, so an employer without one can never be given work.
+     *
+     * @param array<string, mixed> $rowData the `users` row as it was just saved
+     */
+    private function createStoreFromEmployer(int $userId, array $rowData): void
+    {
+        if ($userId === 0) {
+            return;
+        }
+
+        $name = trim((string) ($rowData['u_comp_name'] ?? ''));
+
+        if ($name === '') {
+            $name = trim(($rowData['u_fname'] ?? '') . ' ' . ($rowData['u_lname'] ?? ''));
+        }
+
+        $this->custom->insert('store', [
+            'u_id'       => $userId,
+            's_name'     => $name,
+            's_number'   => (string) ($rowData['u_licence_no'] ?? ''),
+            's_province' => (int) ($rowData['u_provice'] ?? 0),
+            's_city'     => (int) ($rowData['u_city'] ?? 0),
+            's_address'  => (string) ($rowData['u_address1'] ?? ''),
+            's_pincode'  => (string) ($rowData['u_pincode'] ?? ''),
+            's_phone'    => (string) ($rowData['u_phone'] ?? ''),
+            's_status'   => 1,
+        ]);
+    }
+
+    /**
+     * Why this employer may not become the kind that was chosen, or '' if it may.
+     *
+     * Converting between kinds moves real records around, and two directions
+     * would leave the data contradicting itself: a single-location kind cannot
+     * hold the several stores a multi-store owner has collected, and a group
+     * that managers answer to cannot stop being a group while they still point
+     * at it. Both are reported rather than silently repaired, because only the
+     * administrator knows which store or which manager should move.
+     *
+     * @param array<string, mixed> $employer the row as it stands today
+     * @param int|string                                                                  $empKind  the `employerKinds` code being moved to
+     * @param array{role: int, needsParent: bool, asksForLocation: bool, ownsStore: bool} $shape
+     */
+    private function employerKindChangeBlocker(int $id, $employer, $empKind, array $shape): string
+    {
+        if (employerKindCode($employer ?: []) === (int) $empKind) {
+            return '';
+        }
+
+        // Becoming a one-location kind while owning several locations.
+        if ($shape['role'] === 2) {
+            $stores = $this->custom->get_where_count('store', ['u_id' => $id]);
+
+            if ($stores > 1) {
+                return 'This employer has ' . $stores . ' stores, so it cannot become a single-store account. '
+                    . 'Move or deactivate the extra stores first.';
+            }
+        }
+
+        // Ceasing to be a group while managers still belong to it.
+        if ($shape['role'] !== 1) {
+            $managers = $this->custom->get_where_count('users', ['u_parent_id' => $id, 'u_usertype' => 1]);
+
+            if ($managers > 0) {
+                return $managers . ' manager account(s) belong to this corporate group, so it must stay an '
+                    . 'Owner (Multi Store). Reassign them first.';
+            }
+        }
+
+        return '';
     }
 
     /**
@@ -1464,11 +2077,240 @@ class Sadmin extends BaseController
             'settings' => $this->data['settings'],
         ]);
 
-        if (send_email($user['u_email'], $subject, $message)) {
+        if (! userAllowsEmail($user, 'account-approved')) {
+            log_message('info', 'Account-approved e-mail withheld: user ' . $user['u_id'] . ' opted out.');
+        } elseif (send_email($user['u_email'], $subject, $message)) {
             log_message('info', 'Email sent successfully!');
         } else {
             log_message('error', 'Failed to send email.');
         }
+    }
+
+    /**
+     * The locations an employer owns, maintained from the back office.
+     *
+     * Employers have managed their own stores since multi-store shipped, but an
+     * administrator had no way to: adding a sub-outlet to a chain, or fixing an
+     * address, meant opening the database. Every screen here is the employer's
+     * own store form with an owner picker in front of it.
+     *
+     * `?owner=<u_id>` scopes the list, and is carried through add/edit/delete so
+     * that saving comes back to the chain being worked on rather than to every
+     * store in the system.
+     */
+    public function stores()
+    {
+        $this->setup();
+
+        $module = $this->uri->segment(2);
+        $action = $this->uri->segment(3);
+        $id     = (int) $this->uri->segment(4);
+        $table  = 'store';
+
+        $owner  = (int) $this->input->get('owner');
+        $backTo = 'sadmin/' . $module . ($owner ? '?owner=' . $owner : '');
+
+        $this->data['pageinfo'] = ['title' => 'Store', 'link' => $this->data['link']];
+        $this->data['owner']    = $owner;
+        $this->data['backTo']   = $backTo;
+
+        // A store belongs to an owner. A manager is never offered here: they do
+        // not own a location, they run one of their group's - which is what the
+        // Store dropdown on the employer form assigns. The accounts that
+        // predate the kinds carry role 0 and do own their locations, so they
+        // stay on the list; without them their existing stores could not be
+        // opened without appearing to change hands.
+        $this->data['owners'] = $this->custom->get_where_order('users', ['u_usertype' => 1, 'u_emp_role !=' => 2], 'u_comp_name', 'asc');
+
+        // The three lists a store can hold as its shift defaults - the same
+        // masters the shift form offers, so the two forms cannot disagree about
+        // what is on offer.
+        $this->data['software_skills']    = $this->custom->get_where('software_skills', ['ss_status' => 1]);
+        $this->data['store_service']      = $this->custom->get_where('store_service', ['st_status' => 1]);
+        $this->data['additional_details'] = $this->custom->get_where_order('additional_details', ['ad_status' => 1], 'ad_name', 'asc');
+
+        switch ($action) {
+            default:
+                $where = $owner ? ['u_id' => $owner] : [];
+
+                $this->data['stores']    = $this->custom->get_where_order($table, $where, 's_name', 'asc');
+                $this->data['ownerRow']  = $owner ? $this->custom->get_where_row('users', ['u_id' => $owner]) : null;
+
+                $this->load->admin_view($module . '/index', $this->data);
+                break;
+
+            case 'add':
+                if ($this->input->post('savedata')) {
+                    $this->form_validation->set_rules('u_id', 'Employer', 'required');
+                    $this->form_validation->set_rules('s_name', 'Store Name', 'required');
+
+                    $rowData  = $this->storeRowFromPost();
+                    $ownerRow = $this->custom->get_where_row('users', ['u_id' => $rowData['u_id'], 'u_usertype' => 1]);
+
+                    if (! $ownerRow) {
+                        $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">Choose the employer this store belongs to.</div>');
+                    } elseif (($blocked = $this->storeOwnerBlocker($ownerRow)) !== '') {
+                        $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">' . $blocked . '</div>');
+                    } elseif (insertQry($table, $rowData)) {
+                        ci_redirect('sadmin/' . $module . '?owner=' . $rowData['u_id']);
+                    }
+
+                    foreach ($rowData as $ky => $vl) {
+                        $this->data[$ky] = $vl;
+                    }
+                } else {
+                    getTableInfo($this->dbname, $table);
+
+                    // Adding from a chain's own list starts on that chain.
+                    $this->data['u_id'] = $owner;
+                }
+
+                $this->data['province'] = $this->custom->get_where('province', ['p_status' => 1]);
+
+                $this->load->admin_view($module . '/add', $this->data);
+                break;
+
+            case 'edit':
+                $store = $this->custom->get_where_row($table, ['s_id' => $id]);
+
+                if (! $store) {
+                    $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">Invalid Store</div>');
+                    ci_redirect($backTo, 'refresh');
+                }
+
+                // A store held by an account the list leaves out - a manager who
+                // owned one before the employer form assigned them instead - is
+                // still openable, showing who holds it. Without this the picker
+                // would open on nothing and the first save would look like the
+                // administrator moving the store, or refuse as an empty field.
+                if (! in_array((int) $store['u_id'], array_map(static fn ($o) => (int) $o->u_id, $this->data['owners']), true)) {
+                    $holder = $this->custom->get_where('users', ['u_id' => (int) $store['u_id']]);
+
+                    if ($holder) {
+                        array_unshift($this->data['owners'], $holder[0]);
+                    }
+                }
+
+                if ($this->input->post('savedata')) {
+                    $this->form_validation->set_rules('u_id', 'Employer', 'required');
+                    $this->form_validation->set_rules('s_name', 'Store Name', 'required');
+
+                    $rowData  = $this->storeRowFromPost();
+                    $ownerRow = $this->custom->get_where_row('users', ['u_id' => $rowData['u_id'], 'u_usertype' => 1]);
+
+                    // Moving a store to a different employer is a real thing to
+                    // want - a branch changes hands - but the receiving account
+                    // still has to be one that may hold another location.
+                    $moving  = (int) $rowData['u_id'] !== (int) $store['u_id'];
+                    $blocked = ($ownerRow && $moving) ? $this->storeOwnerBlocker($ownerRow) : '';
+
+                    if (! $ownerRow) {
+                        $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">Choose the employer this store belongs to.</div>');
+                    } elseif ($blocked !== '') {
+                        $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">' . $blocked . '</div>');
+                    } elseif (updateQry($table, $rowData, ['s_id' => $id])) {
+                        ci_redirect('sadmin/' . $module . '?owner=' . $rowData['u_id'], 'refresh');
+                    }
+
+                    foreach ($rowData as $ky => $vl) {
+                        $this->data[$ky] = $vl;
+                    }
+                } else {
+                    getTableInfo($this->dbname, $table, ['s_id' => $id]);
+                }
+
+                $this->data['province'] = $this->custom->get_where('province', ['p_status' => 1]);
+
+                $this->load->admin_view($module . '/edit', $this->data);
+                break;
+
+            case 'delete':
+                // A shift keeps pointing at the store it was posted against, and
+                // that is where the booked applicant is expected to turn up.
+                // Deleting it would leave those shifts falling back to the
+                // owner's login address - a different building.
+                $used = $this->custom->get_where_count('post_job', ['p_store_id' => $id]);
+
+                if ($used > 0) {
+                    $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">This store is on ' . $used . ' shift(s), so it cannot be deleted. Deactivate it instead - it will stop being offered on new shifts.</div>');
+                } else {
+                    $this->custom->delete_where($table, ['s_id' => $id]);
+                    $this->session->set_flashdata('error_msg', '<div class="alert alert-success">Store deleted.</div>');
+                }
+
+                ci_redirect($backTo, 'refresh');
+                break;
+
+            case 'changestatus':
+                if ($id) {
+                    $this->custom->toggleStatus($table, 's_status', 's_id', $id);
+                }
+
+                ci_redirect($backTo, 'refresh');
+                break;
+        }
+    }
+
+    /**
+     * The store columns as posted from the back office.
+     *
+     * The employer's own form has the same method; this one takes the owner
+     * from the picker instead of from the session, because an administrator is
+     * editing somebody else's record.
+     *
+     * @return array<string, mixed>
+     */
+    private function storeRowFromPost(): array
+    {
+        return [
+            'u_id'             => (int) $this->input->post('u_id'),
+            's_name'           => strip_tags((string) $this->input->post('s_name')),
+            's_number'         => strip_tags((string) $this->input->post('s_number')),
+            's_province'       => (int) $this->input->post('s_province'),
+            's_city'           => (int) $this->input->post('s_city'),
+            's_address'        => strip_tags((string) $this->input->post('s_address')),
+            's_location_label' => strip_tags((string) $this->input->post('s_location_label')),
+            // Normalised and scheme-checked: both end up in an href.
+            's_map_url'        => safeUrl($this->input->post('s_map_url')),
+            's_pincode'        => strip_tags((string) $this->input->post('s_pincode')),
+            's_phone'          => strip_tags((string) $this->input->post('s_phone')),
+            's_website'        => safeUrl($this->input->post('s_website')),
+            // What a shift at this store starts with. Set unconditionally, the
+            // same as on the shift form: an all-clear group posts nothing, and
+            // clearing the last box has to clear the column.
+            's_skills'             => implode(',', array_map('intval', (array) $this->input->post('s_skills'))),
+            's_services'           => implode(',', array_map('intval', (array) $this->input->post('s_services'))),
+            's_additional_details' => implode(',', array_map('intval', (array) $this->input->post('s_additional_details'))),
+            's_status'         => $this->input->post('s_status') !== null ? (int) $this->input->post('s_status') : 1,
+            'modified'         => date('Y-m-d H:i:s'),
+        ];
+    }
+
+    /**
+     * Why this employer may not be given another store, or '' if they may.
+     *
+     * A manager and an individual owner are both one location by definition -
+     * their own store screen refuses to add a second, and the employer form
+     * refuses to convert them while they hold several. The back office has to
+     * agree, or an administrator could quietly create the state the rest of the
+     * application is written to prevent.
+     *
+     * @param array<string, mixed> $ownerRow a `users` row
+     */
+    private function storeOwnerBlocker(array $ownerRow): string
+    {
+        if ((int) ($ownerRow['u_emp_role'] ?? 0) !== 2) {
+            return '';
+        }
+
+        $held = $this->custom->get_where_count('store', ['u_id' => (int) $ownerRow['u_id']]);
+
+        if ($held === 0) {
+            return '';
+        }
+
+        return esc(employerKindName($ownerRow)) . ' accounts own a single location, and this one already has it. '
+            . 'Make them an Owner (Multi Store) first if they are taking on another.';
     }
 
     public function applicant()
@@ -1491,11 +2333,23 @@ class Sadmin extends BaseController
 
             case 'add':
                 if ($this->input->post('savedata')) {
-                    $this->form_validation->set_rules('u_email', 'Email', 'required');
+                    // Same rules the public form applies - the e-mail is the
+                    // login id, so it has to be a real address and unused.
+                    $this->form_validation->set_rules('u_email', 'Email', 'required|valid_email|is_unique[users.u_userid]');
                     $this->form_validation->set_rules('u_phone', 'Mobile No.', 'required');
+                    // The same name rule the public forms apply: letters, spaces
+                    // and the punctuation real names contain. Without it the back
+                    // office accepted digits and symbols the rest of the site
+                    // rejects, on the very column those forms guard.
+                    $this->form_validation->set_rules('u_fname', 'First Name', ['required', 'regex_match[' . NAME_PATTERN . ']']);
+                    $this->form_validation->set_rules('u_lname', 'Last Name', ['required', 'regex_match[' . NAME_PATTERN . ']']);
+                    $this->form_validation->set_message('is_unique', 'The %s is already taken');
 
                     $rowData = cleanArray($this->input->post());
 
+                    // Without this the applicant is saved with no login id and
+                    // can never sign in - see the employer form above.
+                    $rowData['u_userid']   = $rowData['u_email'] ?? '';
                     $rowData['u_pass']     = $this->custom->hashPassword((string) $this->input->post('u_password'));
                     $rowData['created']    = date('Y-m-d H:i:s');
                     $rowData['modified']   = date('Y-m-d H:i:s');
@@ -1521,11 +2375,20 @@ class Sadmin extends BaseController
 
             case 'edit':
                 if ($this->input->post('savedata')) {
-                    $this->form_validation->set_rules('u_email', 'Email', 'required');
+                    $this->form_validation->set_rules('u_email', 'Email', 'required|valid_email|is_unique[users.u_userid,u_id,' . (int) $id . ']');
                     $this->form_validation->set_rules('u_phone', 'Mobile No.', 'required');
+                    // The same name rule the public forms apply: letters, spaces
+                    // and the punctuation real names contain. Without it the back
+                    // office accepted digits and symbols the rest of the site
+                    // rejects, on the very column those forms guard.
+                    $this->form_validation->set_rules('u_fname', 'First Name', ['required', 'regex_match[' . NAME_PATTERN . ']']);
+                    $this->form_validation->set_rules('u_lname', 'Last Name', ['required', 'regex_match[' . NAME_PATTERN . ']']);
+                    $this->form_validation->set_message('is_unique', 'The %s is already taken');
 
                     $rowData = cleanArray($this->input->post());
 
+                    // Keep the login id on the address, the way the add form does.
+                    $rowData['u_userid'] = $rowData['u_email'] ?? '';
                     $rowData['modified'] = date('Y-m-d H:i:s');
                     unset($rowData['savedata']);
 
@@ -1584,6 +2447,9 @@ class Sadmin extends BaseController
         $this->data['hourly_rate']     = $this->custom->get_where('hourly_rate', ['hr_status' => 1]);
         $this->data['software_skills'] = $this->custom->get_where('software_skills', ['ss_status' => 1]);
         $this->data['store_service']   = $this->custom->get_where('store_service', ['st_status' => 1]);
+        // Ordered by name, unlike the two above: this master is maintained by
+        // hand and its ids come out in the order they happened to be added.
+        $this->data['additional_details'] = $this->custom->get_where_order('additional_details', ['ad_status' => 1], 'ad_name', 'asc');
 
         switch ($action) {
             default:
@@ -1597,6 +2463,16 @@ class Sadmin extends BaseController
                 }
 
                 $this->data['jobs'] = $jobs;
+
+                // Which shifts already have a booked applicant - they lose
+                // their Edit and Delete buttons. One query for the whole set:
+                // the list asked this per row, which was a COUNT per shift and
+                // by far the most expensive thing on the screen.
+                $booked = $this->custom->query(
+                    'SELECT DISTINCT p_id FROM stu_saved_applied_jobs WHERE sj_is_approved = 1'
+                );
+
+                $this->data['bookedShiftIds'] = array_flip(array_column($booked ?: [], 'p_id'));
 
                 $this->load->admin_view('postjobs/index', $this->data);
                 break;
@@ -1621,20 +2497,50 @@ class Sadmin extends BaseController
 
                     $rowData['p_skills']   = implode(',', (array) $this->input->post('p_skills'));
                     $rowData['p_services'] = implode(',', (array) $this->input->post('p_services'));
+                    // Nothing posted when every box is left clear, and the
+                    // group is optional - so this has to be set either way,
+                    // or the column would keep whatever it held before.
+                    $rowData['p_additional_details'] = implode(',', (array) $this->input->post('p_additional_details'));
                     $rowData['p_jobinfo']  = $this->input->post('p_jobinfo');
                     $rowData['p_date_start'] = parseShiftDate($rowData['p_dates'] ?? null);
 
                     $rowData['created']  = date('Y-m-d H:i:s');
                     $rowData['modified'] = date('Y-m-d H:i:s');
                     $rowData['p_status'] = 1;
-                    unset($rowData['savedata'], $rowData['files']);
 
-                    if (insertQry($table, $rowData, 'newjob')) {
+                    // The admin may hand the shift straight to somebody instead
+                    // of waiting for applications. Checked against the same
+                    // conditions the picker was built from, because the page may
+                    // have been sitting open since before the account changed.
+                    $applicantId = (int) $this->input->post('sj_applicant_id');
+                    $applicant   = $applicantId > 0
+                        ? $this->custom->get_where_row('users', ['u_id' => $applicantId, 'u_usertype' => 2, 'u_status' => 1])
+                        : null;
+
+                    // The shift is closed by `bookApplicant()` once the booking
+                    // row is actually there, rather than here - see the note on
+                    // ordering in that method.
+
+                    // Neither belongs to post_job - they are the booking, which
+                    // is written once the shift has an id.
+                    unset($rowData['savedata'], $rowData['files'], $rowData['sj_applicant_id'], $rowData['sj_admin_comment']);
+
+                    if ($applicantId > 0 && ! $applicant) {
+                        // Chosen off a list that has since gone stale - the
+                        // account is deactivated, or is not an applicant at all.
+                        // Nothing is saved: a shift meant to be booked that came
+                        // out unbooked is worse than one that was never created.
+                        $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">That applicant is no longer active, so the shift has not been saved.</div>');
+                    } elseif (insertQry($table, $rowData, 'newjob')) {
                         $id = $this->db->insertID();
 
                         $uData['p_job_title'] = 'PAS-' . $id;
 
                         updateQry($table, $uData, ['p_id' => $id]);
+
+                        if ($applicant) {
+                            $this->bookApplicant((int) $id, $applicant, (string) $this->input->post('sj_admin_comment'));
+                        }
 
                         ci_redirect('sadmin/postjobs', 'refresh');
                     }
@@ -1648,6 +2554,15 @@ class Sadmin extends BaseController
 
                 $this->data['agencies'] = $this->custom->get_where_order('users', ['u_usertype' => 1, 'u_status' => 1], 'u_comp_name', 'asc');
 
+                // Who the shift may be handed to straight away. Active accounts
+                // only - a deactivated applicant is not working shifts.
+                $this->data['applicants'] = $this->custom->get_where_order('users', ['u_usertype' => 2, 'u_status' => 1], 'u_lname, u_fname', 'asc');
+
+                // Neither is a post_job column, so getTableInfo() knows nothing
+                // about them and the view would have nothing to read.
+                $this->data['sj_applicant_id']  = (string) $this->input->post('sj_applicant_id');
+                $this->data['sj_admin_comment'] = (string) $this->input->post('sj_admin_comment');
+
                 // Stores of the already-chosen employer, so the picker is
                 // populated on a re-render; picking an employer refreshes the
                 // list over ajax_getstorelist.
@@ -1659,15 +2574,20 @@ class Sadmin extends BaseController
                 break;
 
             case 'edit':
-                $shift_approved = $this->custom->get_where_row('post_job', ['p_id' => $id]);
+                $shift_approved = $this->custom->get_where_row('post_job', ['p_id' => $id]) ?: [];
 
-                // A shift that already has a booked applicant is frozen.
-                $applied_approved = $this->db->table('stu_saved_applied_jobs')
-                    ->where('p_id', $id)
-                    ->where('sj_is_approved', 1)
-                    ->countAllResults();
+                // Who is on the shift, if anybody.
+                $booking = $this->shiftBooking((int) $id);
 
-                if ($applied_approved === 0) {
+                // A booked or closed shift used to be frozen outright. It is
+                // now editable right up to the day it is worked, because the
+                // booked applicant may drop out and somebody has to be able to
+                // put another one on - see the booking card on the form. On the
+                // day and afterwards it is history and stays frozen.
+                $frozen = ($booking || (int) ($shift_approved['p_approved'] ?? 0) === 3)
+                    && ! shiftIsUpcoming($shift_approved);
+
+                if (! $frozen) {
                     if ($this->input->post('savedata')) {
                         $this->form_validation->set_rules('u_id', 'Agency/Owner Name', 'required');
                         $this->form_validation->set_rules('p_store_id', 'Store', 'required');
@@ -1685,14 +2605,37 @@ class Sadmin extends BaseController
 
                         $rowData['p_skills']   = implode(',', (array) $this->input->post('p_skills'));
                         $rowData['p_services'] = implode(',', (array) $this->input->post('p_services'));
+                        // Unticking the last box has to clear the column, which
+                        // it would not if this were only set when something was
+                        // posted - see the same line on add.
+                        $rowData['p_additional_details'] = implode(',', (array) $this->input->post('p_additional_details'));
                         $rowData['p_jobinfo']  = $this->input->post('p_jobinfo');
                         $rowData['p_date_start'] = parseShiftDate($rowData['p_dates'] ?? null);
 
                         $rowData['modified'] = date('Y-m-d H:i:s');
                         $rowData['p_status'] = 1;
-                        unset($rowData['savedata'], $rowData['files']);
 
-                        if (updateQry($table, $rowData, ['p_id' => $id])) {
+                        // The booking, which the form may be changing: swapping
+                        // one applicant for another, or taking the shift back
+                        // off somebody so it goes on the board again. Checked
+                        // the same way as on add - the page may have been open
+                        // since before the account was deactivated.
+                        $bookedId    = (int) ($booking['u_id'] ?? 0);
+                        $applicantId = (int) $this->input->post('sj_applicant_id');
+                        $applicant   = $applicantId > 0
+                            ? $this->custom->get_where_row('users', ['u_id' => $applicantId, 'u_usertype' => 2, 'u_status' => 1])
+                            : null;
+
+                        // Not post_job columns - the booking lives in its own
+                        // table and is written below.
+                        unset($rowData['savedata'], $rowData['files'], $rowData['sj_applicant_id'], $rowData['sj_admin_comment']);
+
+                        if ($applicantId > 0 && ! $applicant) {
+                            // Chosen off a list that has since gone stale. As on
+                            // add, nothing at all is saved rather than saving
+                            // the shift and quietly losing the booking with it.
+                            $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">That applicant is no longer active, so nothing has been saved.</div>');
+                        } elseif (updateQry($table, $rowData, ['p_id' => $id])) {
                             if ($rowData['p_approved'] == 2 || $rowData['p_approved'] == 3) {
                                 $rejected = $this->db->table($table)
                                     ->whereIn('p_id', [$rowData['p_id']])
@@ -1719,11 +2662,43 @@ class Sadmin extends BaseController
                                     'settings'    => $this->data['settings'],
                                 ]);
 
-                                if (send_email($email, $subject, $message)) {
+                                if (! userAllowsEmail($u_data[0], 'shift-posted')) {
+                                    log_message('info', 'Shift-posted e-mail withheld: user ' . $u_data[0]->u_id . ' opted out.');
+                                } elseif (send_email($email, $subject, $message)) {
                                     log_message('info', 'Email sent successfully!');
                                 } else {
                                     log_message('error', 'Failed to send email.');
                                 }
+                            }
+
+                            // The booking itself, after the shift row and after
+                            // the block above: that one rejects every
+                            // application when the shift is made Inactive, and
+                            // would undo a booking written before it.
+                            $shiftClosed = (int) $rowData['p_approved'] === 3;
+
+                            if ($booking && $applicantId !== $bookedId) {
+                                // Swapped or taken off: the person who had the
+                                // shift is told, whichever it was.
+                                $this->cancelBooking($booking);
+                            } elseif ($booking && (int) $rowData['p_approved'] === 2) {
+                                // Same applicant, but the shift has just been
+                                // made Inactive - the block above has already
+                                // rejected their booking row, so they are no
+                                // longer working it and have to hear so.
+                                $this->cancelBooking($booking, false);
+                            }
+
+                            if ($applicant && $applicantId !== $bookedId) {
+                                $this->bookApplicant((int) $id, $applicant, (string) $this->input->post('sj_admin_comment'));
+                            } elseif ($booking && $applicantId === 0 && $shiftClosed) {
+                                // Nobody on it now. It was closed because of the
+                                // booking that has just gone, so it goes back on
+                                // the board - unless the administrator picked a
+                                // status themselves, which is left alone.
+                                $this->db->table($table)
+                                    ->where('p_id', $id)
+                                    ->update(['p_approved' => 1, 'modified' => date('Y-m-d H:i:s')]);
                             }
 
                             ci_redirect('sadmin/postjobs', 'refresh');
@@ -1736,8 +2711,40 @@ class Sadmin extends BaseController
                         getTableInfo($this->dbname, $table, ['p_id' => $id]);
                     }
                 } else {
-                    $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">This Shift cannot be modified!</div>');
+                    $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">This shift can no longer be modified - its date has arrived or gone by.</div>');
                     ci_redirect('sadmin/postjobs', 'refresh');
+                }
+
+                // The booking card, which is on this form for the same reason it
+                // is on add - except that here it may already have somebody in
+                // it. Only for a shift still ahead of us: putting an applicant
+                // on one that has already been worked means nothing.
+                $this->data['shift_upcoming'] = shiftIsUpcoming($shift_approved);
+                $this->data['booking']        = $booking;
+
+                if ($this->data['shift_upcoming']) {
+                    $this->data['applicants'] = $this->custom->get_where_order('users', ['u_usertype' => 2, 'u_status' => 1], 'u_lname, u_fname', 'asc');
+
+                    // The list is active accounts only, so a booked applicant
+                    // since deactivated would not be in it - and a picker with
+                    // no option for them reads as "nobody is booked", which on
+                    // the next save is exactly what would happen. Put them in.
+                    if ($booking && ! in_array((int) $booking['u_id'], array_map(static fn ($a) => (int) $a->u_id, $this->data['applicants']), true)) {
+                        $bookedUser = $this->custom->get_where('users', ['u_id' => $booking['u_id']]);
+
+                        if ($bookedUser) {
+                            array_unshift($this->data['applicants'], $bookedUser[0]);
+                        }
+                    }
+
+                    // Not post_job columns, so getTableInfo() knows nothing
+                    // about them. The picker opens on whoever is booked, so
+                    // leaving it alone leaves the booking alone.
+                    $this->data['sj_applicant_id'] = $this->input->post('savedata')
+                        ? (string) $this->input->post('sj_applicant_id')
+                        : (string) ($booking['u_id'] ?? '');
+
+                    $this->data['sj_admin_comment'] = (string) $this->input->post('sj_admin_comment');
                 }
 
                 $this->data['agencies'] = $this->custom->get_where_order('users', ['u_usertype' => 1, 'u_status' => 1], 'u_comp_name', 'asc');
@@ -1781,9 +2788,9 @@ class Sadmin extends BaseController
         switch ($action) {
             default:
                 if ($this->input->get('filter') && $this->input->get('filter') === 'booked') {
-                    $applicationslist = $this->custom->query('select ssa.*, u.u_comp_name, pj.p_shift_time, pj.p_dates from stu_saved_applied_jobs ssa, users u, post_job pj where ssa.agency_id=u.u_id and  ssa.p_id = pj.p_id and ssa.sj_is_approved = 1 ');
+                    $applicationslist = $this->custom->query('select ssa.*, u.u_comp_name, pj.p_shift_time, pj.p_dates, pj.p_job_title, ap.u_fname AS applicant_fname, ap.u_lname AS applicant_lname from stu_saved_applied_jobs ssa join users u on u.u_id = ssa.agency_id join post_job pj on pj.p_id = ssa.p_id left join users ap on ap.u_id = ssa.u_id where 1 = 1 and ssa.sj_is_approved = 1 ');
                 } else {
-                    $applicationslist = $this->custom->query('select ssa.*, u.u_comp_name, pj.p_shift_time, pj.p_dates from stu_saved_applied_jobs ssa, users u, post_job pj where ssa.agency_id=u.u_id and  ssa.p_id = pj.p_id ');
+                    $applicationslist = $this->custom->query('select ssa.*, u.u_comp_name, pj.p_shift_time, pj.p_dates, pj.p_job_title, ap.u_fname AS applicant_fname, ap.u_lname AS applicant_lname from stu_saved_applied_jobs ssa join users u on u.u_id = ssa.agency_id join post_job pj on pj.p_id = ssa.p_id left join users ap on ap.u_id = ssa.u_id where 1 = 1 ');
                 }
 
                 $this->data['applicationslist'] = $applicationslist;
@@ -1848,60 +2855,11 @@ class Sadmin extends BaseController
                                 ->update(['p_approved' => 3]);
                         }
 
-                        $query = $this->db->table('stu_saved_applied_jobs s')
-                            ->select('u.*, s.agency_id')
-                            ->join('users u', 'u.u_id = s.u_id', 'inner')
-                            ->where('s.p_id', $rowData['p_id'])
-                            ->where('s.u_id', $rowData['u_id'])
-                            ->where('s.sj_is_approved', 1)
-                            ->get();
-
-                        if ($query->getNumRows() > 0) {
-                            $user       = $query->getRow();
-                            $user_email = $user->u_email;
-                            $user_name  = $user->u_fname . ' ' . $user->u_lname;
-
-                            $shift_detail = $this->custom->get_where_row('post_job', ['p_id' => $rowData['p_id']]);
-
-                            $employer_detail = $this->custom->get_where_row('users', ['u_id' => $user->agency_id]);
-
-                            // The agency keeps a copy of both halves of the booking.
-                            $agency_copy = getAgencyCopyEmail();
-
-                            $applicant_email   = $user_email;
-                            $applicant_subject = 'Congratulations! You Have Been Approved for Shift ID : ' . $shift_detail['p_job_title'];
-                            $applicant_message = email_body('booking-applicant', [
-                                'title'            => 'You have been approved for a shift',
-                                'name'             => $user_name,
-                                'shift'            => $shift_detail,
-                                'employer'         => $employer_detail,
-                                'approval_comment' => $rowData['sj_admin_comment'],
-                                'settings'         => $this->data['settings'],
-                            ]);
-
-                            if (send_email($applicant_email, $applicant_subject, $applicant_message, $agency_copy)) {
-                                log_message('info', 'Email sent successfully!');
-                            } else {
-                                log_message('error', 'Failed to send email.');
-                            }
-
-                            $employer_email   = $employer_detail['u_email'];
-                            $employer_subject = 'A New Applicant Has Been Approved for Shift ID : ' . $shift_detail['p_job_title'];
-                            $employer_message = email_body('booking-employer', [
-                                'title'          => 'An applicant has been approved for your shift',
-                                'name'           => $employer_detail['u_fname'] . ' ' . $employer_detail['u_lname'],
-                                'applicant_name' => $user_name,
-                                'applicant'      => $user,
-                                'shift'          => $shift_detail,
-                                'settings'       => $this->data['settings'],
-                            ]);
-
-                            if (send_email($employer_email, $employer_subject, $employer_message, $agency_copy)) {
-                                log_message('info', 'Email sent successfully!');
-                            } else {
-                                log_message('error', 'Failed to send email.');
-                            }
-                        }
+                        $this->sendBookingEmails(
+                            (int) $rowData['p_id'],
+                            (int) $rowData['u_id'],
+                            (string) $rowData['sj_admin_comment']
+                        );
 
                         $this->session->set_flashdata('error_msg', UPDATE);
                     } else {
@@ -2025,6 +2983,288 @@ class Sadmin extends BaseController
     }
 
     /**
+     * The approved booking on a shift, or null - the one applicant who is
+     * actually working it.
+     *
+     * @return array<string, mixed>|null a `stu_saved_applied_jobs` row
+     */
+    private function shiftBooking(int $shiftId): ?array
+    {
+        if ($shiftId <= 0) {
+            return null;
+        }
+
+        $row = $this->db->table('stu_saved_applied_jobs')
+            ->where('p_id', $shiftId)
+            ->where('sj_is_approved', 1)
+            ->orderBy('sj_id', 'DESC')
+            ->get()
+            ->getRowArray();
+
+        return $row ?: null;
+    }
+
+    /**
+     * Take an applicant back off a shift they were booked on.
+     *
+     * Their row goes to rejected - the same code the applications screen uses
+     * for everybody who did not get the shift - and they are told, because as
+     * far as they know they are turning up to work it.
+     *
+     * @param array<string, mixed> $booking    a `stu_saved_applied_jobs` row
+     * @param bool                 $rejectRow  false when the caller has already
+     *                                         rejected the row, so only the
+     *                                         e-mail is left to send
+     */
+    private function cancelBooking(array $booking, bool $rejectRow = true): void
+    {
+        if ($rejectRow) {
+            // The comments on the row are left as they were: they are the
+            // record of the booking that was made, and this is not a new one.
+            $this->db->table('stu_saved_applied_jobs')
+                ->where('sj_id', $booking['sj_id'])
+                ->update(['sj_is_approved' => 2, 'modified' => date('Y-m-d H:i:s')]);
+        }
+
+        $this->sendCancellationEmail((int) $booking['p_id'], (int) $booking['u_id']);
+    }
+
+    /**
+     * Tell an applicant the shift they were booked on is no longer theirs.
+     *
+     * Deliberately not one of the e-mails a user can opt out of: it is not
+     * news about the service, it is the correction to a message we already
+     * sent them saying they had the shift. Nobody may be opted out of that,
+     * for the same reason as the password reset - see AppSettings::$emailTypes.
+     */
+    private function sendCancellationEmail(int $shiftId, int $applicantId): void
+    {
+        $applicant = $this->custom->get_where_row('users', ['u_id' => $applicantId]);
+        $shift     = $this->custom->get_where_row('post_job', ['p_id' => $shiftId]);
+
+        if (! $applicant || ! $shift) {
+            log_message('error', 'Cancellation e-mail skipped: shift ' . $shiftId . ', applicant ' . $applicantId);
+
+            return;
+        }
+
+        $employer = $this->custom->get_where_row('users', ['u_id' => $shift['u_id']]);
+
+        $subject = 'Your shift booking has been cancelled : ' . $shift['p_job_title'];
+        $message = email_body('booking-cancelled', [
+            'title'    => 'Your shift booking has been cancelled',
+            'name'     => $applicant['u_fname'] . ' ' . $applicant['u_lname'],
+            'shift'    => $shift,
+            'employer' => $employer,
+            'store'    => shiftStore((object) $shift),
+            'settings' => $this->data['settings'],
+        ]);
+
+        // The agency keeps a copy, as it does of the booking itself.
+        if (send_email($applicant['u_email'], $subject, $message, getAgencyCopyEmail())) {
+            log_message('info', 'Cancellation e-mail sent for shift ' . $shiftId . ' to applicant ' . $applicantId);
+        } else {
+            log_message('error', 'Cancellation e-mail failed for shift ' . $shiftId . ' to applicant ' . $applicantId);
+        }
+    }
+
+    /**
+     * Put an applicant on a shift, booked and confirmed.
+     *
+     * The same three things approving an application does - the booking row,
+     * the shift closing behind it, and the pair of e-mails - for an applicant
+     * the administrator placed on the shift themselves rather than one who
+     * applied for it.
+     *
+     * @param array<string, mixed> $applicant a `users` row, already checked to
+     *                                        be an active applicant
+     */
+    private function bookApplicant(int $shiftId, array $applicant, string $comment): void
+    {
+        $now   = date('Y-m-d H:i:s');
+        $shift = $this->custom->get_where_row('post_job', ['p_id' => $shiftId]);
+
+        if (! $shift) {
+            return;
+        }
+
+        // This person may already have a row on this shift: on add they never
+        // do, but the edit form books onto a shift that has been on the board
+        // and may well have their application - or their earlier booking, if
+        // they are being put back on after being taken off. Approving the row
+        // they have, rather than writing a second one, keeps one row per
+        // applicant per shift, which every count of "who is on this" assumes.
+        $existing = $this->db->table('stu_saved_applied_jobs')
+            ->where('p_id', $shiftId)
+            ->where('u_id', (int) $applicant['u_id'])
+            ->orderBy('sj_id', 'DESC')
+            ->get()
+            ->getRowArray();
+
+        if ($existing) {
+            $booked = $this->db->table('stu_saved_applied_jobs')
+                ->where('sj_id', $existing['sj_id'])
+                ->update([
+                    'sj_status'        => 6,
+                    'sj_is_approved'   => 1,
+                    'sj_accept_date'   => $now,
+                    'sj_admin_comment' => $comment,
+                    'modified'         => $now,
+                ]);
+        } else {
+            $booked = $this->custom->insert('stu_saved_applied_jobs', [
+                'u_id'      => (int) $applicant['u_id'],
+                'agency_id' => (int) $shift['u_id'],
+                'p_id'      => $shiftId,
+                // 6 is "accepted" - where an approved application ends up. Nobody
+                // applied for this one, so it starts at the end.
+                'sj_status'        => 6,
+                'sj_is_approved'   => 1,
+                'sj_applied_date'  => $now,
+                'sj_accept_date'   => $now,
+                'sj_admin_comment' => $comment,
+                // Written out rather than left to the column defaults, which these
+                // three do not have: they are NOT NULL with nothing to fall back
+                // on, so a server running MySQL in strict mode - which the local
+                // one is not, and a shared host usually is - refuses the whole
+                // insert with "doesn't have a default value".
+                'sj_applied_desc'      => '',
+                'sj_resubmit_comments' => '',
+                'sj_rejected_comments' => 0,
+                'created'              => $now,
+                'modified'             => $now,
+            ]);
+        }
+
+        if (! $booked) {
+            // The shift is saved and still open, which is the recoverable half:
+            // the applicant can be booked from the Applications screen. Said
+            // plainly, because the write above fails silently otherwise and
+            // the page would report the shift as saved and nothing else.
+            log_message('error', 'Booking from the shift form failed for shift ' . $shiftId . ', applicant ' . $applicant['u_id']);
+
+            $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">The shift was saved, but the applicant could not be booked onto it. The shift is still open - book them from the Applications screen.</div>');
+
+            return;
+        }
+
+        // Everybody else who applied has lost it, the same as when a booking is
+        // made from the applications screen. Nothing on add, where there are no
+        // other applications to reject.
+        $this->db->table('stu_saved_applied_jobs')
+            ->where('p_id', $shiftId)
+            ->where('u_id !=', (int) $applicant['u_id'])
+            ->where('sj_is_approved !=', 2)
+            ->update(['sj_is_approved' => 2, 'modified' => $now]);
+
+        // Somebody is on it, so the shift is closed to everybody else - the
+        // same thing the application screen does on approval. After the booking
+        // row, never before it: a shift closed with nobody on it is invisible
+        // to applicants and shows no booking to explain why.
+        $this->db->table('post_job')
+            ->where('p_id', $shiftId)
+            ->update(['p_approved' => 3, 'modified' => $now]);
+
+        $this->sendBookingEmails($shiftId, (int) $applicant['u_id'], $comment);
+    }
+
+    /**
+     * The two halves of a booking notice - one to the applicant, one to the
+     * employer - each with the agency's copy.
+     *
+     * Sent from approving an application and from booking an applicant on the
+     * shift form. It sat inside applications/view; the second caller would have
+     * been a second copy of it, so it lives here instead.
+     *
+     * Nothing is sent unless the booking row is really there and approved,
+     * which is the guard the old code got from the join it read through.
+     */
+    private function sendBookingEmails(int $shiftId, int $applicantId, string $comment): void
+    {
+        $query = $this->db->table('stu_saved_applied_jobs s')
+            ->select('u.*, s.agency_id')
+            ->join('users u', 'u.u_id = s.u_id', 'inner')
+            ->where('s.p_id', $shiftId)
+            ->where('s.u_id', $applicantId)
+            ->where('s.sj_is_approved', 1)
+            ->get();
+
+        if ($query->getNumRows() === 0) {
+            return;
+        }
+
+        $user       = $query->getRow();
+        $user_email = $user->u_email;
+        $user_name  = $user->u_fname . ' ' . $user->u_lname;
+
+        $shift_detail = $this->custom->get_where_row('post_job', ['p_id' => $shiftId]);
+
+        $employer_detail = $this->custom->get_where_row('users', ['u_id' => $user->agency_id]);
+
+        // The agency keeps a copy of both halves of the booking.
+        $agency_copy = getAgencyCopyEmail();
+
+        // Which building to turn up at. This used to be read off the employer's
+        // login columns, which for a multi-store owner is their head office
+        // rather than the branch the shift is at - so the applicant was sent to
+        // the wrong address. `shiftStore()` returns the shift's own store,
+        // falling back to those same columns only for a shift that has no store.
+        $store_detail = shiftStore((object) $shift_detail);
+
+        $applicant_email   = $user_email;
+        $applicant_subject = 'Congratulations! You Have Been Approved for Shift ID : ' . $shift_detail['p_job_title'];
+        $applicant_message = email_body('booking-applicant', [
+            'title'            => 'You have been approved for a shift',
+            'name'             => $user_name,
+            'shift'            => $shift_detail,
+            'employer'         => $employer_detail,
+            'store'            => $store_detail,
+            'approval_comment' => $comment,
+            'settings'         => $this->data['settings'],
+        ]);
+
+        if (! userAllowsEmail($user, 'booking-applicant')) {
+            // The agency's copy of this half still goes: the opt-out is the
+            // applicant's, not the agency's.
+            log_message('info', 'Booking e-mail withheld: applicant ' . $user->u_id . ' opted out.');
+
+            if ($agency_copy) {
+                send_email($agency_copy, $applicant_subject, $applicant_message);
+            }
+        } elseif (send_email($applicant_email, $applicant_subject, $applicant_message, $agency_copy)) {
+            log_message('info', 'Email sent successfully!');
+        } else {
+            log_message('error', 'Failed to send email.');
+        }
+
+        $employer_email   = $employer_detail['u_email'];
+        $employer_subject = 'A New Applicant Has Been Approved for Shift ID : ' . $shift_detail['p_job_title'];
+        $employer_message = email_body('booking-employer', [
+            'title'          => 'An applicant has been approved for your shift',
+            'name'           => $employer_detail['u_fname'] . ' ' . $employer_detail['u_lname'],
+            'applicant_name' => $user_name,
+            'applicant'      => $user,
+            'shift'          => $shift_detail,
+            // A chain's head office needs telling which of their branches this
+            // booking is for.
+            'store'          => $store_detail,
+            'settings'       => $this->data['settings'],
+        ]);
+
+        if (! userAllowsEmail($employer_detail, 'booking-employer')) {
+            log_message('info', 'Booking e-mail withheld: employer ' . $employer_detail['u_id'] . ' opted out.');
+
+            if ($agency_copy) {
+                send_email($agency_copy, $employer_subject, $employer_message);
+            }
+        } elseif (send_email($employer_email, $employer_subject, $employer_message, $agency_copy)) {
+            log_message('info', 'Email sent successfully!');
+        } else {
+            log_message('error', 'Failed to send email.');
+        }
+    }
+
+    /**
      * `<option>`s for the store picker on the shift form, refreshed when the
      * employer changes - same shape as ajax_getcitylist above.
      */
@@ -2049,6 +3289,54 @@ class Sadmin extends BaseController
         }
 
         echo $store_data;
+    }
+
+    /**
+     * A store's shift defaults, for the shift form to start from.
+     *
+     * Answers to `s_id` - the store the admin picked - or to `u_id`, the
+     * employer. The employer form of the question only has an answer when that
+     * employer has exactly one active location: with several, which one the
+     * shift is at is precisely what the admin has not said yet, and filling the
+     * form from whichever came first would be a guess. The store id comes back
+     * with the lists so the caller can select that store as well.
+     *
+     * Returns what the store holds; the shift form decides what to do with it.
+     * Nothing is written here - the shift keeps its own copy from the moment it
+     * is saved.
+     */
+    public function ajax_getstoredefaults()
+    {
+        $this->setup();
+
+        $storeId = (int) $this->input->post('s_id');
+        $userId  = (int) $this->input->post('u_id');
+        $store   = null;
+
+        if ($storeId > 0) {
+            $store = $this->custom->get_where_row('store', ['s_id' => $storeId]);
+        } elseif ($userId > 0) {
+            $stores = $this->custom->get_where('store', ['u_id' => $userId, 's_status' => 1]);
+
+            if ($stores && count($stores) === 1) {
+                $store = (array) $stores[0];
+            }
+        }
+
+        $ids = static function ($list): array {
+            // The columns hold "3,7,12"; '' has to come back as no ids at all
+            // rather than as one empty one.
+            return array_values(array_filter(array_map('intval', explode(',', (string) $list))));
+        };
+
+        return $this->response->setJSON([
+            // 0 when no single store answered the question, which tells the
+            // caller to leave the store picker alone.
+            's_id'                 => $store ? (int) $store['s_id'] : 0,
+            'p_skills'             => $store ? $ids($store['s_skills'] ?? '') : [],
+            'p_services'           => $store ? $ids($store['s_services'] ?? '') : [],
+            'p_additional_details' => $store ? $ids($store['s_additional_details'] ?? '') : [],
+        ]);
     }
 
     public function ajax_getcitylist()

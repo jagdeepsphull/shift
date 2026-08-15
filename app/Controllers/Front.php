@@ -19,6 +19,11 @@ class Front extends BaseController
     {
         $this->data['settings'] = $this->custom->getSettings();
 
+        // What "Select User Type" offers, and what each choice means in the
+        // database. The form is drawn from the same list register() validates
+        // against, so an option can never exist that the save would refuse.
+        $this->data['registerTypes'] = (array) $this->config->item('registerTypes');
+
         // User login status
         $this->isUserLoggedIn         = $this->session->userdata('isUserLoggedIn');
         $this->data['isUserLoggedIn'] = $this->isUserLoggedIn;
@@ -72,19 +77,20 @@ class Front extends BaseController
     }
 
     /**
-     * The multi-store owners a registering single store can join, A-Z.
+     * The multi-store owners a registering manager can join, A-Z.
      *
      * Only approved ones: joining a group that has not been verified yet
      * would attach a store to an account nobody has checked.
+     *
+     * Every approved group is listed, including one that has added no store
+     * yet. Leaving those out would empty the dropdown of a site whose groups
+     * are still being set up, and the manager would be told nothing at all;
+     * this way they pick a group and the store list explains where it stands.
      */
     private function pharmacyGroups(): array
     {
-        return $this->custom->get_where_order(
-            'users',
-            ['u_usertype' => 1, 'u_emp_role' => 1, 'u_status' => 1],
-            'u_comp_name',
-            'asc'
-        );
+        // Shared with the back-office employer form, which offers the same list.
+        return pharmacyGroups();
     }
 
     public function signup()
@@ -220,8 +226,10 @@ class Front extends BaseController
 
         $this->data['id'] = $id;
 
+        // `u_website` comes along so the page can fall back to the employer's
+        // site when the store has none of its own.
         $this->data['jobdetail'] = $this->custom->query(
-            'Select pj.*,pr.p_name, cit.c_name ,u.u_comp_name,u.u_company_logo,u.u_licence_no '
+            'Select pj.*,pr.p_name, cit.c_name ,u.u_comp_name,u.u_company_logo,u.u_licence_no,u.u_website '
             . 'from post_job pj, province pr, city cit, users u '
             . 'where pj.p_province = pr.p_id and p_city = cit.c_id and pj.u_id = u.u_id and pj.p_id = ?',
             [$id]
@@ -490,37 +498,50 @@ class Front extends BaseController
             $this->form_validation->set_message('is_unique', 'The %s is already taken');
             $this->form_validation->set_rules('conf_password', 'confirm password', 'required|matches[password]');
 
-            $this->form_validation->set_rules('reg_type', 'User Type', 'required|in_list[manager,owner_multi,owner_individual,applicant]');
+            // One dropdown, three kinds of account, and what each one means in
+            // the database is `registerTypes` in config - the same list the
+            // dropdown is drawn from, so the two cannot offer different things.
+            $regTypes = (array) $this->config->item('registerTypes');
 
-            // One dropdown, four kinds of account - change request B4. The
-            // first three are all usertype 1; they differ by how many stores
-            // the login owns (`u_emp_role`) and whether it answers to a
-            // pharmacy group (`u_parent_id`):
-            //   manager          -> usertype 1, role 2, parent required
-            //   owner_multi      -> usertype 1, role 1, adds stores afterwards
-            //   owner_individual -> usertype 1, role 2, parent always 0
-            //   applicant        -> usertype 2, role 0
-            $regType = (string) $this->input->post('reg_type');
-            $isOwner = in_array($regType, ['manager', 'owner_multi', 'owner_individual'], true);
+            $this->form_validation->set_rules('reg_type', 'User Type', 'required|in_list[' . implode(',', array_keys($regTypes)) . ']');
 
-            $userType = $isOwner ? 1 : 2;
-            $empRole  = $regType === 'owner_multi' ? 1 : (($regType === 'manager' || $regType === 'owner_individual') ? 2 : 0);
+            $regType = (int) $this->input->post('reg_type');
+            $chosen  = $regTypes[$regType] ?? null;
+
+            // An employer kind carries an `empRole`; an applicant does not.
+            $isOwner = $chosen !== null && $chosen['empRole'] !== null;
+
+            // How the choice maps onto the columns lives in one place, shared
+            // with the back-office employer form, so the two cannot drift.
+            $shape = employerKindRole($isOwner ? $chosen['empRole'] : 0);
+
+            $userType = $chosen !== null ? (int) $chosen['userType'] : 2;
+            $empRole  = $isOwner ? $shape['role'] : 0;
 
             // A manager runs a store for somebody, so the group is required.
-            if ($regType === 'manager') {
-                $this->form_validation->set_rules('u_parent_id', 'Pharmacy Group', 'required');
+            if ($shape['needsParent']) {
+                $this->form_validation->set_rules('u_parent_id', 'Corporate Group', 'required');
+            }
+
+            // A manager runs one of the group's stores, so they say which
+            // rather than describing one of their own.
+            $picksStore = $shape['picksStore'];
+
+            if ($picksStore) {
+                $this->form_validation->set_rules('u_store_id', 'Store', 'required');
             }
 
             // A multi-store owner is never asked for a location: their licence
-            // and address belong to each store they add later.
-            $asksForLocation = ($regType !== 'owner_multi');
+            // and address belong to each store they add later. Neither is a
+            // manager - the store they picked already has one.
+            $asksForLocation = $shape['asksForLocation'] && ! $picksStore;
 
             // Only a manager belongs to a group, and the id is checked against
             // the list rather than trusted, so a posted one cannot attach the
             // account to an arbitrary user.
             $parentId = 0;
 
-            if ($regType === 'manager' && $this->input->post('u_parent_id')) {
+            if ($shape['needsParent'] && $this->input->post('u_parent_id')) {
                 $parent = $this->custom->get_where('users', [
                     'u_id'       => (int) $this->input->post('u_parent_id'),
                     'u_usertype' => 1,
@@ -531,12 +552,35 @@ class Front extends BaseController
                 $parentId = $parent ? (int) $parent[0]->u_id : 0;
             }
 
+            // The store is checked against the group that was just proved,
+            // never against the posted one: that is what stops a hand-edited
+            // form attaching a manager to another group's location. A group of
+            // 0 can never be used as an ownership key, because the lookup is
+            // skipped entirely.
+            $store   = null;
+            $storeId = 0;
+
+            if ($picksStore && $parentId > 0 && $this->input->post('u_store_id')) {
+                $stores = $this->custom->get_where('store', [
+                    's_id'     => (int) $this->input->post('u_store_id'),
+                    'u_id'     => $parentId,
+                    's_status' => 1,
+                ]);
+
+                $store   = $stores[0] ?? null;
+                $storeId = $store ? (int) $store->s_id : 0;
+            }
+
             $userData = [
                 'u_userid'     => strip_tags((string) $this->input->post('u_email')),
                 'u_pass'       => $this->custom->hashPassword((string) $this->input->post('password')),
                 'u_phone'      => strip_tags((string) $this->input->post('u_phone')),
                 'u_email'      => strip_tags((string) $this->input->post('u_email')),
                 'u_comp_name'  => $isOwner ? strip_tags((string) $this->input->post('u_comp_name')) : '',
+                // Optional, and only meaningful for an employer. Normalised and
+                // scheme-checked here rather than stored as typed, because it
+                // is rendered as a link.
+                'u_website'    => $isOwner ? safeUrl($this->input->post('u_website')) : '',
 
                 'u_fname'      => strip_tags((string) $this->input->post('u_fname')),
                 'u_lname'      => strip_tags((string) $this->input->post('u_lname')),
@@ -554,6 +598,7 @@ class Front extends BaseController
                 'u_usersubtype' => $isOwner ? 0 : $this->input->post('u_usersubtype'),
                 'u_emp_role'   => $empRole,
                 'u_parent_id'  => $parentId,
+                'u_store_id'   => $storeId,
 
                 'u_ipaddress'  => $this->input->ip_address(),
 
@@ -562,23 +607,38 @@ class Front extends BaseController
                 'created'      => date('Y-m-d H:i:s'),
             ];
 
+            // A manager types none of the store columns, but a dozen screens,
+            // exports and e-mails read them straight off the login rather than
+            // through the store. The chosen store is copied onto the account -
+            // see `storeSnapshotForManager()`, which the back-office employer
+            // form applies too so that both produce the same record.
+            if ($store !== null) {
+                $userData = array_merge($userData, storeSnapshotForManager($store));
+            }
+
             if ($this->form_validation->run() === true) {
                 if ($user_captcha != $stored_captcha) {
                     $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">Invalid CAPTCHA. Please try again.</div>');
                 } elseif ($regType === 'manager' && $parentId === 0) {
                     // `required` only proves something was posted; this catches
-                    // an id that is not one of the offered pharmacy groups.
-                    $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">Please choose the pharmacy group you belong to.</div>');
+                    // an id that is not one of the offered corporate groups.
+                    $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">Please choose the corporate group you belong to.</div>');
+                } elseif ($picksStore && $storeId === 0) {
+                    // One message for all four ways this can fail: nothing
+                    // chosen, a store of another group, a deactivated one, or a
+                    // group that has no stores at all.
+                    $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">Please choose one of your corporate group\'s stores.</div>');
                 } else {
                     $insert = $this->custom->insert('users', $userData);
 
                     if ($insert) {
-                        // A store account's own location, built from the store
-                        // fields on the form. A manager registers a person
-                        // rather than a location - the form does not ask them
-                        // for one - so they add stores afterwards from
-                        // Employer > My Stores.
-                        if ($userData['u_usertype'] == 1 && $userData['u_emp_role'] == 2) {
+                        // A single-location account's own store, built from the
+                        // store fields on the form. Only an individual owner
+                        // now: a multi-store owner is asked for no address and
+                        // adds theirs afterwards from Employer > My Stores, and
+                        // a manager joins one the group already added rather
+                        // than bringing a second row for the same address.
+                        if ($isOwner && $shape['ownsStore'] && ! $picksStore) {
                             $this->custom->insert('store', [
                                 'u_id'       => $insert,
                                 's_name'     => $userData['u_comp_name'] !== '' ? $userData['u_comp_name'] : trim($userData['u_fname'] . ' ' . $userData['u_lname']),
@@ -603,7 +663,12 @@ class Front extends BaseController
                             'settings' => $this->data['settings'],
                         ]);
 
-                        if (send_email($email, $subject, $message_user)) {
+                        // Guarded like every optional e-mail, though at
+                        // registration the block list is necessarily empty -
+                        // the guard is here so every send site reads the same.
+                        if (! userAllowsEmail($insert, 'welcome')) {
+                            log_message('info', 'Welcome e-mail withheld: user opted out.');
+                        } elseif (send_email($email, $subject, $message_user)) {
                             log_message('info', 'Email sent successfully!');
                         } else {
                             log_message('error', 'Failed to send email.');
@@ -874,6 +939,51 @@ class Front extends BaseController
         }
 
         echo $city_data;
+    }
+
+    /**
+     * The stores of one corporate group, for the manager registration picker.
+     *
+     * The posted group is checked against the same predicate that built the
+     * dropdown rather than trusted, so this cannot be used to read the stores
+     * of an account that is not an approved multi-store owner. It proves
+     * nothing about the eventual save - register() re-checks the pair - it only
+     * keeps the endpoint from being a directory of everybody's locations.
+     */
+    public function ajax_getstorelist()
+    {
+        $this->setup();
+
+        $group = $this->custom->get_where('users', [
+            'u_id'       => (int) $this->input->post('groupid'),
+            'u_usertype' => 1,
+            'u_emp_role' => 1,
+            'u_status'   => 1,
+        ]);
+
+        $stores = $group ? storesForOwner((int) $group[0]->u_id) : [];
+
+        if ($stores === []) {
+            echo '<option value="">-- This group has no stores yet --</option>';
+
+            return;
+        }
+
+        $chosen     = $this->input->post('storeid');
+        $store_data = '<option value="">-- Select Store --</option>';
+
+        // Same label as every other store picker: the name, and the store
+        // number after it when there is one, which is what tells two branches
+        // of the same chain apart. Escaped, unlike the city list above - a
+        // store name is typed by an employer, a province name is not.
+        foreach ($stores as $store) {
+            $label = $store->s_name . ($store->s_number !== '' ? ' (' . $store->s_number . ')' : '');
+
+            $store_data .= '<option value="' . (int) $store->s_id . '" '
+                . (($chosen == $store->s_id) ? 'selected' : '') . '>' . esc($label) . '</option>';
+        }
+
+        echo $store_data;
     }
 
     public function account()

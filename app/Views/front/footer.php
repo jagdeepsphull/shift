@@ -1,65 +1,17 @@
     <!-- Footer -->
     <footer id="footer" class="footer-area">
       <div class="wz-footer">
-        <div class="wz-footer-grid">
-
-          <div>
-            <h5>About us</h5>
-            <div class="wz-footer-brand">
-              <img src="<?php echo base_url('assets/front/assets/img/logo.png'); ?>" alt="<?php echo esc($settings[0]->s_sitename); ?>">
-            </div>
-            <address>
-              <?php echo nl2br(esc($settings[0]->s_companyaddress)); ?>
-              <?php if (! empty($settings[0]->s_email)) { ?>
-                <br><a href="mailto:<?php echo esc($settings[0]->s_email); ?>"><?php echo esc($settings[0]->s_email); ?></a>
-              <?php } ?>
-              <?php if (! empty($settings[0]->s_contactno)) { ?>
-                <br><a href="tel:<?php echo esc($settings[0]->s_contactno); ?>"><?php echo esc($settings[0]->s_contactno); ?></a>
-              <?php } ?>
-            </address>
-          </div>
-
-          <div>
-            <h5>Shifts</h5>
-            <ul>
-              <li><a href="<?php echo base_url(); ?>#browsejobs">Browse Shifts</a></li>
-              <li><a href="<?php echo base_url('front/login'); ?>">Post a Shift</a></li>
-              <li><a href="<?php echo base_url('front/login'); ?>">Apply for a Shift</a></li>
-              <li><a href="<?php echo base_url('resources'); ?>">Resources</a></li>
-            </ul>
-          </div>
-
-          <div>
-            <h5>Company</h5>
-            <ul>
-              <li><a href="<?php echo base_url('contact'); ?>">Contact Us</a></li>
-              <li><a href="<?php echo base_url('terms_conditions'); ?>">Terms &amp; Conditions</a></li>
-              <li><a href="<?php echo base_url('privacy_policy'); ?>">Privacy Policy</a></li>
-            </ul>
-          </div>
-
-          <div>
-            <h5>Account</h5>
-            <ul>
-              <?php if (! empty($isUserLoggedIn)) { ?>
-                <li><a href="<?php echo $myaccountLink; ?>">Dashboard</a></li>
-                <li><a href="<?php echo $logoutLink; ?>">Logout</a></li>
-              <?php } else { ?>
-                <li><a href="<?php echo base_url('front/login'); ?>">Login</a></li>
-                <li><a href="<?php echo base_url('front/signup'); ?>">Create an account</a></li>
-                <li><a href="<?php echo base_url('front/forgot_password'); ?>">Forgot password</a></li>
-              <?php } ?>
-            </ul>
-          </div>
-
-        </div>
-
         <div class="wz-footer-bottom">
           <div class="wz-social">
             <a href="#" aria-label="Facebook"><i class="lni-facebook-filled"></i></a>
             <a href="https://x.com/reliefshifts" target="_blank" rel="noopener" aria-label="X"><i class="lni-twitter-filled"></i></a>
             <a href="https://www.instagram.com/reliefshifts?igsh=ZGwydWl5NTg0OXln" target="_blank" rel="noopener" aria-label="Instagram"><i class="lni-instagram-filled"></i></a>
           </div>
+          <?php if (! empty($settings[0]->s_email)) { ?>
+            <p class="wz-footer-email">
+              <a href="mailto:<?php echo esc($settings[0]->s_email); ?>"><?php echo esc($settings[0]->s_email); ?></a>
+            </p>
+          <?php } ?>
           <p class="wz-copy">
             &copy; <?php echo date('Y'); ?>
             <a rel="nofollow" href="<?php echo base_url(); ?>"><?php echo esc($settings[0]->s_sitename); ?></a>
@@ -91,10 +43,42 @@
     <script src="<?php echo base_url('assets/front/plugins/datatables-responsive/js/dataTables.responsive.min.js'); ?>"></script>
     <script src="<?php echo base_url('assets/front/plugins/datatables-responsive/js/responsive.bootstrap5.min.js'); ?>"></script>
 
+    <!-- select2, before the page script below that initialises it -->
+    <script src="<?php echo base_url('assets/front/plugins/select2/js/select2.full.min.js'); ?>"></script>
+
     <script src="<?php echo base_url('assets/front/assets/js/theme.js'); ?>"></script>
 
     <script>
+      /**
+       * Dress every dropdown on the site in select2.
+       *
+       * `width: '100%'` and nothing else: it writes a percentage onto the
+       * container, which resolves correctly whenever the field is shown. The
+       * other two options ('resolve' and 'style') read the element's width at
+       * the moment they run, and half the dropdowns on the registration form
+       * start inside a `d-none` row - they were measured at 0 and stayed
+       * collapsed at about a sixth of their column once revealed.
+       *
+       * Safe to call more than once: select2 leaves an already-initialised
+       * element alone rather than stacking a second widget on it.
+       */
+      function applySelect2(root) {
+        if (!$.fn.select2) { return; }
+
+        $(root || document).find('select').each(function () {
+          var $select = $(this);
+
+          // DataTables builds and re-builds its own length menu; leave it to
+          // manage its markup, and leave the hidden helpers alone.
+          if ($select.closest('.dataTables_wrapper').length || $select.is('[hidden], [data-no-select2]')) { return; }
+
+          $select.select2({ width: '100%', minimumResultsForSearch: 8 });
+        });
+      }
+
       $(document).ready(function () {
+        applySelect2();
+
         // Province -> city, used by the sign-up form.
         if ($('#hprovince').length) {
           getpcities($('#hprovince').val());
@@ -107,7 +91,10 @@
           type: 'POST',
           url: '<?php echo base_url($settings[0]->s_frontpath . '/ajax_getcitylist'); ?>',
           data: { statecode: val, ciid: ciid },
-          success: function (data) { $('#city').html(data); }
+          // change.select2 rather than change: it tells select2 to re-read the
+          // options it was just handed, without firing the handlers bound to this
+          // select - one of which is the request that produced this data.
+          success: function (data) { $('#city').html(data).trigger('change.select2'); }
         });
       }
 
@@ -120,27 +107,46 @@
           });
         }
 
-        // Registration asks for one of four things, and each wants a
-        // different set of fields (change request B4):
+        // Registration asks for one of three things, and each wants a
+        // different set of fields:
         //
-        //   manager          - runs one store for a pharmacy group: the
-        //                      store's licence and address, plus the group
-        //                      they answer to, which is required.
-        //   owner_multi      - one login, many stores: a person, not a
-        //                      location, so no licence or address. They add
-        //                      each store afterwards from My Stores.
-        //   owner_individual - one store, answering to nobody: the same
-        //                      fields as a manager, minus the group.
-        //   applicant        - unchanged: their own licence and address.
+        //   Owner     - one login, many stores: a person, not a location, so
+        //               no licence or address. They add each store afterwards
+        //               from My Stores.
+        //   Manager   - runs one of a group's existing stores: the group they
+        //               answer to, and which of its stores. No address - the
+        //               store they pick already has one.
+        //   Applicant - unchanged: their own licence and address.
+        //
+        // The value is the code the database stores. Which of them is an
+        // employer is not guessed from that number: the option carries
+        // data-employer, written from the same config the save reads.
         function regType() {
           return $('#usrtpe').val() || '';
         }
 
-        var STORE_SIDE = ['manager', 'owner_multi', 'owner_individual'];
+        <?php
+        /* The dropdown value that stands for each employer role, read from the
+           same config the form and the save use. Renumbering a kind there
+           moves this with it. */
+        $codeForRole = static function (int $role) use ($registerTypes) {
+            foreach (($registerTypes ?? []) as $code => $def) {
+                if ($def['empRole'] === $role) {
+                    return (string) $code;
+                }
+            }
 
-        var isOwner = function () { return $.inArray(regType(), STORE_SIDE) !== -1; };
-        var isMultiStore = function () { return regType() === 'owner_multi'; };
-        var needsGroup = function () { return regType() === 'manager'; };
+            return '';
+        };
+        ?>
+        var EMPLOYER_OWNER = '<?php echo $codeForRole(1); ?>';
+        var EMPLOYER_MANAGER = '<?php echo $codeForRole(2); ?>';
+
+        var isOwner = function () {
+          return $('#usrtpe option:selected').data('employer') === 1;
+        };
+        var isMultiStore = function () { return regType() === EMPLOYER_OWNER; };
+        var needsGroup = function () { return regType() === EMPLOYER_MANAGER; };
 
         // A field left marked `required` while hidden makes the browser refuse
         // to submit without ever showing why, so the attribute has to travel
@@ -163,34 +169,74 @@
         function applyRegType() {
           var owner = isOwner();
 
-          // Store name / pharmacy name, and the applicant's own type.
-          toggleRows($('.agncy'), !owner);
+          // Store name / corporate group name, and the applicant's own type.
+          // A manager names no store: they pick one that already exists.
+          toggleRows($('.agncy'), !owner || needsGroup());
           toggleRows($('.usrsubtpe'), owner);
 
-          // Only a manager answers to a pharmacy group.
+          // Only a manager answers to a corporate group, and only a manager
+          // then picks which of its stores they run.
           toggleRows($('.grouponly'), !needsGroup());
+          toggleRows($('.storepick'), !needsGroup());
 
           // Licence and address describe a location: asked of a single-store
-          // owner and of an applicant, never of a multi-store owner.
-          toggleRows($('.storeonly'), isMultiStore());
+          // owner and of an applicant. A multi-store owner has none yet, and a
+          // manager's belong to the store they chose.
+          toggleRows($('.storeonly'), isMultiStore() || needsGroup());
 
           if (owner) {
-            $('#compnamelbl').text(isMultiStore() ? 'Pharmacy Name' : 'Store Name');
+            $('#compnamelbl').text(isMultiStore() ? 'Corporate Group Name' : 'Store Name');
             $('#u_comp_name').attr(
               'placeholder',
-              isMultiStore() ? 'Enter Your Pharmacy Name' : 'Enter Your Store Name'
+              isMultiStore() ? 'Enter Your Corporate Group Name' : 'Enter Your Store Name'
+            );
+            $('#websitelbl').contents().first().replaceWith(
+              isMultiStore() ? 'Corporate Group Website ' : 'Store Website '
             );
             $('#liprov').text('Store Registration Province');
             $('#lireg').text('Store Number');
             $('#u_licence_no').attr('placeholder', 'Enter Store Number');
           } else {
-            $('#liprov').text('Applicant License Province');
+            $('#liprov').text('Applicant Licence Province');
             $('#lireg').text('Applicant Licence No.');
             $('#u_licence_no').attr('placeholder', 'Enter Licence No.');
           }
         }
 
+        // The stores of the chosen corporate group, the same way the province
+        // dropdown fills the city one. Asking with no group selected would
+        // return the "no stores" option, so clear it back to the placeholder
+        // instead and leave the request unsent.
+        function getgroupstores(val) {
+          if (!val) {
+            $('#u_store_id').html('<option value="">-- Select Store --</option>').trigger('change.select2');
+
+            return;
+          }
+
+          $.ajax({
+            type: 'POST',
+            url: '<?php echo base_url($settings[0]->s_frontpath . '/ajax_getstorelist'); ?>',
+            data: { groupid: val, storeid: $('#hstoreid').val() },
+            success: function (data) { $('#u_store_id').html(data).trigger('change.select2'); }
+          });
+        }
+
+        // A failed submit comes back with the group still chosen, so refill the
+        // list before the user sees it rather than making them pick twice.
+        $('#u_parent_id').on('change', function () {
+          // Only what they just chose is theirs to keep; the previous store
+          // belonged to a different group.
+          $('#hstoreid').val('');
+          getgroupstores($(this).val());
+        });
+
         applyRegType();
+
+        if ($('#u_parent_id').val()) {
+          getgroupstores($('#u_parent_id').val());
+        }
+
         $('#usrtpe').on('change', applyRegType);
 
         // ------------------------------------------------ form validation ---
@@ -226,14 +272,17 @@
         $('#register-form').validate({
           rules: {
             reg_type: { required: true },
-            u_comp_name: { required: isOwner },
+            // A manager names no store - they pick one that already exists.
+            u_comp_name: { required: function () { return isOwner() && !needsGroup(); } },
             u_parent_id: { required: needsGroup },
+            u_store_id: { required: needsGroup },
             u_usersubtype: { required: function () { return !isOwner(); } },
             u_fname: { required: true, alphaspace: true },
             u_lname: { required: true, alphaspace: true },
-            // Not asked of a multi-store owner - see applyRegType above.
-            u_l_provice: { required: function () { return !isMultiStore(); } },
-            u_licence_no: { required: function () { return !isMultiStore(); } },
+            // Not asked of a multi-store owner, nor of a manager - see
+            // applyRegType above.
+            u_l_provice: { required: function () { return !isMultiStore() && !needsGroup(); } },
+            u_licence_no: { required: function () { return !isMultiStore() && !needsGroup(); } },
             u_email: { required: true, validEmail: true },
             u_phone: { required: true, phoneUSCAN: true },
             u_pincode: { validateCanadianPostalCode: true },
@@ -244,7 +293,8 @@
             reg_type: 'Please select user type.',
             u_usersubtype: 'Please select Candidate type.',
             u_comp_name: 'This name is required.',
-            u_parent_id: 'Please choose the pharmacy group you belong to.',
+            u_parent_id: 'Please choose the corporate group you belong to.',
+            u_store_id: 'Please choose the store you run.',
             u_fname: { required: 'First name  is required.', alphaspace: "Letters, spaces and - ' ( ) . only." },
             u_lname: { required: 'Last name  is required.', alphaspace: "Letters, spaces and - ' ( ) . only." },
             u_l_provice: 'Province is required.',

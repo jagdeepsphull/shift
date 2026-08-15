@@ -53,13 +53,25 @@
                   <tbody>
 					<?php 
 					foreach($jobs as $job){
-						
-						// Check for approved saved/applied jobs
-						$applied_approved = ci_db()->table('stu_saved_applied_jobs')
-							->where('p_id', $job->p_id)
-							->where('sj_is_approved', 1)
-							->countAllResults();
-						
+
+						// Does this shift already have a booked applicant? The
+						// whole set arrives from the controller as one query -
+						// this used to be a COUNT per row.
+						$applied_approved = isset($bookedShiftIds[$job->p_id]) ? 1 : 0;
+
+						// A booked or closed shift is editable while its date is
+						// still ahead of us, so a booked applicant who drops out
+						// can be swapped for another - the shift form does that.
+						// On the day and after it, it is history. The guard in
+						// Sadmin::postjobs() is the same test, so a typed URL
+						// gets no further than this button does.
+						$can_edit = ($applied_approved === 0 && $job->p_approved != 3)
+							|| shiftIsUpcoming($job);
+
+						// Deleting is not part of that: a shift somebody has
+						// been booked on is a record of a booking, and stays.
+						$can_delete = $applied_approved === 0 && $job->p_approved != 3;
+
 					?>
                   <tr class="<?php echo ($job->p_approved==1) ? 'bg-gradient-success'  : '' ;?> <?php echo ($job->p_approved==3) ? 'bg-gradient-warning'  : '' ;?>" >
                     <td><?php echo $job-> p_id ; ?></td>
@@ -71,8 +83,11 @@
                     <td data-order="<?php echo shiftDateSortValue($job, 'DESC'); ?>"><?php echo dateFormat($job->p_dates); ?></td>
 					<td><?php echo $approved[$job->p_approved];?></td>
                     <td>
-					<?php if($applied_approved === 0 && $job->p_approved != 3){ ?>
-					<a href="<?php echo base_url($adminpath.'/'.$link.'/edit/'.$job->p_id);?>" class="btn btn-success"><i class="fas fa-edit"></i> Edit</a> <a href="<?php echo base_url($adminpath.'/'.$link.'/delete/'.$job->p_id);?>"  class="btn btn-danger"  onclick="return confirm('Are you sure? You want to delete')"><i class="fas fa-trash-alt"></i> Delete</a>
+					<?php if($can_edit){ ?>
+					<a href="<?php echo base_url($adminpath.'/'.$link.'/edit/'.$job->p_id);?>" class="btn btn-success"><i class="fas fa-edit"></i> Edit</a>
+					<?php } ?>
+					<?php if($can_delete){ ?>
+					<a href="<?php echo base_url($adminpath.'/'.$link.'/delete/'.$job->p_id);?>"  class="btn btn-danger"  onclick="return confirm('Are you sure? You want to delete')"><i class="fas fa-trash-alt"></i> Delete</a>
 					<?php } ?>
 					</td>
                   </tr>

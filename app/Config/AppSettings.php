@@ -23,36 +23,60 @@ class AppSettings extends BaseConfig
     ];
 
     /**
-     * The three employer kinds the registration form offers (change request
-     * B4). All are `users.u_usertype` 1 and differ only by `u_emp_role` plus
-     * `u_parent_id`, so the back office needs this map to tell them apart:
+     * The two kinds of employer, keyed by the number `users.u_emp_role` holds.
      *
-     *   manager          -> role 2 answering to a group (u_parent_id set)
-     *   owner_multi      -> role 1, adds its own stores
-     *   owner_individual -> role 2 with no group (u_parent_id 0)
+     *   1 -> Owner   - owns its locations and adds them itself
+     *   2 -> Manager - runs one of a group's existing stores, so it answers to
+     *                  that group (`u_parent_id`) and points at the store
+     *                  (`u_store_id`)
      *
-     * `filter` is a where array for the `users` table. Accounts registered
-     * before B4 have role 0 and match none of them, which is why the sidebar
-     * keeps an "All Employers" entry above the three - nothing gets hidden.
+     * There used to be a third, "Owner (Individual Store)", which was role 2
+     * with no group - the same number as a manager, told apart only by whether
+     * `u_parent_id` was set. It is gone, and with it the ambiguity: the role
+     * alone now says which kind an account is, which is why every `filter`
+     * below is a single column.
      *
-     * @var array<string, array{label: string, short: string, filter: array<string, int>}>
+     * `slug` is what appears in a URL (`/sadmin/employer/owner`); the key is
+     * what goes in the database. Keeping both means links stay readable while
+     * the stored value stays a number.
+     *
+     * `filter` is a where array for the `users` table. An account from before
+     * these kinds existed carries role 0 and matches none of them, which is why
+     * every screen keeps an "All Employers" entry above the list - nothing is
+     * ever hidden by the filter.
+     *
+     * @var array<int, array{slug: string, label: string, short: string, filter: array<string, int>}>
      */
     public array $employerKinds = [
-        'manager' => [
-            'label'  => 'Managers',
-            'short'  => 'Manager',
-            'filter' => ['u_emp_role' => 2, 'u_parent_id >' => 0],
-        ],
-        'owner_multi' => [
-            'label'  => 'Owners (Multi Store)',
-            'short'  => 'Owner (Multi Store)',
+        1 => [
+            'slug'   => 'owner',
+            'label'  => 'Owners',
+            'short'  => 'Owner',
             'filter' => ['u_emp_role' => 1],
         ],
-        'owner_individual' => [
-            'label'  => 'Owners (Individual Store)',
-            'short'  => 'Owner (Individual Store)',
-            'filter' => ['u_emp_role' => 2, 'u_parent_id' => 0],
+        2 => [
+            'slug'   => 'manager',
+            'label'  => 'Managers',
+            'short'  => 'Manager',
+            'filter' => ['u_emp_role' => 2],
         ],
+    ];
+
+    /**
+     * What the public "Select User Type" dropdown offers, and what each choice
+     * means in the database.
+     *
+     * The employer entries are the `employerKinds` codes above, so the two
+     * lists cannot disagree about what an Owner is. `applicant` is not an
+     * employer kind at all - it is `u_usertype` 2 - so it carries no
+     * `empRole`, and register() reads that as "this is not an employer".
+     *
+     * @var array<int, array{label: string, userType: int, empRole: int|null}>
+     */
+    public array $registerTypes = [
+        1 => ['label' => 'Owner',     'userType' => 1, 'empRole' => 1],
+        2 => ['label' => 'Manager',   'userType' => 1, 'empRole' => 2],
+        3 => ['label' => 'Applicant', 'userType' => 2, 'empRole' => null],
     ];
 
     /** Sub types of Candidate/Job seekers. */
@@ -166,6 +190,59 @@ class AppSettings extends BaseConfig
         1 => 'Female',
         2 => 'Both',
     ];
+
+    /**
+     * The e-mails a user can be opted out of, keyed by the code stored in
+     * `users.u_email_blocked` (comma separated, same shape as p_skills).
+     *
+     * `template` is the app/Views/emails/ file the send site renders, which is
+     * how a guard finds the code for the mail it is about to send.
+     *
+     * reset-password is deliberately NOT here. It is the only channel the
+     * reset token ever travels on, and Front.php tells the visitor the link
+     * was sent whether or not it was - an opted-out account could never be
+     * recovered, against a screen that keeps saying it can. It is always sent.
+     * (`contact` goes to the administrator and `test` is CLI-only, so neither
+     * belongs on a per-user list either.)
+     *
+     * booking-cancelled is not here for the same reason. It is not news about
+     * the service: it is the correction to a booking confirmation we have
+     * already sent, and somebody who does not get it turns up to work a shift
+     * that is not theirs. Always sent.
+     *
+     * `audience` is which side of the site can ever receive it - an applicant is
+     * never sent "your shift is live", and an employer is never sent the
+     * day-before reminder, because neither send site would look at them. It is
+     * what Manage Email offers each account, through `emailTypesFor()`: a
+     * checkbox for an e-mail that cannot arrive is a promise the site does not
+     * keep either way it is left.
+     *
+     * @var array<int, array{template: string, label: string, audience: string}>
+     */
+    public array $emailTypes = [
+        1 => ['template' => 'welcome',           'label' => 'Welcome (on registration)',           'audience' => 'both'],
+        2 => ['template' => 'account-approved',  'label' => 'Account approved',                    'audience' => 'both'],
+        3 => ['template' => 'shift-posted',      'label' => 'Shift posted (your shift is live)',   'audience' => 'employer'],
+        4 => ['template' => 'booking-applicant', 'label' => 'Booking confirmation (as applicant)', 'audience' => 'applicant'],
+        5 => ['template' => 'booking-employer',  'label' => 'Booking confirmation (as employer)',  'audience' => 'employer'],
+        6 => ['template' => 'shift-reminder',    'label' => 'Day-before shift reminder',           'audience' => 'applicant'],
+    ];
+
+    /**
+     * Country code put in front of a phone number typed without one, for the
+     * WhatsApp links in the back office.
+     *
+     * '1' is Canada, which is where the site operates. Ten digits is all
+     * anybody types into the phone field, and WhatsApp needs the code - but
+     * ten digits alone cannot say which country: 8360086621 is a Canadian
+     * number here and an Indian mobile there. Hence a setting rather than a
+     * guess. Set it to '91' to message Indian numbers while testing.
+     *
+     * A number typed with its own code - "+91 98765 43210" - is always used
+     * exactly as typed and ignores this, so a single test number needs no
+     * change here at all.
+     */
+    public string $phoneCountryCode = '1';
 
     public array $status = [
         0 => 'Deactive',

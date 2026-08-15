@@ -75,6 +75,26 @@
 	<script src="<?php echo base_url('assets/front/plugins/datatables-responsive/js/responsive.bootstrap4.min.js');?>"></script>
 	<script src="<?php echo base_url('assets/front/plugins/datatables-buttons/js/dataTables.buttons.min.js');?>"></script>
 	<script src="<?php echo base_url('assets/front/plugins/datatables-buttons/js/buttons.bootstrap4.min.js');?>"></script>
+	<!-- select2, and the shared initialiser -->
+	<script src="<?php echo base_url('assets/front/plugins/select2/js/select2.full.min.js');?>"></script>
+	<script>
+	/* Dress every dropdown in select2. width:'100%' because a select measured
+	   inside a hidden row stays collapsed with any other setting; the theme is
+	   bootstrap4, which this area's stylesheet actually is; the search box only
+	   appears once a list is big enough to need one. */
+	$(function () {
+		if (!$.fn.select2) { return; }
+
+		$('select').each(function () {
+			var $select = $(this);
+
+			if ($select.closest('.dataTables_wrapper').length || $select.is('[hidden], [data-no-select2]')) { return; }
+
+			$select.select2({ width: '100%', theme: 'bootstrap4', minimumResultsForSearch: 8 });
+		});
+	});
+	</script>
+
 	
 	<script>
 		
@@ -152,7 +172,7 @@
 			//data:'statecode='+val+'ciid='+ciid,
 			data: {statecode: val, ciid: ciid},
 			success: function(data){
-				$("#city").html(data);
+				$("#city").html(data).trigger('change.select2');
 			}
 			});
 		}

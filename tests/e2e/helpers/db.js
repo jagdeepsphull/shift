@@ -16,7 +16,10 @@ const DB_PASS = process.env.DB_PASS || '';
 function args() {
   const a = ['-u', DB_USER];
   if (DB_PASS !== '') a.push(`-p${DB_PASS}`);
-  a.push('-N', '-B', DB_NAME);
+  // Without the charset the client falls back to the Windows console codepage
+  // and hands back a '?' for anything outside it - a company name written with
+  // a curly apostrophe comes out different from the one the page renders.
+  a.push('--default-character-set=utf8mb4', '-N', '-B', DB_NAME);
   return a;
 }
 

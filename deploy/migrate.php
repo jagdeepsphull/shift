@@ -9,13 +9,24 @@
  *   https://reliefshifts.com/staging/migrate.php?key=b7f4c1e93a2d6058
  *
  * `php spark migrate` is the right way to do this and needs a command line.
- * This does the same three migrations over mysqli, reading credentials from the
+ * This does the same fifteen migrations over mysqli, reading credentials from the
  * .env beside it, and writes the same rows into `migrations` that spark would -
  * so a later `spark migrate` sees them as done rather than re-running them into
  * a "duplicate column" error.
  *
  * Every step checks the schema before touching it, so running this twice, or
  * running it after a partial spark run, is safe.
+ *
+ * Two rules this file lives by, both learned the hard way:
+ *
+ *  - No statement names a storage ENGINE. CodeIgniter's Forge does not either,
+ *    so a table it creates takes the server's default - MyISAM on the current
+ *    host, InnoDB on many others. Pinning one here would produce a table spark
+ *    would never have made, on whichever server disagreed.
+ *
+ *  - An apostrophe inside a COMMENT is doubled ('') and never backslashed (\').
+ *    A server running with sql_mode=NO_BACKSLASH_ESCAPES rejects the backslash
+ *    form outright, and the failure lands mid-migration.
  */
 
 declare(strict_types=1);
@@ -114,9 +125,22 @@ function run(mysqli $db, string $sql): void
     }
 }
 
+/**
+ * A string as a SQL literal, apostrophes doubled.
+ *
+ * Deliberately not `real_escape_string()`, which backslashes them: a server
+ * running with sql_mode=NO_BACKSLASH_ESCAPES rejects that form outright. Most of
+ * the strings here are COMMENT text, and several contain an apostrophe.
+ */
+function quoted(string $value): string
+{
+    return "'" . str_replace("'", "''", $value) . "'";
+}
+
 // ------------------------------------------------------ migrations table ----
 // Same shape CodeIgniter's MigrationRunner creates, so spark reads it happily.
-// `group` is a reserved word - it has to stay quoted.
+// `group` is a reserved word - it has to stay quoted. No ENGINE, for the reason
+// at the top of this file: spark's own table takes the server default too.
 
 if (! tableExists($db, 'migrations')) {
     run($db, 'CREATE TABLE `migrations` (
@@ -128,7 +152,7 @@ if (! tableExists($db, 'migrations')) {
         `time` INT NOT NULL,
         `batch` INT UNSIGNED NOT NULL,
         PRIMARY KEY (`id`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+    ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci');
 
     echo "  created  migrations table\n";
 } else {
@@ -238,6 +262,529 @@ $migrations = [
             } else {
                 $notes[] = 'stu_saved_applied_jobs.sj_reminder_sent_at already there';
             }
+
+            return $notes;
+        },
+    ],
+    [
+        'version' => '2026-08-10-090000',
+        'class'   => 'App\Database\Migrations\AddStoreTable',
+        'label'   => 'AddStoreTable',
+        'apply'   => static function (mysqli $db): array {
+            $notes = [];
+
+            // The largest of the eight, and the one whose absence is loudest:
+            // the shift form offers stores and nothing else, so until this runs
+            // no shift can be posted at all and three screens 500.
+            //
+            // Forge puts NOT NULL on every column of a CREATE TABLE unless the
+            // field says 'null' => true, and none of these do. The u_id key
+            // rides inside the CREATE TABLE, named after the column it covers.
+            // No ENGINE - see the note at the top of this file.
+            if (! tableExists($db, 'store')) {
+                run($db, "CREATE TABLE `store` (
+                    `s_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                    `u_id` INT NOT NULL COMMENT 'users.u_id of the owning employer login',
+                    `s_name` VARCHAR(200) NOT NULL,
+                    `s_number` VARCHAR(100) NOT NULL DEFAULT '' COMMENT 'Store number - what u_licence_no held for an employer',
+                    `s_province` INT NOT NULL DEFAULT 0,
+                    `s_city` INT NOT NULL DEFAULT 0,
+                    `s_address` VARCHAR(255) NOT NULL DEFAULT '',
+                    `s_pincode` VARCHAR(10) NOT NULL DEFAULT '',
+                    `s_phone` VARCHAR(25) NOT NULL DEFAULT '',
+                    `s_status` TINYINT NOT NULL DEFAULT 1,
+                    `created` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    `modified` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (`s_id`),
+                    KEY `u_id` (`u_id`)
+                ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+                $notes[] = 'created store table';
+            } else {
+                $notes[] = 'store table already there';
+
+                // A spark run that died part-way through can leave the table
+                // behind without its key.
+                if (! indexExists($db, 'store', 'u_id')) {
+                    run($db, 'ALTER TABLE `store` ADD KEY `u_id` (`u_id`)');
+                    $notes[] = 'added the missing store.u_id key';
+                }
+            }
+
+            // The next two columns are left nullable on purpose. addColumn
+            // writes no null clause of its own - only createTable does - so
+            // spark leaves both NULL-able with a default of 0, and matching
+            // spark is the whole point of this file.
+            if (! columnExists($db, 'post_job', 'p_store_id')) {
+                run($db, 'ALTER TABLE `post_job`
+                    ADD COLUMN `p_store_id` INT DEFAULT 0
+                    COMMENT ' . quoted('store.s_id the shift is at. 0 = from before B4; falls back to the owner\'s login columns.') . '
+                    AFTER `u_id`');
+                $notes[] = 'added post_job.p_store_id';
+            } else {
+                $notes[] = 'post_job.p_store_id already there';
+            }
+
+            if (! columnExists($db, 'users', 'u_emp_role')) {
+                run($db, 'ALTER TABLE `users`
+                    ADD COLUMN `u_emp_role` TINYINT DEFAULT 0
+                    COMMENT ' . quoted('Employer role: 1 manager, 2 store. 0 = registered before B4, treated as manager.') . '
+                    AFTER `u_usersubtype`');
+                $notes[] = 'added users.u_emp_role';
+            } else {
+                $notes[] = 'users.u_emp_role already there';
+            }
+
+            // Every existing employer becomes exactly one store, built from the
+            // columns on their login, so nothing they see changes on day one.
+            // The LEFT JOIN is the guard the CI4 migration does not need and
+            // this file does: an employer who already has a store is skipped,
+            // so a second run cannot double anybody up. `u_provice` really is
+            // spelt that way in `users`.
+            run($db, "INSERT INTO `store`
+                          (`u_id`, `s_name`, `s_number`, `s_province`, `s_city`, `s_address`, `s_pincode`, `s_phone`, `s_status`)
+                   SELECT `u`.`u_id`,
+                          COALESCE(NULLIF(`u`.`u_comp_name`, ''), CONCAT(`u`.`u_fname`, ' ', `u`.`u_lname`)),
+                          COALESCE(`u`.`u_licence_no`, ''),
+                          `u`.`u_provice`, `u`.`u_city`,
+                          COALESCE(`u`.`u_address1`, ''), COALESCE(`u`.`u_pincode`, ''), COALESCE(`u`.`u_phone`, ''),
+                          1
+                     FROM `users` `u`
+                     LEFT JOIN `store` `s` ON `s`.`u_id` = `u`.`u_id`
+                    WHERE `u`.`u_usertype` = 1
+                      AND `s`.`s_id` IS NULL");
+
+            $notes[] = 'built ' . $db->affected_rows . ' store(s) from employer logins';
+
+            // And every existing shift points at its owner's only store, so past
+            // bookings keep showing the address they always showed. Skip this
+            // and every historic shift silently loses its address.
+            run($db, 'UPDATE `post_job` `pj`
+                        JOIN `store` `s` ON `s`.`u_id` = `pj`.`u_id`
+                         SET `pj`.`p_store_id` = `s`.`s_id`
+                       WHERE `pj`.`p_store_id` = 0');
+
+            $notes[] = 'pointed ' . $db->affected_rows . ' shift(s) at their store';
+
+            // Shifts whose u_id has no employer login behind it - deleted
+            // accounts, mostly - keep 0 and read their address off `users` as
+            // they always did. Say so, rather than let the count look wrong.
+            $res     = $db->query('SELECT COUNT(*) AS n FROM `post_job` WHERE `p_store_id` = 0');
+            $orphans = (int) $res->fetch_assoc()['n'];
+
+            if ($orphans > 0) {
+                $notes[] = "note: {$orphans} shift(s) still have p_store_id 0 - no employer login "
+                         . 'matches their u_id, so they fall back to the login columns';
+            }
+
+            return $notes;
+        },
+    ],
+    [
+        'version' => '2026-08-10-140000',
+        'class'   => 'App\Database\Migrations\AddUserParentId',
+        'label'   => 'AddUserParentId',
+        'apply'   => static function (mysqli $db): array {
+            $notes = [];
+
+            // Which pharmacy group a single-store login answers to. 0 means it
+            // answers to nobody, which is what every account before this was.
+            // Nullable with a default, like every other addColumn here.
+            if (! columnExists($db, 'users', 'u_parent_id')) {
+                run($db, 'ALTER TABLE `users`
+                    ADD COLUMN `u_parent_id` INT DEFAULT 0
+                    COMMENT ' . quoted('users.u_id of the multi-store owner this single-store login belongs to. 0 = independent.') . '
+                    AFTER `u_emp_role`');
+                $notes[] = 'added users.u_parent_id';
+            } else {
+                $notes[] = 'users.u_parent_id already there';
+            }
+
+            return $notes;
+        },
+    ],
+    [
+        'version' => '2026-08-10-160000',
+        'class'   => 'App\Database\Migrations\ClarifyEmpRoleComment',
+        'label'   => 'ClarifyEmpRoleComment',
+        'apply'   => static function (mysqli $db): array {
+            $notes = [];
+
+            // The new wording, character for character, in one variable so the
+            // guard below compares against exactly what the ALTER writes.
+            $comment = 'Employer kind: 1 owns many stores, 2 owns one (a manager when u_parent_id is set, '
+                     . 'an individual owner when it is 0). 0 = registered before B4.';
+
+            // The column comes from AddStoreTable. Stop rather than let the
+            // runner record this as done: with the column absent, a later spark
+            // migrate would add it with the old wording and then skip this
+            // migration, leaving the wrong comment in place for good.
+            if (! columnExists($db, 'users', 'u_emp_role')) {
+                throw new RuntimeException('users.u_emp_role is missing - AddStoreTable has not run');
+            }
+
+            // Nothing about the column changes except its comment, so
+            // columnExists() reads the same before and after and cannot say
+            // whether this ran. The stored comment is the only evidence there
+            // is, so read it back.
+            $res = $db->query("SELECT `COLUMN_COMMENT`
+                                 FROM `information_schema`.`COLUMNS`
+                                WHERE `TABLE_SCHEMA` = DATABASE()
+                                  AND `TABLE_NAME`   = 'users'
+                                  AND `COLUMN_NAME`  = 'u_emp_role'");
+
+            $col = $res === false ? null : $res->fetch_assoc();
+
+            if ($col !== null && $col['COLUMN_COMMENT'] === $comment) {
+                $notes[] = 'users.u_emp_role comment already reworded';
+
+                return $notes;
+            }
+
+            // The type and default have to be repeated or MODIFY would drop
+            // them. No NOT NULL: spark leaves this column nullable, so this
+            // must too. No AFTER: it stays where AddStoreTable put it.
+            run($db, 'ALTER TABLE `users`
+                MODIFY `u_emp_role` TINYINT DEFAULT 0
+                COMMENT ' . quoted($comment));
+
+            $notes[] = 'reworded users.u_emp_role comment';
+
+            return $notes;
+        },
+    ],
+    [
+        'version' => '2026-08-12-090000',
+        'class'   => 'App\Database\Migrations\BackfillBlankUserLoginId',
+        'label'   => 'BackfillBlankUserLoginId',
+        'apply'   => static function (mysqli $db): array {
+            $notes = [];
+
+            // No schema change - this repairs data. `u_userid` is the column the
+            // login screen looks up, and neither back-office "add" form ever
+            // wrote it, so accounts an administrator created could never sign
+            // in: the password was right and the lookup found nothing.
+            //
+            // The LEFT JOIN is the safety catch. A row whose e-mail is already
+            // some other account's login id is left alone - handing one person's
+            // login id to another is worse than the account staying broken.
+            run($db, "UPDATE `users` `u`
+                      LEFT JOIN `users` `other`
+                             ON `other`.`u_userid` = `u`.`u_email`
+                            AND `other`.`u_id` <> `u`.`u_id`
+                        SET `u`.`u_userid` = `u`.`u_email`
+                      WHERE (`u`.`u_userid` IS NULL OR `u`.`u_userid` = '')
+                        AND `u`.`u_email` IS NOT NULL
+                        AND `u`.`u_email` <> ''
+                        AND `other`.`u_id` IS NULL");
+
+            $notes[] = 'gave ' . $db->affected_rows . ' account(s) their login id back';
+
+            // Whatever is still blank could not be repaired safely. Name the
+            // count: those people cannot sign in, and only a human can decide
+            // what their login id should be.
+            $res  = $db->query("SELECT COUNT(*) AS n FROM `users`
+                                 WHERE `u_userid` IS NULL OR `u_userid` = ''");
+            $left = (int) $res->fetch_assoc()['n'];
+
+            if ($left > 0) {
+                $notes[] = "WARNING: {$left} account(s) still have no login id - their e-mail is "
+                         . 'blank, or already belongs to another account. They cannot sign in until '
+                         . 'someone sets one by hand.';
+            }
+
+            return $notes;
+        },
+    ],
+    [
+        'version' => '2026-08-12-100000',
+        'class'   => 'App\Database\Migrations\AddLocationAndWebsiteFields',
+        'label'   => 'AddLocationAndWebsiteFields',
+        'apply'   => static function (mysqli $db): array {
+            $notes = [];
+
+            // Columns only - `store` itself is AddStoreTable's. If that has not
+            // run there is nothing to alter, and recording this as done would
+            // hide the gap from whoever looks next.
+            if (! tableExists($db, 'store')) {
+                throw new RuntimeException('`store` is missing - AddStoreTable has not run');
+            }
+
+            // All four land NULL-able with a default of '', because Forge writes
+            // no null clause on an addColumn. Do not tidy a NOT NULL in here or
+            // this stops matching what spark produces.
+            if (! columnExists($db, 'store', 's_location_label')) {
+                run($db, 'ALTER TABLE `store`
+                    ADD COLUMN `s_location_label` VARCHAR(255) DEFAULT ""
+                    COMMENT ' . quoted('What to call the spot, when the street address alone will not find it') . '
+                    AFTER `s_address`');
+                $notes[] = 'added store.s_location_label';
+            } else {
+                $notes[] = 'store.s_location_label already there';
+            }
+
+            // Has to follow the label: its AFTER names the column added above.
+            // 500 characters on purpose - a Google share link with a CID and a
+            // plus-code runs past 255 on its own, and a shorter column would
+            // truncate the pin into a dead link.
+            if (! columnExists($db, 'store', 's_map_url')) {
+                run($db, 'ALTER TABLE `store`
+                    ADD COLUMN `s_map_url` VARCHAR(500) DEFAULT ""
+                    COMMENT ' . quoted('Google Maps link for this location, pasted from Share > Copy link') . '
+                    AFTER `s_location_label`');
+                $notes[] = 'added store.s_map_url';
+            } else {
+                $notes[] = 'store.s_map_url already there';
+            }
+
+            if (! columnExists($db, 'store', 's_website')) {
+                run($db, 'ALTER TABLE `store`
+                    ADD COLUMN `s_website` VARCHAR(255) DEFAULT ""
+                    COMMENT ' . quoted('This location\'s own page. Blank falls back to the owner\'s u_website.') . '
+                    AFTER `s_phone`');
+                $notes[] = 'added store.s_website';
+            } else {
+                $notes[] = 'store.s_website already there';
+            }
+
+            if (! columnExists($db, 'users', 'u_website')) {
+                run($db, 'ALTER TABLE `users`
+                    ADD COLUMN `u_website` VARCHAR(255) DEFAULT ""
+                    COMMENT ' . quoted('The employer\'s web address - the group\'s site for a multi-store owner') . '
+                    AFTER `u_email`');
+                $notes[] = 'added users.u_website';
+            } else {
+                $notes[] = 'users.u_website already there';
+            }
+
+            return $notes;
+        },
+    ],
+    [
+        'version' => '2026-08-13-090000',
+        'class'   => 'App\Database\Migrations\AddUserStoreId',
+        'label'   => 'AddUserStoreId',
+        'apply'   => static function (mysqli $db): array {
+            $notes = [];
+
+            // Which of the group's stores a manager runs. They used to type an
+            // address and get a `store` row of their own; they now pick one the
+            // group already added, so the row stays the group's and this says
+            // which. 0 = the login owns its stores outright, which is every
+            // account before this one.
+            if (! columnExists($db, 'users', 'u_parent_id')) {
+                throw new RuntimeException('users.u_parent_id is missing - AddUserParentId has not run');
+            }
+
+            if (! columnExists($db, 'users', 'u_store_id')) {
+                run($db, 'ALTER TABLE `users`
+                    ADD COLUMN `u_store_id` INT DEFAULT 0
+                    COMMENT ' . quoted('store.s_id this manager runs, owned by their u_parent_id group. 0 = the login owns its own stores.') . '
+                    AFTER `u_parent_id`');
+                $notes[] = 'added users.u_store_id';
+            } else {
+                $notes[] = 'users.u_store_id already there';
+            }
+
+            // Managers registered before this change own the store they typed
+            // in. Pointing the column at it keeps them resolving through the
+            // same path as everyone else instead of needing a special case.
+            $res = $db->query('SELECT COUNT(*) AS n
+                                 FROM `users` u
+                                 JOIN `store` s ON s.`u_id` = u.`u_id`
+                                WHERE u.`u_emp_role` = 2
+                                  AND u.`u_parent_id` > 0
+                                  AND COALESCE(u.`u_store_id`, 0) = 0');
+
+            $pending = $res === false ? 0 : (int) $res->fetch_assoc()['n'];
+
+            if ($pending > 0) {
+                run($db, 'UPDATE `users` u
+                            JOIN `store` s ON s.`u_id` = u.`u_id`
+                             SET u.`u_store_id` = s.`s_id`
+                           WHERE u.`u_emp_role` = 2
+                             AND u.`u_parent_id` > 0
+                             AND COALESCE(u.`u_store_id`, 0) = 0');
+                $notes[] = "pointed {$pending} existing manager(s) at the store they already owned";
+            } else {
+                $notes[] = 'no existing managers needed a store id';
+            }
+
+            return $notes;
+        },
+    ],
+    [
+        'version' => '2026-08-14-090000',
+        'class'   => 'App\Database\Migrations\AddAdditionalDetailsTable',
+        'label'   => 'AddAdditionalDetailsTable',
+        'apply'   => static function (mysqli $db): array {
+            $notes = [];
+
+            // The Additional Details master - the same shape as store_service
+            // and shift_for. ad_status defaults to 1 so the add form, which
+            // posts a name and nothing else, does not leave the row Deactive.
+            if (! tableExists($db, 'additional_details')) {
+                run($db, 'CREATE TABLE `additional_details` (
+                    `ad_id` INT NOT NULL AUTO_INCREMENT,
+                    `ad_name` VARCHAR(100) NULL DEFAULT NULL,
+                    `ad_status` INT NOT NULL DEFAULT 1,
+                    PRIMARY KEY (`ad_id`)
+                ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci');
+                $notes[] = 'created additional_details';
+            } else {
+                $notes[] = 'additional_details already there';
+            }
+
+            return $notes;
+        },
+    ],
+    [
+        'version' => '2026-08-14-110000',
+        'class'   => 'App\Database\Migrations\AddJobAdditionalDetails',
+        'label'   => 'AddJobAdditionalDetails',
+        'apply'   => static function (mysqli $db): array {
+            $notes = [];
+
+            // Which Additional Details a shift offers - the same comma
+            // separated shape as p_services beside it, but wider: that column
+            // is VARCHAR(100) and truncates its tail once the list grows.
+            if (! tableExists($db, 'additional_details')) {
+                throw new RuntimeException('additional_details is missing - AddAdditionalDetailsTable has not run');
+            }
+
+            if (! columnExists($db, 'post_job', 'p_additional_details')) {
+                run($db, 'ALTER TABLE `post_job`
+                    ADD COLUMN `p_additional_details` VARCHAR(255) NULL DEFAULT NULL
+                    COMMENT ' . quoted('Comma separated additional_details.ad_id list, same shape as p_services') . '
+                    AFTER `p_services`');
+                $notes[] = 'added post_job.p_additional_details';
+            } else {
+                $notes[] = 'post_job.p_additional_details already there';
+            }
+
+            return $notes;
+        },
+    ],
+    [
+        'version' => '2026-08-14-140000',
+        'class'   => 'App\Database\Migrations\AddStoreShiftDefaults',
+        'label'   => 'AddStoreShiftDefaults',
+        'apply'   => static function (mysqli $db): array {
+            $notes = [];
+
+            // What a store normally offers, so a shift posted against it starts
+            // from those lists rather than from nothing. Same three shapes the
+            // shift itself carries; blank on every existing store, which just
+            // means those shifts start empty as they do today.
+            $columns = [
+                's_skills'             => ['s_website', 'Default software_skills.ss_id list for shifts here, same shape as post_job.p_skills'],
+                's_services'           => ['s_skills', 'Default store_service.st_id list for shifts here, same shape as post_job.p_services'],
+                's_additional_details' => ['s_services', 'Default additional_details.ad_id list for shifts here, same shape as post_job.p_additional_details'],
+            ];
+
+            foreach ($columns as $column => [$after, $comment]) {
+                if (! columnExists($db, 'store', $column)) {
+                    run($db, 'ALTER TABLE `store`
+                        ADD COLUMN `' . $column . '` VARCHAR(255) NULL DEFAULT NULL
+                        COMMENT ' . quoted($comment) . '
+                        AFTER `' . $after . '`');
+                    $notes[] = 'added store.' . $column;
+                } else {
+                    $notes[] = 'store.' . $column . ' already there';
+                }
+            }
+
+            return $notes;
+        },
+    ],
+    [
+        'version' => '2026-08-14-160000',
+        'class'   => 'App\Database\Migrations\MakeEmployersMultiStore',
+        'label'   => 'MakeEmployersMultiStore',
+        'apply'   => static function (mysqli $db): array {
+            $notes = [];
+
+            // Every employer becomes an Owner (Multi Store). The pre-B4 rows
+            // carry role 0 and so belong to no kind, which left them out of
+            // every kind filter and gave the "may this account hold a second
+            // store" rule nothing to go on. Only the role moves; u_parent_id
+            // is left alone, and role 1 is what employerKindSlug() reads first.
+            $res     = $db->query('SELECT COUNT(*) AS n FROM `users` WHERE `u_usertype` = 1 AND `u_emp_role` <> 1');
+            $pending = $res === false ? 0 : (int) $res->fetch_assoc()['n'];
+
+            if ($pending > 0) {
+                run($db, 'UPDATE `users` SET `u_emp_role` = 1 WHERE `u_usertype` = 1 AND `u_emp_role` <> 1');
+                $notes[] = "made {$pending} employer(s) multi-store";
+            } else {
+                $notes[] = 'every employer is already multi-store';
+            }
+
+            return $notes;
+        },
+    ],
+    [
+        'version' => '2026-08-15-090000',
+        'class'   => 'App\Database\Migrations\AddUserEmailBlocked',
+        'label'   => 'AddUserEmailBlocked',
+        'apply'   => static function (mysqli $db): array {
+            $notes = [];
+
+            // Which e-mails a user is opted out of, for Manage Email. Holds
+            // what is BLOCKED so a blank row - every existing account, and
+            // every new registration - receives everything, and a new e-mail
+            // type added to the config later is on for everybody at once.
+            if (! columnExists($db, 'users', 'u_email_blocked')) {
+                run($db, 'ALTER TABLE `users`
+                    ADD COLUMN `u_email_blocked` VARCHAR(100) NOT NULL DEFAULT \'\'
+                    COMMENT ' . quoted('Comma separated AppSettings::$emailTypes codes this user must NOT receive. Blank = everything.') . '
+                    AFTER `u_email`');
+                $notes[] = 'added users.u_email_blocked';
+            } else {
+                $notes[] = 'users.u_email_blocked already there';
+            }
+
+            return $notes;
+        },
+    ],
+    [
+        'version' => '2026-08-15-120000',
+        'class'   => 'App\Database\Migrations\BackfillManagerStoreSnapshot',
+        'label'   => 'BackfillManagerStoreSnapshot',
+        'apply'   => static function (mysqli $db): array {
+            $notes = [];
+
+            // A manager runs one of their group's stores, and the store's name
+            // and address are copied onto their own users row - every screen
+            // that names an employer reads those columns rather than joining
+            // the store. Registration always did it; the back-office employer
+            // form did not, so a manager added there was a nameless row on the
+            // employer list and in the employer dropdown on both shift forms.
+            //
+            // Both forms do it now. This repairs the accounts made before they
+            // did: blank columns only, and only from the store the account is
+            // already attached to, so anything corrected by hand is kept.
+            $res     = $db->query("SELECT COUNT(*) AS n
+                                     FROM `users` u
+                                     JOIN `store` s ON s.`s_id` = u.`u_store_id`
+                                    WHERE u.`u_usertype` = 1 AND u.`u_emp_role` = 2
+                                      AND COALESCE(u.`u_comp_name`, '') = ''");
+            $pending = $res === false ? 0 : (int) $res->fetch_assoc()['n'];
+
+            run($db, "UPDATE `users` u
+                        JOIN `store` s ON s.`s_id` = u.`u_store_id`
+                         SET u.`u_comp_name`  = CASE WHEN COALESCE(u.`u_comp_name`, '')  = '' THEN s.`s_name`     ELSE u.`u_comp_name` END,
+                             u.`u_licence_no` = CASE WHEN COALESCE(u.`u_licence_no`, '') = '' THEN s.`s_number`   ELSE u.`u_licence_no` END,
+                             u.`u_address1`   = CASE WHEN COALESCE(u.`u_address1`, '')   = '' THEN s.`s_address`  ELSE u.`u_address1` END,
+                             u.`u_pincode`    = CASE WHEN COALESCE(u.`u_pincode`, '')    = '' THEN s.`s_pincode`  ELSE u.`u_pincode` END,
+                             u.`u_l_provice`  = CASE WHEN COALESCE(u.`u_l_provice`, 0)   = 0  THEN s.`s_province` ELSE u.`u_l_provice` END,
+                             u.`u_provice`    = CASE WHEN COALESCE(u.`u_provice`, 0)     = 0  THEN s.`s_province` ELSE u.`u_provice` END,
+                             u.`u_city`       = CASE WHEN COALESCE(u.`u_city`, 0)        = 0  THEN s.`s_city`     ELSE u.`u_city` END
+                       WHERE u.`u_usertype` = 1
+                         AND u.`u_emp_role` = 2
+                         AND COALESCE(u.`u_store_id`, 0) > 0");
+
+            $notes[] = $pending > 0
+                ? "filled in {$pending} nameless manager(s) from their store"
+                : 'every manager already carries their store details';
 
             return $notes;
         },

@@ -949,15 +949,35 @@ footer#footer,
 
 .wz-footer ul li a:hover { color: var(--wz-purple); }
 
+/* Three across: social left, address in the middle, copyright right. A grid
+   rather than space-between, because the two sides are nowhere near the same
+   width - spacing them apart would leave the middle item off centre. The
+   1fr / auto / 1fr split centres it on the bar itself. */
 .wz-footer-bottom {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
   gap: 18px;
-  flex-wrap: wrap;
+  padding: 26px 0 34px;
+}
+
+.wz-footer-bottom .wz-social { justify-self: start; }
+.wz-footer-bottom .wz-footer-email { justify-self: center; }
+.wz-footer-bottom .wz-copy { justify-self: end; }
+
+.wz-footer-email { margin: 0; font-size: 14.5px; font-weight: 600; }
+
+.wz-footer-email a { color: var(--wz-ink-soft); }
+
+.wz-footer-email a:hover { color: var(--wz-purple); }
+
+/* The rule and the space above it separate this bar from the link columns, so
+   they belong to the pair rather than to the bar. With the columns gone the
+   bar stands alone and a divider under nothing would be all that was left;
+   put the columns back and it returns on its own. */
+.wz-footer-grid + .wz-footer-bottom {
   border-top: 1px solid var(--wz-line);
   margin-top: 54px;
-  padding: 26px 0 34px;
 }
 
 .wz-social { display: flex; align-items: center; gap: 18px; }
@@ -1126,7 +1146,11 @@ footer#footer,
 
   .wz-footer-grid { grid-template-columns: 1fr 1fr; gap: 30px; }
   .wz-footer-grid > :first-child { grid-column: 1 / -1; }
-  .wz-footer-bottom { flex-direction: column; align-items: flex-start; }
+  /* One column on a phone - the three would be unreadably narrow side by side.
+     Everything lines up left, as this bar always has on small screens. */
+  .wz-footer-bottom { grid-template-columns: 1fr; justify-items: start; }
+  .wz-footer-bottom .wz-footer-email,
+  .wz-footer-bottom .wz-copy { justify-self: start; }
 
   .dashboard-body { padding: 18px; }
   .side-dashboard { padding: 18px; }
@@ -1139,4 +1163,209 @@ footer#footer,
   .wz-footer-grid { grid-template-columns: 1fr; }
   .wz-job-meta .sep:nth-of-type(n+2) { display: none; }
   .wz-btn, .btn.btn-common { padding: 12px 22px !important; }
+}
+
+/* ------------------------------------------------- account (login) card ---
+   The Login / Register card on front/login. The page markup put a three-field
+   form inside a 10-column card with 3rem padding, so the card sprawled while
+   the fields it held stayed narrow. The card is sized here instead - to the
+   form, and to whichever tab is open - and the rhythm inside it tightened. */
+
+.wz-auth-card {
+  width: 100%;
+  max-width: 440px;
+  margin-inline: auto;
+  padding: 30px 28px 26px;
+  background: var(--wz-surface);
+  border: 1px solid var(--wz-line);
+  border-radius: var(--wz-radius);
+  box-shadow: var(--wz-shadow);
+  transition: max-width .25s ease;
+}
+
+/* Register is a two-column grid and needs the room; Login does not. */
+.wz-auth-card.is-register { max-width: 860px; }
+
+.wz-auth-card .wz-auth-title {
+  margin-bottom: 20px;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -.02em;
+  color: var(--wz-ink);
+}
+
+.wz-auth-card .wz-authtabs { gap: 8px; margin-bottom: 22px !important; }
+
+.wz-auth-card .btn.wz-auth-tab {
+  padding: 8px 26px !important;
+  font-size: 14px;
+}
+
+.wz-auth-card .form-group { margin-bottom: 14px; }
+
+.wz-auth-card label {
+  margin-bottom: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--wz-ink-soft);
+}
+
+.wz-auth-card .form-control {
+  padding: 10px 14px !important;
+  border-radius: 12px !important;
+  font-size: 14.5px;
+}
+
+/* The icon the theme drops into .input-with-icon has to follow the field in. */
+.wz-auth-card .input-with-icon { position: relative; }
+
+.wz-auth-card .input-with-icon .form-control { padding-right: 40px !important; }
+
+.wz-auth-card .input-with-icon i {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  transform: translateY(-50%);
+  font-size: 15px;
+  color: var(--wz-muted);
+  pointer-events: none;
+}
+
+.wz-auth-card .btn.btn-common {
+  width: 100%;
+  padding: 11px 24px !important;
+  font-size: 15px !important;
+}
+
+.wz-auth-card .register-account { font-size: 13.5px; }
+
+/* Verification code: image, a button for a new one, then the field - one row,
+   so the field is plainly the thing the label is asking you to fill in. */
+.wz-captcha-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.wz-captcha-row .wz-captcha-img {
+  height: 42px;
+  width: auto;
+  border: 1px solid var(--wz-line);
+  border-radius: 10px;
+}
+
+/* main.css hangs a 20px bottom margin off every .form-control; in a centred
+   flex row that margin is part of what gets centred, so the field rides up
+   about half of it. Drop it here and the three items sit on one line. */
+.wz-captcha-row .form-control { flex: 1 1 130px; min-width: 0; margin-bottom: 0; }
+
+.wz-captcha-refresh {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 42px;
+  padding: 0;
+  background: #fff;
+  border: 1px solid var(--wz-line);
+  border-radius: 10px;
+  color: var(--wz-muted);
+  cursor: pointer;
+  transition: color .2s ease, border-color .2s ease;
+}
+
+.wz-captcha-refresh:hover {
+  color: var(--wz-purple);
+  border-color: var(--wz-purple);
+}
+
+/* Chrome paints a saved login yellow, which reads as a validation warning on
+   a form whose own error colour is red. */
+.wz-auth-card input:-webkit-autofill,
+.wz-auth-card input:-webkit-autofill:hover,
+.wz-auth-card input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--wz-ink);
+  -webkit-box-shadow: 0 0 0 40px #fff inset;
+  box-shadow: 0 0 0 40px #fff inset;
+}
+
+@media (max-width: 575px) {
+  .wz-auth-card { padding: 24px 18px 20px; }
+  .wz-auth-card .wz-auth-title { font-size: 21px; }
+}
+
+/* -------------------------------------------------------------- select2 ---
+   Every dropdown on the site is a select2 widget now. The bundled
+   bootstrap4 theme is not used: this site is on Bootstrap 5 with its own
+   control styling, so the widget is dressed as the .form-control beside it
+   instead - same border, radius, height and focus ring. */
+
+.select2-container { width: 100% !important; }
+
+.select2-container--default .select2-selection--single {
+  height: auto;
+  padding: 13px 18px;
+  border: 1px solid var(--wz-line);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+  padding: 0;
+  line-height: 1.4;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--wz-ink);
+}
+
+.select2-container--default .select2-selection--single .select2-selection__placeholder {
+  color: var(--wz-muted);
+}
+
+/* The arrow is absolutely positioned against a 28px-tall control by default,
+   so it floats near the top of a taller one. */
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+  height: 100%;
+  top: 0;
+  right: 10px;
+}
+
+.select2-container--default.select2-container--focus .select2-selection--single,
+.select2-container--default.select2-container--open .select2-selection--single {
+  border-color: var(--wz-purple);
+  box-shadow: 0 0 0 4px rgba(124, 58, 237, .12);
+}
+
+.select2-dropdown {
+  border: 1px solid var(--wz-line);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: var(--wz-shadow);
+}
+
+.select2-container--default .select2-results__option {
+  padding: 10px 18px;
+  font-size: 15px;
+}
+
+.select2-container--default .select2-results__option--highlighted[aria-selected] {
+  background: var(--wz-purple);
+}
+
+.select2-container--default .select2-search--dropdown .select2-search__field {
+  border: 1px solid var(--wz-line);
+  border-radius: 10px;
+  padding: 8px 12px;
+}
+
+/* The sign-in card runs a tighter rhythm than the rest of the site, so its
+   dropdowns follow the compact inputs around them rather than the page. */
+.wz-auth-card .select2-container--default .select2-selection--single {
+  padding: 10px 14px;
+  border-radius: 12px;
+}
+
+.wz-auth-card .select2-container--default .select2-selection--single .select2-selection__rendered {
+  font-size: 14.5px;
 }

@@ -37,7 +37,11 @@
 	                                <td><?php echo getProvinceName($store->s_province); ?></td>
 	                                <td><?php echo esc($store->s_phone); ?></td>
 	                                <td><?php echo $store->s_status == 1 ? 'Active' : 'Inactive'; ?></td>
-	                                <td><a class="btn btn-sm btn-info" href="<?php echo base_url('employer/edit_store/' . $store->s_id); ?>">Edit</a></td>
+	                                <td><?php if ((int) $store->u_id === (int) ($store_owner_id ?? 0)) { ?>
+                                    <a class="btn btn-sm btn-info" href="<?php echo base_url('employer/edit_store/' . $store->s_id); ?>">Edit</a>
+                                <?php } else { ?>
+                                    <small class="text-muted">Your corporate group's</small>
+                                <?php } ?></td>
 	                            </tr>
 	                            <?php } ?>
 	                            <?php } ?>

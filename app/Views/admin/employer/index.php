@@ -24,7 +24,9 @@
 			/* Every row action carries the list it was started from, so saving,
 			   activating or deleting comes back to the same kind rather than to
 			   All Employers. */
-			$kindqs = $kind ? '?kind='.$kind : '';
+			/* The slug, not the code: ?kind= is a URL, and employerKindBySlug()
+			   is what reads it back. */
+			$kindqs = ($kindSlug ?? '') !== '' ? '?kind='.$kindSlug : '';
 		?>
     <!-- Main content -->
     <section class="content">

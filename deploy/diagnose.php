@@ -141,18 +141,48 @@ if ($name !== '' && extension_loaded('mysqli')) {
         row('tables present', $tables !== [], count($tables) . ' tables'
             . ($tables === [] ? ' - EMPTY DATABASE, import the data first' : ''));
 
-        foreach (['settings', 'users', 'post_job', 'migrations'] as $need) {
+        // `store` is in this list because the shift form offers stores and
+        // nothing else: without the table, posting a shift and three admin
+        // screens all 500, and the front page is the only thing still working.
+        // `additional_details` for the same reason - the shift form and both
+        // store forms read it to draw their tick-box groups.
+        foreach (['settings', 'users', 'post_job', 'store', 'additional_details', 'migrations'] as $need) {
             row("table {$need}", in_array($need, $tables, true));
         }
 
-        if (in_array('settings', $tables, true)) {
-            $col = $conn->query("SHOW COLUMNS FROM settings LIKE 's_agency_copy_email'");
-            row('migration AddAgencyCopyEmailSetting', $col && $col->num_rows > 0, $col && $col->num_rows ? 'applied' : 'NOT applied - run migrations');
+        // Which migrations are outstanding, read from the files rather than a
+        // hand-written list. The version is the leading timestamp of the file
+        // name, which is exactly what CodeIgniter records in `migrations`, so
+        // the two compare directly - and a migration added next month is
+        // covered here without anybody remembering to update this script.
+        $files = glob("{$here}/app/Database/Migrations/*.php") ?: [];
+        $want  = [];
+
+        foreach ($files as $file) {
+            if (preg_match('/^(\d{4}-\d{2}-\d{2}-\d{6})_(.+)\.php$/', basename($file), $m)) {
+                $want[$m[1]] = $m[2];
+            }
         }
 
-        if (in_array('stu_saved_applied_jobs', $tables, true)) {
-            $col = $conn->query("SHOW COLUMNS FROM stu_saved_applied_jobs LIKE 'sj_reminder_sent_at'");
-            row('migration AddShiftReminderSentAt', $col && $col->num_rows > 0, $col && $col->num_rows ? 'applied' : 'NOT applied - run migrations');
+        if ($want === []) {
+            row('migration files', false, 'none found in app/Database/Migrations - is this the built bundle?');
+        } elseif (! in_array('migrations', $tables, true)) {
+            row('migrations applied', false, count($want) . ' to run - no migrations table yet, run them');
+        } else {
+            $applied = [];
+            $res     = $conn->query('SELECT version FROM migrations');
+
+            while ($r = $res->fetch_assoc()) {
+                $applied[$r['version']] = true;
+            }
+
+            ksort($want);
+            $missing = array_diff_key($want, $applied);
+
+            row('migrations applied', $missing === [],
+                $missing === []
+                    ? count($want) . ' of ' . count($want)
+                    : count($missing) . ' NOT applied: ' . implode(', ', $missing) . ' - run them');
         }
 
         $conn->close();

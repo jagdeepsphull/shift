@@ -46,12 +46,67 @@
                             <!-- /.card-header -->
                             <div class="card-body">
 
+								<?php /* The same three kinds registration offers. All are
+								   `u_usertype` 1 and differ by `u_emp_role` / `u_parent_id`;
+								   the script in admin/footer.php shows and hides the rows
+								   below to match, exactly as the public form does. */ ?>
+								<div class="row">
+									<div class="col-sm-6">
+										<div class="form-group">
+											<label>Employer Type</label>
+											<select required class="form-control" name="emp_kind" id="emp_kind">
+												<option value="">-- Select Employer Type --</option>
+												<?php foreach($employerKinds as $kindcode=>$empkind){ ?>
+												<option value="<?php echo (int) $kindcode; ?>"
+													<?php echo ((string) ($emp_kind ?? '')===(string) $kindcode)?"selected":""; ?>>
+													<?php echo $empkind['short']; ?></option>
+												<?php } ?>
+											</select>
+										</div>
+									</div>
+
+									<?php /* A manager runs a store on behalf of a multi-store
+									   owner, so the group is who they answer to and is required.
+									   Nobody else is asked. */ ?>
+									<div class="col-sm-6 grouponly">
+										<div class="form-group">
+											<label>Corporate Group</label>
+											<select required class="form-control" name="u_parent_id" id="u_parent_id">
+												<option value="">-- None --</option>
+												<?php if(!empty($pharmacy_groups)){ ?>
+												<?php foreach($pharmacy_groups as $group){ ?>
+												<option value="<?php echo $group->u_id; ?>"
+													<?php echo (($u_parent_id ?? '')==$group->u_id)?"selected":""; ?>>
+													<?php echo esc($group->u_comp_name); ?></option>
+												<?php } ?>
+												<?php } ?>
+											</select>
+										</div>
+									</div>
+								</div>
+
+								<?php /* A manager runs one of the group's existing stores, so
+								   they say which rather than describing one of their own -
+								   the same question registration asks, filled by the same
+								   endpoint. Hidden for everybody else. */ ?>
+								<div class="row storepick">
+									<div class="col-sm-6">
+										<div class="form-group">
+											<label>Store</label>
+											<input type="hidden" id="hstoreid" value="<?php echo (int) ($u_store_id ?? 0); ?>">
+											<select required class="form-control" name="u_store_id" id="u_store_id">
+												<option value="">-- Select Store --</option>
+											</select>
+										</div>
+									</div>
+								</div>
+
                                 <div class="row">
                                     <div class="col-sm-6">
                                         <!-- text input -->
                                         <div class="form-group">
                                             <label>First Name</label>
-                                            <input  required onkeydown="return /[a-z, ]/i.test(event.key)"
+                                            <input  required
     onblur="if (this.value == '') {this.value = '';}"
     onfocus="if (this.value == '') {this.value = '';}" type="text" class="form-control" placeholder="Enter First Name" name="u_fname" value="<?php echo $u_fname; ?>">
                                         </div>
@@ -60,7 +115,7 @@
                                         <!-- text input -->
                                         <div class="form-group">
                                             <label>Last Name</label>
-                                            <input  required  onkeydown="return /[a-z, ]/i.test(event.key)"
+                                            <input  required
     onblur="if (this.value == '') {this.value = '';}"
     onfocus="if (this.value == '') {this.value = '';}" type="text" class="form-control" placeholder="Enter Last Name" name="u_lname" value="<?php echo $u_lname; ?>">
                                         </div>
@@ -69,14 +124,22 @@
 								
 
                                 <div class="row">
-                                    <div class="col-sm-3">
+                                    <?php /* A manager is not asked for it at all: the store they
+                                       pick already has a name, and registration saves them a
+                                       blank u_comp_name for exactly that reason. */ ?>
+                                    <div class="col-sm-3 owneronly">
                                         <!-- text input -->
                                         <div class="form-group">
-                                            <label>Store Name</label>
+                                            <?php /* "Store Name" for a single location, "Corporate Group
+                                               Name" for a multi-store owner - the same column either way. */ ?>
+                                            <label id="compnamelbl">Store Name</label>
                                             <input  required type="text" class="form-control" placeholder="Enter <?php echo $pageinfo['title']; ?> Name" name="u_comp_name" value="<?php echo $u_comp_name; ?>">
                                         </div>
                                     </div>
-									<div class="col-sm-3">
+									<?php /* Licence and address describe one location, so a
+									   multi-store owner is never asked for them: theirs belong
+									   to each store added afterwards. */ ?>
+									<div class="col-sm-3 storeonly">
                                         <div class="form-group">
                                             <label>Store Registration Province</label>
                                             <select  required class="form-control " name="u_l_provice" id="province_L_list" >
@@ -91,7 +154,7 @@
                                             </select>
                                         </div>
                                     </div>
-                                    <div class="col-sm-6">
+                                    <div class="col-sm-6 storeonly">
                                         <!-- text input -->
                                         <div class="form-group">
                                             <label>Store No.</label>
@@ -121,12 +184,20 @@
                                             <input  required type="text" class="form-control" placeholder="Enter <?php echo $pageinfo['title']; ?> Mobile No." name="u_phone" value="<?php echo $u_phone; ?>">
                                         </div>
                                     </div>
-                                    
+									<div class="col-sm-3">
+                                        <!-- text input -->
+                                        <div class="form-group">
+                                            <?php /* The group's corporate site for a multi-store owner,
+                                               the store's own page for a single one. Optional. */ ?>
+                                            <label>Website <small class="text-muted">(optional)</small></label>
+                                            <input type="url" class="form-control" placeholder="https://example.com" name="u_website" value="<?php echo esc($u_website); ?>">
+                                        </div>
+                                    </div>
 
                                 </div>
 
-                                <div class="row">
-                                    
+                                <div class="row storeonly">
+
                                     <div class="col-sm-3">
                                         <!-- text input -->
                                         <div class="form-group">

@@ -53,14 +53,16 @@
                   <?php 
 				  if($applicationslist){
 					  foreach($applicationslist as $record){
-							$candid = custom()->get_where('users',array('u_id'=>$record->u_id));
-							$postjob = custom()->get_where('post_job',array('p_id'=>$record->p_id));
+							/* The shift title, its time and the applicant's name
+							   come down with the list itself. They were two more
+							   queries per row here - on a screen showing every
+							   application, that was the whole cost of the page. */
 						  ?>
 						  <tr>
 							<td><?php echo $record->sj_id;?></td>
-							<td><?php echo $postjob[0]->p_job_title;?></td>
+							<td><?php echo $record->p_job_title;?></td>
 							<td><?php echo $record->u_comp_name;?></td>
-							<td><?php echo $candid[0]->u_fname.' '.$candid[0]->u_lname;?></td>
+							<td><?php echo trim($record->applicant_fname.' '.$record->applicant_lname);?></td>
 							<td>
 								<?php if(trim((string) $record->sj_applied_desc) !== '') {?>
 									<button type="button" class="btn btn-info popover-btn mb-2" data-toggle="popover" data-content="<?php echo esc($record->sj_applied_desc, 'attr');?>">Applicant Message</button>
@@ -70,7 +72,7 @@
 								<?php }?>
 							</td>
 							<td data-order="<?php echo shiftDateSortValue($record); ?>"><?php echo dateFormat($record->p_dates);?></td>
-							<td><?php echo $postjob[0]->p_shift_time;?></td>
+							<td><?php echo $record->p_shift_time;?></td>
 							<td><?php echo $application_approved[$record->sj_is_approved];?></td>
 							<td>
 							<a href="<?php echo base_url('sadmin/'.$pageinfo['link'].'/view/'.$record->sj_id );?>" class="btn btn-success">View Detail</a> 

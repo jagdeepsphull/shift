@@ -52,7 +52,7 @@
 						<div class="row">
 							<div class="col-lg-4 col-md-4 col-sm-2">
 	                            <div class="form-group">
-									<label>License Province</label>
+									<label>Licence Province</label>
 									<select required class="form-control " name="u_l_provice" id="province_L_list" >
 										<option value="">Select Province</option>
 										<?php if($province){ ?>

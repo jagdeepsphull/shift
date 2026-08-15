@@ -43,21 +43,7 @@
                             <div class="card-body">
 
                                 <div class="row">
-									<div class="col-sm-4">
-										<!-- text input -->
-										<div class="form-group">
-											<label>Choose Employer</label>
-											<select class="form-control " name="u_id" id="u_id" required>
-												<option value="">-- Select Employer -- </option>
-												<?php if($agencies){?>
-												  <?php foreach($agencies as $agency){?>
-												  <option value="<?php echo $agency->u_id;?>" <?php echo ($u_id==$agency->u_id)?"selected":""; ?> >
-													  <?php echo $agency->u_comp_name;?></option>
-												  <?php } ?>
-												<?php } ?>
-											</select>
-										</div>
-									</div>
+									<?= view('partials/employer_picker', ['agencies' => $agencies, 'employerKinds' => $employerKinds ?? [], 'u_id' => $u_id]) ?>
 									<div class="col-sm-4">
 										<!-- text input -->
 										<div class="form-group">
@@ -165,10 +151,18 @@
 											<?= view('partials/checkbox_grid', ['name' => 'p_services', 'label' => 'Details', 'items' => $store_service, 'idKey' => 'st_id', 'labelKey' => 'st_service_name', 'selected' => $p_services, 'required' => true,]) ?>
 										</div>
 									</div>
-									
+									<div class="col-sm-3">
+										<?php /* Optional, for the reason given on the add form. */ ?>
+										<div class="form-group">
+											<?= view('partials/checkbox_grid', ['name' => 'p_additional_details', 'label' => 'Additional Details', 'items' => $additional_details, 'idKey' => 'ad_id', 'labelKey' => 'ad_name', 'selected' => $p_additional_details, 'required' => false,]) ?>
+										</div>
+									</div>
+
 									<div class="col-sm-12">
 										<div class="form-group">
-											<label>Additional details</label>
+											<?php /* Named apart from the "Additional Details" tick-box group
+											   above it, which is a different field on a different table. */ ?>
+											<label>Additional details for agency</label>
 											<textarea class="form-control" name="p_jobinfo" id="p_jobinfo" ><?php echo $p_jobinfo;?></textarea>
 										</div>
 									</div>
@@ -187,11 +181,75 @@
 					</div>
                     
 
+					<?php /* Booking from the shift form, the same card as on add -
+					   except that here it may already have somebody in it. This
+					   is how an applicant who drops out is swapped for another,
+					   which is why a booked shift is editable at all; it is
+					   shown only while the shift is still ahead of us, because
+					   booking somebody onto a shift already worked means
+					   nothing. `shiftIsUpcoming()` decides both. */ ?>
+					<?php if (! empty($shift_upcoming)) { ?>
 					<!-- left column -->
 					<div class="col-md-12">
 
 						<div class="card card-info">
-							
+
+							<div class="card-header">
+								<h3 class="card-title">Book an Applicant (optional)</h3>
+							</div>
+
+							<!-- /.card-header -->
+							<div class="card-body">
+								<div class="row">
+									<div class="col-sm-4">
+										<div class="form-group">
+											<label>Book Shift For</label>
+											<select class="form-control" name="sj_applicant_id" id="sj_applicant_id">
+												<option value="">-- Nobody yet --</option>
+												<?php if($applicants){ ?>
+												  <?php foreach($applicants as $person){
+													  $person_type = getShiftForName($person->u_usersubtype);
+													  $person_name = trim($person->u_lname . ', ' . $person->u_fname)
+														  . ($person_type !== '' ? ' - ' . $person_type : '')
+														  . ' (' . $person->u_email . ')';
+												  ?>
+												  <option value="<?php echo $person->u_id;?>" <?php echo ($sj_applicant_id==$person->u_id)?"selected":""; ?> >
+													  <?php echo esc($person_name);?></option>
+												  <?php } ?>
+												<?php } ?>
+											</select>
+											<?php if (! empty($booking)) { ?>
+											<small class="form-text text-muted">This shift is <strong>booked</strong>. Leave this alone to keep the booking as it is.</small>
+											<?php } else { ?>
+											<small class="form-text text-muted">Leave this alone to keep the shift open and take applications as usual.</small>
+											<?php } ?>
+										</div>
+									</div>
+									<div class="col-sm-8">
+										<div class="form-group">
+											<label>Message to the applicant</label>
+											<textarea class="form-control" name="sj_admin_comment" id="sj_admin_comment" rows="3" placeholder="Anything they should know about the booking"><?php echo esc($sj_admin_comment);?></textarea>
+											<?php if (! empty($booking)) { ?>
+											<small class="form-text text-muted">Choosing somebody else takes the shift off the applicant booked on it now and books the new one instead; choosing <strong>-- Nobody yet --</strong> takes it off them and puts the shift back to <strong>Live</strong>. Either way the applicant losing the shift is e-mailed that their booking is cancelled. Whatever is written here goes to the applicant being booked, not to them.</small>
+											<?php } else { ?>
+											<small class="form-text text-muted">Choosing somebody books them the moment this shift is saved: it is set to <strong>Closed</strong>, and the booking e-mail goes to both them and the employer. Whatever is written here is included in their copy.</small>
+											<?php } ?>
+										</div>
+									</div>
+								</div>
+							</div>
+							<!-- /.card-body -->
+
+						</div>
+
+					</div>
+					<?php } ?>
+
+					<!-- left column -->
+					<div class="col-md-12">
+
+						<div class="card card-info">
+
 							<div class="card-header">
                                 <h3 class="card-title">Shift Status</h3>
                             </div>

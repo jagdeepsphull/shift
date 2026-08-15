@@ -11,6 +11,7 @@
 const fs = require('fs');
 const { test, expect } = require('@playwright/test');
 const { loginAsAdmin, expectNoServerError } = require('../helpers/admin');
+const { scalar } = require('../helpers/db');
 
 /** Every screen whose table is wired to the shared DataTables init. */
 const LISTINGS = [
@@ -25,10 +26,6 @@ const LISTINGS = [
   ['sadmin/softwareskills', 'Software'],
   ['sadmin/storeservice', 'Service'],
   ['sadmin/resources', 'Resources'],
-  // "Manage Owners (Individual Store)" is 32 characters, one past the limit
-  // Excel imposes on a sheet name - past it the file opens with a repair
-  // prompt instead of the data.
-  ['sadmin/employer/owner_individual', 'Owners (Individual Store)'],
 ];
 
 const excelButton = (page) => page.locator('.dt-buttons button', { hasText: 'Excel' });
@@ -127,19 +124,35 @@ test('the PDF is landscape, so a wide list fits across the page', async ({ page 
 });
 
 test('a long screen name still makes a sheet Excel will open', async ({ page }) => {
-  await page.goto('sadmin/employer/owner_individual');
+  // The store list scoped to one employer reads "Manage Stores - <company>",
+  // which is the longest heading the back office produces. It replaced the old
+  // "Manage Owners (Individual Store)" here when that kind was removed; no
+  // other screen still runs past the limit.
+  const owner = scalar(`
+    SELECT u.u_id FROM users u
+     WHERE u.u_usertype = 1 AND CHAR_LENGTH(u.u_comp_name) > 20
+       AND EXISTS (SELECT 1 FROM store s WHERE s.u_id = u.u_id)
+     ORDER BY CHAR_LENGTH(u.u_comp_name) DESC LIMIT 1;
+  `);
+  test.skip(!owner, 'no employer with a long enough name and a store');
 
-  await expect(page.locator('.content-header h1')).toContainText('Manage Owners (Individual Store)');
+  await page.goto(`sadmin/stores?owner=${owner}`);
+
+  const heading = (await page.locator('.content-header h1').first().innerText())
+    .replace(/\s+/g, ' ').trim();
+
+  expect(heading.length, 'this test is pointless unless the heading is over the limit')
+    .toBeGreaterThan(31);
 
   const { buffer } = await downloadFrom(page, excelButton(page));
   const workbook = await zipEntry(page, buffer, 'xl/workbook.xml');
 
   const sheetName = workbook.match(/<sheet name="([^"]*)"/)?.[1] || '';
-  expect(sheetName.length, 'Excel rejects a sheet name past 31 characters').toBeLessThanOrEqual(31);
-  expect(sheetName).toBe('Manage Owners (Individual Store');
 
-  // The file name has no such limit, so it keeps the whole heading.
-  await expect(page).toHaveURL(/owner_individual$/);
+  // Past 31 characters Excel opens the file with a repair prompt instead of
+  // the data. The characters Excel forbids outright go first, then the cut.
+  expect(sheetName.length, 'Excel rejects a sheet name past 31 characters').toBeLessThanOrEqual(31);
+  expect(sheetName).toBe(heading.replace(/[[\]*/\?:]/g, '').slice(0, 31));
 });
 
 test('the file is named after the screen, not the site', async ({ page }) => {
@@ -158,7 +171,7 @@ test('the spreadsheet holds the data columns and drops the buttons column', asyn
   const { buffer } = await downloadFrom(page, excelButton(page));
   const sheet = await sheetXml(page, buffer);
 
-  for (const header of ['Applicant Name', 'Applicant Type', 'License No.', 'Email ID', 'Mobile No.', 'Status']) {
+  for (const header of ['Applicant Name', 'Applicant Type', 'Licence No.', 'Email ID', 'Mobile No.', 'Status']) {
     expect(sheet, `spreadsheet keeps "${header}"`).toContain(header);
   }
 

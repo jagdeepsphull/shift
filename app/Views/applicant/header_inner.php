@@ -31,6 +31,10 @@
 	
 	<!-- summernote -->
     <link rel="stylesheet" href="<?php echo base_url('assets/front/plugins/summernote/summernote-bs4.min.css') ; ?>">
+    <!-- select2: every dropdown in this area wears it -->
+    <link rel="stylesheet" href="<?php echo base_url('assets/front/plugins/select2/css/select2.min.css') ; ?>">
+    <link rel="stylesheet" href="<?php echo base_url('assets/front/plugins/select2-bootstrap4-theme/select2-bootstrap4.min.css') ; ?>">
+
 
     <!-- Responsive Style -->
     <link rel="stylesheet" href="<?php echo base_url('assets/front/assets/css/responsive.css') ; ?>">

@@ -81,6 +81,12 @@
 	                        </div>
 	                    </div>
 
+	                    <?= view('partials/store_location_fields', [
+	                        'locationLabel' => $s_location_label,
+	                        'mapUrl'        => $s_map_url,
+	                        'website'       => $s_website,
+	                    ]) ?>
+
 	                    <div class="row mrg-top-30">
 	                        <div class="col-md-12 col-sm-12">
 	                            <div class="form-group text-center">

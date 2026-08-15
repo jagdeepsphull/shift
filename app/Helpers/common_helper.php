@@ -118,6 +118,36 @@ if (! function_exists('shiftDateSortValue')) {
     }
 }
 
+if (! function_exists('shiftIsUpcoming')) {
+    /**
+     * Is the shift still ahead of today - that is, can it still be rearranged?
+     *
+     * This is what lets the admin edit a shift somebody is already booked on:
+     * an applicant who says they cannot make it has to be swapped out, and the
+     * only sane cut-off for that is the day the shift is worked. On the day
+     * itself and after it the shift is history and nothing may be touched, so
+     * "today" is deliberately not upcoming.
+     *
+     * A shift whose date cannot be read at all counts as not upcoming: the
+     * frozen side is the safe side, and `php spark shifts:backfill-dates`
+     * lists those rows so they can be given a date.
+     *
+     * @param array<string, mixed>|object $row a `post_job` row
+     */
+    function shiftIsUpcoming($row): bool
+    {
+        $date = is_object($row) ? ($row->p_date_start ?? null) : ($row['p_date_start'] ?? null);
+        $date = $date === null ? '' : substr((string) $date, 0, 10);
+
+        if ($date === '' || $date === '0000-00-00') {
+            $raw  = is_object($row) ? ($row->p_dates ?? '') : ($row['p_dates'] ?? '');
+            $date = (string) parseShiftDate($raw);
+        }
+
+        return $date !== '' && $date > date('Y-m-d');
+    }
+}
+
 if (! function_exists('asset_url')) {
     function asset_url($path = '')
     {
@@ -501,15 +531,55 @@ if (! function_exists('fileupload')) {
     }
 }
 
+if (! function_exists('lookupRow')) {
+    /**
+     * One row from a lookup table, remembered for the rest of the request.
+     *
+     * The name helpers below are called once per row of a listing, and every
+     * one of them was a query: an admin shift list of 300 rows asked the
+     * province, city, employer and shift-for tables 300 times each, for a
+     * handful of distinct answers. The cache is keyed by table and id, so a
+     * page asks for each distinct id once however many rows repeat it - and a
+     * page that shows a single record still runs the single query it always
+     * did.
+     *
+     * Read-only lookups only. A row written during the same request would
+     * still be served from here, which is why nothing that saves uses it.
+     *
+     * @param int|string           $id
+     * @param array<string, mixed> $extra further where conditions
+     *
+     * @return object|null
+     */
+    function lookupRow(string $table, string $idColumn, $id, array $extra = [])
+    {
+        static $cache = [];
+
+        $key = $table . '#' . $idColumn . '#' . $id . '#' . implode(',', array_map(
+            static fn ($k, $v) => $k . '=' . $v,
+            array_keys($extra),
+            $extra
+        ));
+
+        if (! array_key_exists($key, $cache)) {
+            $builder = ci_db()->table($table)->where($idColumn, $id);
+
+            foreach ($extra as $column => $value) {
+                $builder->where($column, $value);
+            }
+
+            $cache[$key] = $builder->get()->getRow();
+        }
+
+        return $cache[$key];
+    }
+}
+
 if (! function_exists('getPharmacyName')) {
     function getPharmacyName($uid = 0)
     {
-        $row = ci_db()->table('users')
-            ->where('u_id', $uid)
-            ->where('u_usertype', 1) // 1 => Pharmacy
-            ->where('u_status', 1)
-            ->get()
-            ->getRow();
+        // 1 => Pharmacy
+        $row = lookupRow('users', 'u_id', $uid, ['u_usertype' => 1, 'u_status' => 1]);
 
         return $row ? $row->u_comp_name : '';
     }
@@ -518,11 +588,7 @@ if (! function_exists('getPharmacyName')) {
 if (! function_exists('getCityName')) {
     function getCityName($cid = 0)
     {
-        $row = ci_db()->table('city')
-            ->where('c_id', $cid)
-            ->where('c_status', 1)
-            ->get()
-            ->getRow();
+        $row = lookupRow('city', 'c_id', $cid, ['c_status' => 1]);
 
         return $row ? $row->c_name : '';
     }
@@ -580,11 +646,7 @@ if (! function_exists('shiftStore')) {
 if (! function_exists('getProvinceName')) {
     function getProvinceName($pid = 0)
     {
-        $row = ci_db()->table('province')
-            ->where('p_id', $pid)
-            ->where('p_status', 1)
-            ->get()
-            ->getRow();
+        $row = lookupRow('province', 'p_id', $pid, ['p_status' => 1]);
 
         return $row ? $row->p_name : '';
     }
@@ -593,39 +655,346 @@ if (! function_exists('getProvinceName')) {
 if (! function_exists('getShiftForName')) {
     function getShiftForName($sid = 0)
     {
-        $row = ci_db()->table('shift_for')
-            ->where('sf_id', $sid)
-            ->where('sf_status', 1)
-            ->get()
-            ->getRow();
+        $row = lookupRow('shift_for', 'sf_id', $sid, ['sf_status' => 1]);
 
         return $row ? $row->sf_name : '';
     }
 }
 
-if (! function_exists('employerKindSlug')) {
+if (! function_exists('employerKindCode')) {
     /**
-     * Which of the `employerKinds` an employer row is, by the same rule the
-     * config filters use. Returns '' for the pre-B4 rows that carry role 0.
+     * Which of the `employerKinds` an employer row is, as the number the
+     * database holds. 0 for an account from before the kinds existed.
+     *
+     * The role alone decides. It used not to: role 2 meant a manager or an
+     * individual owner depending on `u_parent_id`, and that second kind is
+     * gone.
      *
      * @param array|object $user a `users` row
      */
-    function employerKindSlug($user): string
+    function employerKindCode($user): int
     {
-        $user = (object) $user;
+        $code = (int) ((object) $user)->u_emp_role;
 
-        $role   = (int) ($user->u_emp_role ?? 0);
-        $parent = (int) ($user->u_parent_id ?? 0);
+        return isset(config('AppSettings')->employerKinds[$code]) ? $code : 0;
+    }
+}
 
-        if ($role === 1) {
-            return 'owner_multi';
+if (! function_exists('employerKindBySlug')) {
+    /**
+     * The code a URL slug stands for, or 0 when it is not one of the kinds.
+     *
+     * Every screen that takes a kind from a URL or a query string goes through
+     * here, so an unknown one reads as "no kind chosen" rather than as an
+     * error.
+     */
+    function employerKindBySlug(?string $slug): int
+    {
+        foreach (config('AppSettings')->employerKinds as $code => $kind) {
+            if ($kind['slug'] === (string) $slug) {
+                return (int) $code;
+            }
         }
 
-        if ($role === 2) {
-            return $parent > 0 ? 'manager' : 'owner_individual';
+        return 0;
+    }
+}
+
+if (! function_exists('whatsappNumber')) {
+    /**
+     * A stored phone number as WhatsApp wants it: digits only, country code
+     * included. Returns '' when the number cannot be one, so the caller can
+     * leave the icon off rather than offer a chat that opens on nobody.
+     *
+     * WhatsApp resolves the number as typed - no country code means no chat -
+     * and these are typed by hand, so the column holds all of
+     * "9055363588", "289-952-3889", "(289) 442-2841" and "+1 (202) 636-8007".
+     * Ten digits is the North American local form every province on this site
+     * uses, so it takes a 1; anything already carrying its own code is left
+     * alone.
+     */
+    function whatsappNumber(?string $phone): string
+    {
+        $phone = trim((string) $phone);
+
+        if ($phone === '') {
+            return '';
         }
 
-        return '';
+        // A leading + means the caller already wrote the country code.
+        $hasCountryCode = str_starts_with($phone, '+');
+
+        $digits = preg_replace('/\D+/', '', $phone);
+
+        if ($digits === '') {
+            return '';
+        }
+
+        // 00 stands in for the + - but only ahead of a real country code, and
+        // those never start with 0. Without that check the 0000000000 the back
+        // office accepts as a placeholder loses two digits to this branch.
+        if (! $hasCountryCode && strlen($digits) >= 12 && preg_match('/^00[1-9]/', $digits)) {
+            $digits         = substr($digits, 2);
+            $hasCountryCode = true;
+        }
+
+        if ($hasCountryCode) {
+            return $digits;
+        }
+
+        // Ten digits is the local form, in Canada and in India alike, and the
+        // digits cannot say which - so the configured code decides.
+        $countryCode = preg_replace('/\D+/', '', (string) (config('AppSettings')->phoneCountryCode ?? '1'));
+        $countryCode = $countryCode !== '' ? $countryCode : '1';
+
+        if (strlen($digits) === 10) {
+            return $countryCode . $digits;
+        }
+
+        // The same number with the code already on the front, written without
+        // the +: 1 905 536 3588, or 91 98765 43210.
+        if (str_starts_with($digits, $countryCode) && strlen($digits) === strlen($countryCode) + 10) {
+            return $digits;
+        }
+
+        // Too short to be a real number - an extension, or a placeholder like
+        // the 0000000000 the back office accepts. Nothing worth linking.
+        return strlen($digits) >= 11 ? $digits : '';
+    }
+}
+
+if (! function_exists('whatsappPhoneLink')) {
+    /**
+     * A phone number written as a WhatsApp link: the number itself is the
+     * link, with the handset icon in front of it and the WhatsApp mark after.
+     *
+     * web.whatsapp.com rather than wa.me: the back office is used at a desk,
+     * and this opens the chat in the browser the admin is already signed in to.
+     *
+     * The number shown is the one on file, punctuation and all; only the one
+     * inside the link is normalised. A number that cannot be messaged is still
+     * printed - it is worth reading even when it cannot be dialled - but as
+     * plain text, so nothing opens a chat with nobody.
+     */
+    function whatsappPhoneLink(?string $phone, string $title = 'Send a WhatsApp message'): string
+    {
+        $shown = trim((string) $phone);
+
+        if ($shown === '') {
+            return '';
+        }
+
+        $icon   = '<i class="fas fa-mobile-alt display-25 mr-1 text-secondary"></i>';
+        $number = whatsappNumber($shown);
+
+        if ($number === '') {
+            return '<span class="text-muted">' . $icon . esc($shown) . '</span>';
+        }
+
+        return '<a href="https://web.whatsapp.com/send?phone=' . esc($number, 'attr') . '"'
+            . ' target="_blank" rel="noopener noreferrer"'
+            . ' title="' . esc($title, 'attr') . '">'
+            . $icon . esc($shown)
+            . '<i class="fab fa-whatsapp ml-2 text-success"></i></a>';
+    }
+}
+
+if (! function_exists('safeUrl')) {
+    /**
+     * A web address as typed, made safe to put in an `href`, or '' if it is not
+     * one at all.
+     *
+     * Everywhere these are collected the address is pasted by hand - a Google
+     * Maps share link, a pharmacy's home page - so two things have to be true
+     * before it reaches a page. It has to work when clicked, which a bare
+     * "example.com" does not: with no scheme a browser reads it as a path on
+     * this site. And the scheme has to be one that only navigates, or a stored
+     * `javascript:` address would run as script for whoever clicked it.
+     */
+    function safeUrl(?string $url): string
+    {
+        $url = trim((string) $url);
+
+        if ($url === '') {
+            return '';
+        }
+
+        // "www.example.com" and "example.com/x" are what people paste; assume
+        // https rather than rejecting them.
+        if (! preg_match('~^[a-z][a-z0-9+.\-]*:~i', $url)) {
+            $url = 'https://' . ltrim($url, '/');
+        }
+
+        $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
+
+        if (! in_array($scheme, ['http', 'https'], true)) {
+            return '';
+        }
+
+        // A scheme alone is not an address - "https://" would pass the test above.
+        if ((string) parse_url($url, PHP_URL_HOST) === '') {
+            return '';
+        }
+
+        return $url;
+    }
+}
+
+if (! function_exists('storeMapLink')) {
+    /**
+     * The map link to show for a store, falling back to a search for its
+     * address when nobody has pasted one.
+     *
+     * A shift is worth nothing to an applicant who cannot find the building, so
+     * a store with an address but no pasted link still gets something to tap.
+     * The pasted link is always preferred: it points at the pin somebody chose,
+     * which a search for a street address in a plaza will not reliably find.
+     *
+     * @param object|array $store a `store` row, or the fallback shiftStore() builds
+     */
+    function storeMapLink($store): string
+    {
+        $store = (object) $store;
+
+        $pasted = safeUrl($store->s_map_url ?? '');
+
+        if ($pasted !== '') {
+            return $pasted;
+        }
+
+        $parts = array_filter([
+            trim((string) ($store->s_address ?? '')),
+            getCityName((int) ($store->s_city ?? 0)),
+            getProvinceName((int) ($store->s_province ?? 0)),
+            trim((string) ($store->s_pincode ?? '')),
+        ], 'strlen');
+
+        if ($parts === []) {
+            return '';
+        }
+
+        return 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode(implode(', ', $parts));
+    }
+}
+
+if (! function_exists('pharmacyGroups')) {
+    /**
+     * The multi-store owners a single store can be attached to, A-Z.
+     *
+     * Only approved ones: attaching a store to a group nobody has checked yet
+     * would let an unverified account collect other people's locations. Used by
+     * public registration and by the back-office employer form, which have to
+     * offer the same list.
+     *
+     * @return array<int, object> `users` rows
+     */
+    function pharmacyGroups(): array
+    {
+        return ci_db()->table('users')
+            ->where('u_usertype', 1)
+            ->where('u_emp_role', 1)
+            ->where('u_status', 1)
+            ->orderBy('u_comp_name', 'asc')
+            ->get()
+            ->getResult();
+    }
+}
+
+if (! function_exists('storesForOwner')) {
+    /**
+     * The locations one employer login owns, A-Z.
+     *
+     * @param bool $activeOnly false includes deactivated ones, which the
+     *                         employer's own listing shows so they can be seen
+     *                         and turned back on
+     * @return array<int, object> `store` rows
+     */
+    function storesForOwner(int $ownerId, bool $activeOnly = true): array
+    {
+        if ($ownerId <= 0) {
+            return [];
+        }
+
+        $builder = ci_db()->table('store')->where('u_id', $ownerId);
+
+        if ($activeOnly) {
+            $builder->where('s_status', 1);
+        }
+
+        return $builder->orderBy('s_name', 'asc')->get()->getResult();
+    }
+}
+
+if (! function_exists('employerStores')) {
+    /**
+     * The stores a logged-in employer may post shifts against and see listed.
+     *
+     * An owner's are the ones they added. A manager owns none - they run one of
+     * their corporate group's, named by `u_store_id` - so ownership alone would
+     * show them nothing and leave them unable to post the shifts the site
+     * exists for. Both cases resolve here so the rule lives in one place.
+     *
+     * @param array|object $user a `users` row
+     * @return array<int, object> `store` rows
+     */
+    function employerStores($user, bool $activeOnly = true): array
+    {
+        $user    = (object) $user;
+        $storeId = (int) ($user->u_store_id ?? 0);
+
+        if ($storeId > 0) {
+            $store = ci_db()->table('store')->where('s_id', $storeId)->get()->getRow();
+
+            if ($store === null || ($activeOnly && (int) $store->s_status !== 1)) {
+                return [];
+            }
+
+            return [$store];
+        }
+
+        return storesForOwner((int) $user->u_id, $activeOnly);
+    }
+}
+
+if (! function_exists('employerKindRole')) {
+    /**
+     * Turn a chosen employer kind into the columns that store it.
+     *
+     * Takes the `employerKinds` code, or the URL slug for it. Both kinds are
+     * `u_usertype` 1 and differ by `u_emp_role`; a manager additionally answers
+     * to a group (`u_parent_id`) and points at that group's store
+     * (`u_store_id`). Registration and the back office both map the choice the
+     * same way, so the rule lives here rather than in either of them.
+     *
+     * `picksStore` is what makes a manager different from an owner: they choose
+     * one of their group's existing stores instead of describing a new one, so
+     * a caller seeing it must ignore `asksForLocation` and `ownsStore` - there
+     * is no address to type and no store to create. Both forms honour it.
+     *
+     * @param int|string $kind an `employerKinds` code, or its slug
+     *
+     * @return array{role: int, needsParent: bool, asksForLocation: bool, ownsStore: bool, picksStore: bool}
+     */
+    function employerKindRole($kind): array
+    {
+        // Given a slug rather than a code - a URL, or an older caller.
+        $code = is_numeric($kind) ? (int) $kind : employerKindBySlug((string) $kind);
+
+        // An owner is never asked for a location: their licence and address
+        // belong to each store they add afterwards.
+        if ($code === 1) {
+            return ['role' => 1, 'needsParent' => false, 'asksForLocation' => false, 'ownsStore' => false, 'picksStore' => false];
+        }
+
+        // A manager runs one of their group's existing stores, so they name the
+        // group and pick the store instead of describing one of their own.
+        if ($code === 2) {
+            return ['role' => 2, 'needsParent' => true, 'asksForLocation' => true, 'ownsStore' => true, 'picksStore' => true];
+        }
+
+        // Not one of the kinds - the shape accounts had before they existed,
+        // which owns no store record.
+        return ['role' => 0, 'needsParent' => false, 'asksForLocation' => true, 'ownsStore' => false, 'picksStore' => false];
     }
 }
 
@@ -637,10 +1006,49 @@ if (! function_exists('employerKindName')) {
      */
     function employerKindName($user): string
     {
-        $slug  = employerKindSlug($user);
+        $code  = employerKindCode($user);
         $kinds = config('AppSettings')->employerKinds;
 
-        return $slug !== '' ? $kinds[$slug]['short'] : 'Not set';
+        return $code !== 0 ? $kinds[$code]['short'] : 'Not set';
+    }
+}
+
+if (! function_exists('storeSnapshotForManager')) {
+    /**
+     * The store columns copied onto a manager's own `users` row.
+     *
+     * A manager types none of these: they pick one of their corporate group's
+     * stores, and it already has them. But a dozen screens, exports and e-mails
+     * read them straight off the login rather than through the store - the
+     * employer listing, the employer dropdown on the shift forms, the booking
+     * e-mail, the profile page's required address - so the chosen store is
+     * copied across. Without it a manager is a nameless, addressless row on
+     * every one of those screens.
+     *
+     * A snapshot taken at the moment the store is chosen, not a join: renaming
+     * the store later does not rewrite it. Re-saving the manager with that
+     * store still chosen takes a fresh one, which is how a stale copy is put
+     * right.
+     *
+     * Registration and the back-office employer form both apply this, so an
+     * account created either way is the same record - that is the whole point
+     * of it living here rather than in one of them.
+     *
+     * @param object $store a `store` row
+     * @return array<string, mixed> columns to merge into the `users` row
+     */
+    function storeSnapshotForManager($store): array
+    {
+        return [
+            'u_comp_name'  => $store->s_name,
+            'u_licence_no' => $store->s_number,
+            'u_l_provice'  => (int) $store->s_province,
+            'u_provice'    => (int) $store->s_province,
+            'u_city'       => (int) $store->s_city,
+            'u_address1'   => $store->s_address,
+            'u_pincode'    => $store->s_pincode,
+            'u_website'    => $store->s_website ?? '',
+        ];
     }
 }
 
@@ -801,16 +1209,35 @@ if (! function_exists('send_shift_reminders')) {
                 continue;
             }
 
+            // An opted-out applicant is stamped as handled, not retried:
+            // leaving sj_reminder_sent_at NULL would put them back on this
+            // list every night for as long as the opt-out stands.
+            if (! userAllowsEmail($applicant, 'shift-reminder')) {
+                $db->table('stu_saved_applied_jobs')
+                    ->where('sj_id', $row->sj_id)
+                    ->update(['sj_reminder_sent_at' => date('Y-m-d H:i:s')]);
+
+                $result['skipped']++;
+
+                continue;
+            }
+
+            // The branch the shift is at, not the employer's login address -
+            // for a multi-store owner the latter is a head office, and this is
+            // the message somebody reads the night before travelling to it.
+            $store = shiftStore((object) $shift);
+
             $body = email_body('shift-reminder', [
                 'title'    => 'Your shift is tomorrow',
                 'name'     => $applicant['u_fname'] . ' ' . $applicant['u_lname'],
                 'shift'    => $shift,
                 'employer' => $employer,
+                'store'    => $store,
             ]);
 
             $ok = send_email(
                 $applicant['u_email'],
-                'Reminder: your shift tomorrow at ' . $employer['u_comp_name'],
+                'Reminder: your shift tomorrow at ' . (($store && $store->s_name !== '') ? $store->s_name : $employer['u_comp_name']),
                 $body
             );
 
@@ -841,6 +1268,85 @@ if (! function_exists('email_body')) {
         $data['settings'] ??= model('App\Models\CustomModel')->getSettings();
 
         return view('emails/' . $template, $data);
+    }
+}
+
+if (! function_exists('userAllowsEmail')) {
+    /**
+     * May this user be sent this e-mail template?
+     *
+     * The one question every guarded send site asks, so the answer lives in
+     * one place. `$user` is a `users` row (array or object) or a bare u_id -
+     * the id form queries, so callers that already hold the row should pass
+     * it. Works from the nightly cron too: nothing here touches a controller.
+     *
+     * A template that is not in `emailTypes` - reset-password, contact, test -
+     * is always allowed: the list is what an administrator may switch off,
+     * not a register of everything the application sends.
+     *
+     * @param array|object|int|string $user
+     */
+    function userAllowsEmail($user, string $template): bool
+    {
+        $code = 0;
+
+        foreach ((array) config('AppSettings')->emailTypes as $typeCode => $type) {
+            if ($type['template'] === $template) {
+                $code = (int) $typeCode;
+                break;
+            }
+        }
+
+        if ($code === 0) {
+            return true; // not an optional e-mail
+        }
+
+        if (is_numeric($user)) {
+            $row  = ci_db()->table('users')->select('u_email_blocked')->where('u_id', (int) $user)->get()->getRow();
+            $user = $row ?: [];
+        }
+
+        $user    = (object) $user;
+        $blocked = array_map('intval', array_filter(explode(',', (string) ($user->u_email_blocked ?? '')), 'strlen'));
+
+        return ! in_array($code, $blocked, true);
+    }
+}
+
+if (! function_exists('emailTypesFor')) {
+    /**
+     * The optional e-mails this user's account can actually be sent.
+     *
+     * `emailTypes` is the whole list; a given account is only ever a recipient
+     * of part of it. An applicant is never told "your shift is live" and never
+     * gets the employer's half of a booking; an employer is never sent the
+     * applicant's half or the day-before reminder they would not be working.
+     * Manage Email offered every account all six, so half the boxes on any one
+     * screen governed mail that could not arrive whichever way they were left.
+     *
+     * An administrator is a recipient of none of them - the messages here are
+     * about registering, being approved, posting a shift and being booked on
+     * one - so this returns an empty list for that account rather than a screen
+     * of switches that do nothing. The agency's copy of a booking is a setting
+     * (`getAgencyCopyEmail()`), not an account, so it is not governed here.
+     *
+     * @param array|object $user a `users` row
+     * @return array<int, array{template: string, label: string, audience: string}>
+     */
+    function emailTypesFor($user): array
+    {
+        $userType = (int) (is_object($user) ? ($user->u_usertype ?? -1) : ($user['u_usertype'] ?? -1));
+
+        $side = $userType === 1 ? 'employer' : ($userType === 2 ? 'applicant' : '');
+
+        if ($side === '') {
+            return [];
+        }
+
+        return array_filter(
+            (array) config('AppSettings')->emailTypes,
+            static fn ($type) => in_array($type['audience'] ?? 'both', ['both', $side], true)
+        );
     }
 }
 

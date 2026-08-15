@@ -51,7 +51,7 @@
                                         <!-- text input -->
                                         <div class="form-group">
                                             <label>First Name</label>
-                                            <input required onkeydown="return /[a-z, ]/i.test(event.key)"
+                                            <input required
     onblur="if (this.value == '') {this.value = '';}"
     onfocus="if (this.value == '') {this.value = '';}"  type="text" class="form-control" placeholder="Enter First Name" name="u_fname" value="<?php echo $u_fname; ?>">
                                         </div>
@@ -60,7 +60,7 @@
                                         <!-- text input -->
                                         <div class="form-group">
                                             <label>Last Name</label>
-                                            <input  required  onkeydown="return /[a-z, ]/i.test(event.key)"
+                                            <input  required
     onblur="if (this.value == '') {this.value = '';}"
     onfocus="if (this.value == '') {this.value = '';}"  type="text" class="form-control" placeholder="Enter Last Name" name="u_lname" value="<?php echo $u_lname; ?>">
                                         </div>
@@ -86,7 +86,7 @@
 									</div>
                                     <div class="col-sm-3">
                                         <div class="form-group">
-                                            <label>License Province</label>
+                                            <label>Licence Province</label>
                                             <select  required class="form-control " name="u_l_provice" id="province_L_list" >
 												<option value="">Select Province</option>
                                                 <?php if($province){ ?>

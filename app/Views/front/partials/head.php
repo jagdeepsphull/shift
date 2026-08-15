@@ -22,5 +22,8 @@
 <!-- daterangepicker: the shift-date range in the hero search -->
 <link rel="stylesheet" href="<?php echo base_url('assets/front/plugins/daterangepicker/daterangepicker.css'); ?>">
 
+<!-- select2: every dropdown on the site wears it -->
+<link rel="stylesheet" href="<?php echo base_url('assets/front/plugins/select2/css/select2.min.css'); ?>">
+
 <!-- Theme: loaded last, deliberately -->
 <link rel="stylesheet" href="<?php echo base_url('assets/front/assets/css/theme.css'); ?>">

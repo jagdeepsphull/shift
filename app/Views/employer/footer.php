@@ -49,10 +49,19 @@
 
 	<!--<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script> -->
     
-    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS.
+
+         Popper is the `umd` build. The file that used to be named here,
+         assets/front/assets/js/popper.min.js, does not exist - and the one
+         beside this at plugins/popper/popper.min.js is the ES module, which
+         sets no `window.Popper` either. Bootstrap 4's tooltip throws without
+         it, which is what summernote's toolbar builder calls: the throw left
+         this page with a toolbar-less editor, an unhidden textarea behind it,
+         and no date or time picker at all, because everything below the
+         summernote line in the ready block never ran. -->
     <script src="<?php echo base_url('assets/front/assets/js/jquery-min.js') ; ?>"></script>
     <script src="<?php echo base_url('assets/front/assets/js/jquery.validate.min.js') ; ?>"></script>
-    <script src="<?php echo base_url('assets/front/assets/js/popper.min.js') ; ?>"></script>
+    <script src="<?php echo base_url('assets/front/plugins/popper/umd/popper.min.js') ; ?>"></script>
     <script src="<?php echo base_url('assets/front/assets/js/bootstrap.min.js') ; ?>"></script>
 	
     <script src="<?php echo base_url('assets/front/assets/js/owl.carousel.min.js') ; ?>"></script>

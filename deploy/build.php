@@ -140,14 +140,24 @@ echo "  .env: from templates/env.{$target}\n";
 $ht = file_get_contents($root . '/.htaccess');
 
 if ($isStg) {
-    $ht = str_replace(
-        "    RewriteEngine On\n\n    # Block direct access",
-        "    RewriteEngine On\n    RewriteBase /staging/\n\n    # Block direct access",
-        $ht
+    // After the first `RewriteEngine On` - the front controller's block; the
+    // second one further down is the canonical-https redirect, which issues
+    // absolute redirects and has no use for a base.
+    //
+    // Matched with a pattern rather than a literal string. The literal that
+    // used to be here carried \n line endings and named the comment that
+    // followed it, so the day `.htaccess` was saved with CRLF - which it now
+    // has - the replace silently did nothing and the build stopped here. The
+    // captured line ending is reused, so the file keeps whichever it has.
+    $ht = preg_replace(
+        '/([ \t]*)RewriteEngine On[ \t]*(\r?\n)/',
+        '$1RewriteEngine On$2$1RewriteBase /staging/$2',
+        $ht,
+        1
     );
 
-    if (! str_contains($ht, 'RewriteBase /staging/')) {
-        fwrite(STDERR, "  ERROR: could not insert RewriteBase - check .htaccess layout\n");
+    if ($ht === null || ! str_contains($ht, 'RewriteBase /staging/')) {
+        fwrite(STDERR, "  ERROR: could not insert RewriteBase - no 'RewriteEngine On' line in .htaccess\n");
         exit(1);
     }
 

@@ -404,11 +404,12 @@ New in this release:
   and Additional Details. Tick some and press Update Store, then reopen — they
   must come back ticked. *If Update appears to do nothing, see the note below on
   province and city.*
-- Post a shift: **User Type** sits before Choose Employer and narrows it. Pick an
-  employer with exactly one store — the store selects itself and all three
-  tick-box groups fill from it. Pick one with several stores — the groups clear
-  and wait until you choose a store, which is deliberate: with two stores there
-  is no single right answer.
+- Post a shift: the form asks for **Store (Location)** and nothing else about
+  who the shift is for. Every store is on that one list, grouped under the
+  employer that owns it. Choosing one fills all three tick-box groups from that
+  store, and the shift is saved for whoever owns it — the User Type and Choose
+  Employer dropdowns that used to sit in front of it are gone, because a store
+  belongs to one employer and naming it names them.
 - Untick something on that shift and save. The **store's** defaults must be
   unchanged — the shift keeps its own copy from the moment it is saved.
 - Post a shift with **Book an Applicant** filled in: pick somebody from the
@@ -429,6 +430,53 @@ New in this release:
 - The public footer is the social icons, the address and the copyright line —
   the four link columns are gone by request. Terms and Privacy are still linked
   above the Register button and in the top navigation.
+
+- Admin → Shifts lists the **newest posting first** rather than the latest shift
+  date. Clicking the Shift Date header still sorts chronologically, and a shift
+  with an unreadable date sorts to the end of that.
+- **Post a shift as the employer**, from their own side rather than the back
+  office. The form now has the same three tick-box groups the admin one has —
+  the third is **Additional Details** — and the free-text box under them is
+  **Additional details for agency**, named apart from the group above it.
+- On that same form, click **Shift Date**: a calendar must open, and clicking a
+  day must fill the box. Click **Shift Time**: a time picker must open. Both
+  were dead on the employer side, and so was the formatting toolbar on the
+  editor, which showed as a bare second box under the label. One cause for all
+  three: `popper.min.js` was requested from a path that does not exist,
+  Bootstrap's tooltip throws without it, and the throw took out everything
+  initialised after it. If they are dead again after this deploy, look in the
+  browser console for *"Bootstrap tooltips require Popper.js"* before anything
+  else, and check `assets/front/plugins/popper/umd/popper.min.js` arrived.
+- **Register a Manager** for a store that already has one: it must be refused
+  with *"This store already has a manager registered"*, and on the store
+  dropdown that branch reads *"- already has a manager"* and cannot be chosen.
+  An account still waiting for approval holds its store, which is the point:
+  two people cannot claim the same branch on the same afternoon and both be
+  approved later. The back office is exempt — an administrator still needs to
+  be able to move a manager onto a branch whose manager they are about to
+  remove.
+- **Who may manage a shift**, from the employer's own screens. A manager edits
+  and deletes what they posted, and whatever stands against the branch they run;
+  their owner can do the same to those, and they now appear in the owner's **All
+  Shifts**; a manager of another branch, and any other employer, is turned away.
+  Check the negative case by hand: paste another employer's shift id into
+  `/employer/edit_job/…` and `/employer/delete_job/…`. Both must bounce you to
+  All Shifts having changed nothing. Before this release both worked, and saving
+  moved the shift — its owner, its store and its address — to whoever opened it.
+  Editing also no longer resets a shift's posted date, which the front page reads
+  to decide what counts as recently posted.
+- Three routes that took an id or a form and trusted it are now checked. Nothing
+  to click for these — they are listed so you know what changed underneath:
+  the employer shift form and the employer profile form both write only the
+  fields they display (an employer could otherwise post `p_approved` and approve
+  their own shift, or post `u_emp_role` and `u_store_id` and appoint themselves
+  manager of anybody's branch, which would have handed them that branch's
+  shifts), and `employer/ajax_shortlist` now checks the shift is one the caller
+  manages and the person invited is a real applicant.
+- Employer → **Applications** now lists the bookings for every shift the login
+  manages, so an owner sees the bookings on their managers' shifts. It was
+  scoped to the login's own id, which left an owner able to open a manager's
+  shift and its candidate list but not the booking made on it.
 
 **A store that will not save.** `s_city` is a required dropdown filled by ajax
 from the chosen province. If a store's saved province and city do not match, the

@@ -112,21 +112,19 @@
 <script>
 
 	$(document).ready(function () {
-		// Shift form (postjobs add/edit): the store picker lists the chosen
-		// employer's stores, refreshed whenever the employer changes.
-		if ($('#p_store_id').length && $('#u_id').length) {
+		// Shift form (postjobs add/edit): choosing a store fills the three
+		// tick-box groups from that store's own defaults.
+		//
+		// Nothing here loads a store list any more. The form asks for the
+		// store and nothing else - a store belongs to one employer, so the
+		// server reads the employer off it - and every store is already an
+		// option in the page, grouped under the employer that owns it.
+		if ($('#p_store_id').length) {
 			// The three tick-box groups a store can hold defaults for.
 			var defaultGroups = ['p_skills', 'p_services', 'p_additional_details'];
 
-			function clearDefaults() {
-				$.each(defaultGroups, function (i, field) {
-					$('#cbg_' + field).find('input[type=checkbox]').prop('checked', false);
-				});
-			}
 
-			// Ask by store, or by employer - the server answers the employer
-			// form only when that employer has a single location, and says
-			// which store it used so the picker can follow.
+			// Always by store: it is the only thing the form asks for.
 			function fillDefaults(ask) {
 				$.ajax({
 					type: 'POST',
@@ -134,17 +132,6 @@
 					data: ask,
 					dataType: 'json',
 					success: function (defaults) {
-						// Asked by employer and the server had no single store
-						// to answer with: leave the form alone. The groups were
-						// already cleared when the employer changed, and by the
-						// time this lands the admin may have picked a store
-						// themselves - overwriting that with blanks is exactly
-						// what they did not ask for.
-						if (ask.u_id && !defaults.s_id) { return; }
-
-						// change.select2 only: the handler on this select would
-						// fetch the very defaults being applied right now.
-						if (defaults.s_id) { $('#p_store_id').val(String(defaults.s_id)).trigger('change.select2'); }
 
 						$.each(defaultGroups, function (i, field) {
 							var $group = $('#cbg_' + field);
@@ -166,29 +153,34 @@
 				});
 			}
 
-			$('#u_id').on('change', function () {
-				var employerId = $(this).val();
+			// Whoever manages the chosen store, under the field - the person the
+			// shift will be arranged with, which is the one thing the picker
+			// itself does not say. The store name is not repeated: it is the
+			// option showing in the dropdown. Most stores have no manager
+			// account, and those name the owner instead, so the line always says
+			// who to expect to deal with.
+			//
+			// Both names travel on the option, so this needs no request - and are
+			// built as text nodes rather than html, because they are somebody's
+			// name and nobody vets an apostrophe out of it.
+			function showStoreManager($option) {
+				var $note = $('#store_owner_note');
 
-				// Whatever was ticked belonged to the employer being left, so
-				// it goes with them. What replaces it depends on how many
-				// locations the new one has.
-				clearDefaults();
+				if (!$note.length) { return; }
 
-				$.ajax({
-					type: 'POST',
-					url: '<?php echo base_url('sadmin/ajax_getstorelist'); ?>',
-					data: { u_id: employerId, sid: '' },
-					success: function (data) {
-						$('#p_store_id').html(data).trigger('change.select2');
+				var manager = $option.data('manager');
+				var owner = $option.data('owner');
 
-						// An employer with one location has nothing left to
-						// choose, so the form fills in from it now rather than
-						// waiting for a store to be picked. With several, the
-						// server declines and the fill waits for that choice.
-						if (employerId) { fillDefaults({ u_id: employerId }); }
-					}
-				});
-			});
+				if (!$option.val()) {
+					$note.text('The shift is posted for the employer that owns this store.');
+				} else if (manager) {
+					$note.empty().append('Managed by (', $('<strong>').text(manager), ')');
+				} else if (owner) {
+					$note.empty().append('Owned by (', $('<strong>').text(owner), ')');
+				} else {
+					$note.text('The shift is posted for the employer that owns this store.');
+				}
+			}
 
 			// Picking a store fills the groups from what that store offers.
 			// Bound to `change`, so it only ever runs when somebody chooses:
@@ -197,72 +189,13 @@
 			$('#p_store_id').on('change', function () {
 				var storeId = $(this).val();
 
+				showStoreManager($(this).find('option:selected'));
+
 				if (!storeId) { return; }
 
 				fillDefaults({ s_id: storeId });
 			});
 		}
-
-		// "User Type" narrows the employer picker it names in `data-filters` to
-		// one kind of account. Used on the shift forms and the store forms, so
-		// it is written once against that attribute rather than against ids.
-		//
-		// Every employer is already an option in the page, so this is done here
-		// rather than over a request - and the options are rebuilt from a kept
-		// copy rather than hidden, which not every browser honours on <option>.
-		$('select[data-filters]').each(function () {
-			var $kind = $(this);
-			var $employer = $($kind.data('filters'));
-
-			if (!$employer.length) { return; }
-
-			// Rebuilding the options, never the <select> itself, so anything
-			// else bound to it - the store list on the shift form - stays bound.
-			var employerOptions = $employer.find('option').clone();
-
-			$kind.on('change', function () {
-				var want = $kind.val();
-				var chosen = $employer.val();
-
-				$employer.empty();
-
-				employerOptions.each(function () {
-					var $option = $(this);
-					var isPlaceholder = $option.attr('value') === '';
-
-					if (isPlaceholder || want === '' || String($option.data('kind')) === want) {
-						$employer.append($option.clone());
-					}
-				});
-
-				if (chosen && $employer.find('option[value="' + chosen + '"]').length) {
-					$employer.val(chosen);
-				} else {
-					// Whoever was chosen is not this kind. Drop the choice, and
-					// on the shift form the store list that belonged to it,
-					// rather than leaving a value on the form no longer offered.
-					$employer.val('');
-
-					if (chosen) {
-						$('#p_store_id').html('<option value="">-- Select Store --</option>').trigger('change.select2');
-					}
-				}
-
-				// The options under this select were just rebuilt. Tell select2
-				// to redraw from them - and only select2, because the handler on
-				// this select fetches the chosen employer's stores, which is not
-				// something narrowing a list should set off.
-				$employer.trigger('change.select2');
-			});
-
-			// An employer may already be chosen - an edit screen, or a form
-			// coming back from a failed validation. Start on that employer's
-			// kind, otherwise the picker reads "All Employers" over a list the
-			// admin did not narrow.
-			if ($employer.val()) {
-				$kind.val(String($employer.find('option:selected').data('kind') || '')).trigger('change');
-			}
-		});
 
 		$("#change-pass").validate({
 				rules: {

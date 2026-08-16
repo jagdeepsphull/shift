@@ -103,7 +103,7 @@ test('every add form renders', async ({ page }) => {
     ['sadmin/resources/add', 'm_name'],
     ['sadmin/employer/add', 'u_email'],
     ['sadmin/applicant/add', 'u_email'],
-    ['sadmin/postjobs/add', 'u_id'],
+    ['sadmin/postjobs/add', 'p_store_id'],
   ];
 
   for (const [path, field] of forms) {
@@ -128,7 +128,7 @@ test('every edit form renders with the row loaded', async ({ page }) => {
     [`sadmin/resources/edit/${ids.menu}`, 'm_name'],
     [`sadmin/employer/edit/${ids.employer}`, 'u_email'],
     [`sadmin/applicant/edit/${ids.applicant}`, 'u_email'],
-    [`sadmin/postjobs/edit/${ids.job}`, 'u_id'],
+    [`sadmin/postjobs/edit/${ids.job}`, 'p_store_id'],
   ];
 
   for (const [path, field] of forms) {

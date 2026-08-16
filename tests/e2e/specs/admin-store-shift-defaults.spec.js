@@ -95,7 +95,7 @@ test('choosing a store fills the shift form from that store', async ({ page }) =
   // Nothing is ticked before a store is chosen.
   expect(await ticked(page, 'p_services')).toEqual([]);
 
-  await page.selectOption('#u_id', String(ids.owner));
+  // No employer is named anywhere on this form - the store carries that.
   await expect(page.locator(`#p_store_id option[value="${ids.storeOne}"]`)).toHaveCount(1);
 
   await page.selectOption('#p_store_id', String(ids.storeOne));
@@ -109,9 +109,8 @@ test('choosing a store fills the shift form from that store', async ({ page }) =
   await expectNoServerError(page);
 });
 
-test('an employer with one location fills the form on its own', async ({ page }) => {
-  // A second login holding a single store, so choosing the employer leaves
-  // nothing to decide.
+test('every store is on the list, under the employer that owns it', async ({ page }) => {
+  // A second login with a single store, so the list has two owners in it.
   query(`INSERT INTO users (u_usertype, u_usersubtype, u_emp_role, u_parent_id, u_userid, u_fname,
                             u_lname, u_pass, u_comp_name, u_l_provice, u_licence_no, u_company_logo,
                             u_photo, u_provice, u_city, u_address1, u_pincode, u_phone, u_email,
@@ -131,40 +130,33 @@ test('an employer with one location fills the form on its own', async ({ page })
   const soloStore = scalar("SELECT s_id FROM store WHERE s_name = 'E2E Sdef Solo Store';");
 
   await page.goto('sadmin/postjobs/add');
-  await page.selectOption('#u_id', String(solo));
 
-  // No store was picked - the employer only has the one, so the form fills
-  // from it and the picker follows.
+  // The form asks for a store and nothing else, so every employer's stores are
+  // in the one list - grouped under their owner, which is what tells two
+  // branches of different chains that share a name apart.
+  const groups = await page.locator('#p_store_id optgroup').evaluateAll(
+    (els) => els.map((e) => e.getAttribute('label')));
+
+  expect(groups).toContain('E2E Sdef Chain');
+  expect(groups).toContain('E2E Sdef Solo');
+
+  const under = (label) => page.locator(`#p_store_id optgroup[label="${label}"] option`)
+    .evaluateAll((els) => els.map((e) => e.value).sort());
+
+  expect(await under('E2E Sdef Chain')).toEqual([String(ids.storeOne), String(ids.storeTwo)].sort());
+  expect(await under('E2E Sdef Solo')).toEqual([String(soloStore)]);
+
+  // And picking one of them fills the form from that store, with the employer
+  // never having been named.
+  await page.selectOption('#p_store_id', String(soloStore));
   await expect.poll(() => ticked(page, 'p_additional_details')).toEqual([String(ids.detailA)]);
-  await expect(page.locator('#p_store_id')).toHaveValue(String(soloStore));
   expect(await ticked(page, 'p_skills')).toEqual([String(ids.skill)]);
-  expect(await ticked(page, 'p_services')).toEqual([String(ids.serviceA)]);
-
-  await expectNoServerError(page);
-});
-
-test('an employer with several locations waits to be told which', async ({ page }) => {
-  await page.goto('sadmin/postjobs/add');
-
-  // Fill from a single-store employer first, so there is something to clear.
-  await page.selectOption('#u_id', String(ids.owner));
-  await page.selectOption('#p_store_id', String(ids.storeOne));
-  await expect.poll(() => ticked(page, 'p_services')).toEqual([String(ids.serviceA)]);
-
-  // Choosing the employer again must not guess between its two stores - and
-  // must not leave the previous store's answer sitting there either.
-  await page.selectOption('#u_id', String(ids.owner));
-  await expect(page.locator('#p_store_id')).toHaveValue('');
-  await expect.poll(() => ticked(page, 'p_services')).toEqual([]);
-  expect(await ticked(page, 'p_skills')).toEqual([]);
-  expect(await ticked(page, 'p_additional_details')).toEqual([]);
 
   await expectNoServerError(page);
 });
 
 test('switching store replaces the defaults rather than adding to them', async ({ page }) => {
   await page.goto('sadmin/postjobs/add');
-  await page.selectOption('#u_id', String(ids.owner));
   await expect(page.locator(`#p_store_id option[value="${ids.storeTwo}"]`)).toHaveCount(1);
 
   await page.selectOption('#p_store_id', String(ids.storeOne));

@@ -1,7 +1,8 @@
 // @ts-check
 /**
  * Every list of shifts is ordered by the shift date, soonest first - except the
- * admin's own list, which reads latest first (the last test here).
+ * admin's own list, which reads by record number, newest first (the last test
+ * here).
  *
  * The seeded shifts (helpers/front.js) are inserted in an order that is neither
  * chronological nor the order their `dd-mm-yyyy` text sorts in, so a list that
@@ -100,10 +101,14 @@ test('agency shift list is soonest first and sorts its date column chronological
   await page.goto('employer/all_jobs');
   await settle(page);
 
-  expect(await seededOrder(page, '#joblist tbody tr td:nth-child(2)')).toEqual(EXPECTED);
+  // The list is a DataTable, which hides the internal Job id column and takes
+  // its cells out of the DOM - so Shift ID is the first cell of a row and the
+  // date is the fourth, one to the left of where the markup puts them. The
+  // back-office specs read their shifted columns the same way.
+  expect(await seededOrder(page, '#joblist tbody tr td:nth-child(1)')).toEqual(EXPECTED);
 
   const dates = await page
-    .locator('#joblist tbody tr td:nth-child(5)')
+    .locator('#joblist tbody tr td:nth-child(4)')
     .evaluateAll((cells) => cells.map((c) => c.getAttribute('data-order')));
 
   expect(dates.length).toBeGreaterThan(1);
@@ -128,32 +133,49 @@ test('pharmacist applied shifts are soonest first, not by application number', a
 });
 
 // The admin list is the one exception to the rule this file otherwise checks:
-// it reads latest first. An unreadable date still belongs at the end of it.
-test('admin shift list is latest first and puts an unreadable date last', async ({ page }) => {
+// it is not ordered by shift date at all, but by record number, newest first.
+// Its date column still sorts chronologically once clicked, with an unreadable
+// date at the end.
+test('admin shift list is newest first and sorts its date column chronologically', async ({ page }) => {
   await loginAsAdmin(page);
   await page.goto('sadmin/postjobs');
   await settle(page);
 
-  const first = await page
+  // The seeded shifts are inserted C, A, B, so by record number they read
+  // backwards from that - an order no shift-date sort produces.
+  expect(await seededOrder(page, '#example1 tbody tr td:nth-child(1)')).toEqual([
+    'E2E-SHIFT-B',
+    'E2E-SHIFT-A',
+    'E2E-SHIFT-C',
+  ]);
+
+  // Sorting by the date column: ascending on the first click, and every
+  // unreadable date at the far end of it. The table scrolls sideways, so the
+  // header that takes the click is the floating copy above it - the one inside
+  // the scrolling body is hidden.
+  await page.locator('#example1_wrapper th:visible', { hasText: 'Shift Date' }).first().click();
+  await settle(page);
+
+  const dates = await page
     .locator('#example1 tbody tr td:nth-child(6)')
     .evaluateAll((cells) => cells.map((c) => c.getAttribute('data-order')));
 
-  expect(first.length).toBeGreaterThan(1);
-  expect(first, 'shift dates descend down the page').toEqual([...first].sort().reverse());
+  expect(dates.length).toBeGreaterThan(1);
+  expect(dates, 'shift dates ascend down the page').toEqual([...dates].sort());
 
   // Last page of the list - where a shift with no usable date belongs.
+  const undated = Number(scalar('SELECT COUNT(*) FROM post_job WHERE p_date_start IS NULL;'));
+  test.skip(undated === 0, 'every shift has a readable date');
+
   const last = page.locator('#example1_paginate .paginate_button:not(.next):not(.previous)').last();
   await last.click();
   await settle(page);
-
-  const undated = Number(scalar('SELECT COUNT(*) FROM post_job WHERE p_date_start IS NULL;'));
-  test.skip(undated === 0, 'every shift has a readable date');
 
   const order = await page
     .locator('#example1 tbody tr td:nth-child(6)')
     .evaluateAll((cells) => cells.map((c) => c.getAttribute('data-order')));
 
-  expect(order.at(-1), 'a shift with no readable date sorts last, not first').toBe('0000-01-01');
+  expect(order.at(-1), 'a shift with no readable date sorts last, not first').toBe('9999-12-31');
 });
 
 test('the candidate list keeps its name column and does not borrow the shift sort', async ({ page }) => {

@@ -22,6 +22,14 @@ async function openLogin(page) {
   );
   await page.goto('sadmin/login');
   await captchaLoaded;
+
+  // Then wait for the page to go quiet, as the public login helper does. More
+  // than one request for the verification image can be in flight, and the
+  // session keeps whichever answered last: reading after the first one returns
+  // a code that is already stale by the time it is posted. The login is then
+  // refused, and the failure surfaces on whatever screen the test went on to
+  // open rather than here - which is what made whole files fail together.
+  await settle(page);
 }
 
 /**

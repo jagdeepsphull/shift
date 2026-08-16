@@ -628,6 +628,12 @@ class Front extends BaseController
                     // chosen, a store of another group, a deactivated one, or a
                     // group that has no stores at all.
                     $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">Please choose one of your corporate group\'s stores.</div>');
+                } elseif ($picksStore && storeManagerIds([$storeId]) !== []) {
+                    // One store, one manager. The picker shows a taken store
+                    // greyed out, so what reaches here is a page that was open
+                    // before somebody else registered, a hand-edited form, or
+                    // two people claiming the same branch minutes apart.
+                    $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">This store already has a manager registered. Please choose another store, or contact your corporate group if this is not right.</div>');
                 } else {
                     $insert = $this->custom->insert('users', $userData);
 
@@ -969,8 +975,22 @@ class Front extends BaseController
             return;
         }
 
-        $chosen     = $this->input->post('storeid');
+        $chosen     = (int) $this->input->post('storeid');
         $store_data = '<option value="">-- Select Store --</option>';
+
+        // One store, one manager. A branch that already has one is listed but
+        // cannot be picked, so somebody looking for their own store sees that
+        // it is there and spoken for rather than wondering why it is missing.
+        // register() refuses the id as well - this is the courtesy, not the
+        // guard.
+        //
+        // The back office is exempt, and shares this endpoint: an administrator
+        // is the one who sorts out who runs what, so they have to be able to
+        // open a manager on the very store they hold - and to move one onto a
+        // branch whose manager they are about to remove.
+        $taken = $this->session->userdata('isAdminUserLoggedIn')
+            ? []
+            : storeManagerIds(array_column($stores, 's_id'));
 
         // Same label as every other store picker: the name, and the store
         // number after it when there is one, which is what tells two branches
@@ -978,9 +998,15 @@ class Front extends BaseController
         // store name is typed by an employer, a province name is not.
         foreach ($stores as $store) {
             $label = $store->s_name . ($store->s_number !== '' ? ' (' . $store->s_number . ')' : '');
+            $held  = isset($taken[(int) $store->s_id]);
 
-            $store_data .= '<option value="' . (int) $store->s_id . '" '
-                . (($chosen == $store->s_id) ? 'selected' : '') . '>' . esc($label) . '</option>';
+            if ($held) {
+                $label .= ' - already has a manager';
+            }
+
+            $store_data .= '<option value="' . (int) $store->s_id . '"'
+                . ($held ? ' disabled' : '')
+                . ((! $held && $chosen == $store->s_id) ? ' selected' : '') . '>' . esc($label) . '</option>';
         }
 
         echo $store_data;

@@ -53,18 +53,25 @@ test('a message containing a quote still displays', async ({ page }) => {
   expect(broken).toBe(false);
 });
 
-test('shift list is ordered by shift date, latest first', async ({ page }) => {
-  // The admin list runs the opposite way to the applicant-facing ones: the
-  // newest shift dates are what the office is working through.
+test('shift list is ordered by record number, newest first', async ({ page }) => {
+  // The admin list runs by record number, not by shift date like the
+  // applicant-facing ones: the newest posting is what the office is working on.
+  // The id column is hidden by the shared table script, so read each row's id
+  // off its Edit or Delete link. A booked past shift has neither, and is
+  // skipped - the rows that do carry one still have to descend.
   await page.goto('sadmin/postjobs');
   await settle(page);
 
-  const order = await page.locator('#example1 tbody tr td:nth-child(6)').evaluateAll((cells) =>
-    cells.map((c) => c.getAttribute('data-order')));
+  const ids = await page
+    .locator('#example1 tbody tr')
+    .evaluateAll((rows) =>
+      rows
+        .map((r) => r.querySelector('a[href*="/postjobs/edit/"], a[href*="/postjobs/delete/"]'))
+        .map((a) => (a ? Number(a.getAttribute('href').split('/').pop()) : null))
+        .filter((id) => id !== null));
 
-  expect(order.length).toBeGreaterThan(1);
-  const sorted = [...order].sort().reverse();
-  expect(order, 'dates descend down the page').toEqual(sorted);
+  expect(ids.length).toBeGreaterThan(1);
+  expect(ids, 'record numbers descend down the page').toEqual([...ids].sort((a, b) => b - a));
 });
 
 test('employer list is alphabetical by store name', async ({ page }) => {

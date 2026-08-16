@@ -96,8 +96,8 @@ if (! function_exists('shiftDateSortValue')) {
      * unreadable date sort last.
      *
      * "Last" depends on which way the table runs, and the browser has only the
-     * one value to sort on, so a table whose default order is DESC - the admin
-     * shift list - says so and gets the fallback at the other end of the scale.
+     * one value to sort on, so a table whose date column runs DESC says so and
+     * gets the fallback at the other end of the scale.
      *
      * @param string $direction the table's default sort, ASC or DESC
      */
@@ -925,6 +925,56 @@ if (! function_exists('storesForOwner')) {
     }
 }
 
+if (! function_exists('storeManagerIds')) {
+    /**
+     * Which of these stores already have a manager on them, and who.
+     *
+     * One store, one manager. A branch has a single person running it, and a
+     * second account pointed at the same `s_id` would give two logins the same
+     * store's shifts, applications and address with nothing to tell them apart.
+     * Registration refuses it and the store picker marks it, both from here.
+     *
+     * An account still waiting for the administrator counts. It has already
+     * claimed the store - without that, two people could register for the same
+     * branch the same afternoon and only the second would be stopped. Freeing a
+     * store means removing the account holding it, which the back office does.
+     *
+     * @param array<int, int|string> $storeIds
+     *
+     * @return array<int, int> `store.s_id` => `users.u_id` of the manager on it
+     */
+    function storeManagerIds(array $storeIds): array
+    {
+        $ids = array_values(array_unique(array_filter(
+            array_map('intval', $storeIds),
+            static fn (int $id): bool => $id > 0
+        )));
+
+        if ($ids === []) {
+            return [];
+        }
+
+        $rows = ci_db()->table('users')
+            ->select('u_id, u_store_id')
+            ->where('u_usertype', 1)
+            ->where('u_emp_role', 2)
+            ->whereIn('u_store_id', $ids)
+            ->orderBy('u_id', 'asc')
+            ->get()
+            ->getResult();
+
+        $taken = [];
+
+        foreach ($rows as $row) {
+            // The first one there is the answer. On a database that somehow
+            // holds two for a store, it is taken either way.
+            $taken[(int) $row->u_store_id] ??= (int) $row->u_id;
+        }
+
+        return $taken;
+    }
+}
+
 if (! function_exists('employerStores')) {
     /**
      * The stores a logged-in employer may post shifts against and see listed.
@@ -933,6 +983,9 @@ if (! function_exists('employerStores')) {
      * their corporate group's, named by `u_store_id` - so ownership alone would
      * show them nothing and leave them unable to post the shifts the site
      * exists for. Both cases resolve here so the rule lives in one place.
+     *
+     * One branch, not the chain: a manager's listing and their shift form both
+     * stop at the store they were assigned, whatever else the group owns.
      *
      * @param array|object $user a `users` row
      * @return array<int, object> `store` rows
@@ -953,6 +1006,68 @@ if (! function_exists('employerStores')) {
         }
 
         return storesForOwner((int) $user->u_id, $activeOnly);
+    }
+}
+
+if (! function_exists('employerShiftScope')) {
+    /**
+     * The shifts one employer login may see and manage, as a WHERE fragment.
+     *
+     * A shift belongs to whoever posted it and to the people answerable for
+     * that branch alongside them:
+     *
+     *   - an owner reaches their own shifts and every shift their managers
+     *     posted, because a manager posts on the owner's behalf;
+     *   - a manager reaches their own shifts and whatever stands against the
+     *     branch they run, which is how a shift the owner posted for that store
+     *     becomes theirs to handle;
+     *   - neither reaches another employer's shifts, and a manager never
+     *     reaches a sibling branch's.
+     *
+     * One store has one manager (registration refuses a second, see
+     * `storeManagerIds()`), so the branch test cannot hand a shift to two of
+     * them.
+     *
+     * The back office is not bound by this. An administrator manages every
+     * shift on the site, which is what that screen is for; this is the rule for
+     * the employer's own side.
+     *
+     * Returns the fragment and its binds, for `CustomModel::query()`:
+     *
+     *     [$scope, $binds] = employerShiftScope($this->userinfo[0]);
+     *     $this->custom->query('SELECT * FROM post_job WHERE ' . $scope, $binds);
+     *
+     * @param array|object $user  a `users` row
+     * @param string       $alias table alias used by the query, if any
+     *
+     * @return array{0: string, 1: array<int, int>}
+     */
+    function employerShiftScope($user, string $alias = ''): array
+    {
+        $user   = (object) $user;
+        $prefix = $alias === '' ? '' : $alias . '.';
+        $id     = (int) $user->u_id;
+
+        if ((int) ($user->u_emp_role ?? 0) === 2) {
+            $storeId = (int) ($user->u_store_id ?? 0);
+
+            // A manager with no branch on their row has only what they posted.
+            // Parenthesised like the others: every fragment this returns is a
+            // single term, so a caller can AND it to anything without the
+            // meaning changing under them.
+            if ($storeId <= 0) {
+                return ['(' . $prefix . 'u_id = ?)', [$id]];
+            }
+
+            return ['(' . $prefix . 'u_id = ? OR ' . $prefix . 'p_store_id = ?)', [$id, $storeId]];
+        }
+
+        return [
+            '(' . $prefix . 'u_id = ? OR ' . $prefix . 'u_id IN ('
+                . 'SELECT m.u_id FROM users m'
+                . ' WHERE m.u_parent_id = ? AND m.u_usertype = 1 AND m.u_emp_role = 2))',
+            [$id, $id],
+        ];
     }
 }
 

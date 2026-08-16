@@ -95,23 +95,35 @@
 						</div>
 						
 	                    <div class="row">
-	                        <div class="col-lg-6 col-md-6 col-sm-12">
+	                        <div class="col-lg-4 col-md-4 col-sm-12">
 								<?= view('partials/checkbox_grid', [
 									'name' => 'p_skills', 'label' => 'Software', 'items' => $software_skills,
 									'idKey' => 'ss_id', 'labelKey' => 'ss_name', 'selected' => $p_skills, 'required' => true,
 								]) ?>
 	                        </div>
 
-	                        <div class="col-lg-6 col-md-6 col-sm-12">
+	                        <div class="col-lg-4 col-md-4 col-sm-12">
 								<?= view('partials/checkbox_grid', [
 									'name' => 'p_services', 'label' => 'Details', 'items' => $store_service,
 									'idKey' => 'st_id', 'labelKey' => 'st_service_name', 'selected' => $p_services, 'required' => true,
 								]) ?>
 	                        </div>
 
+	                        <div class="col-lg-4 col-md-4 col-sm-12">
+								<?php /* Not required, unlike the two beside it: this master starts
+								   empty, and a required group with nothing to tick would make
+								   posting a shift impossible until somebody filled it in. */ ?>
+								<?= view('partials/checkbox_grid', [
+									'name' => 'p_additional_details', 'label' => 'Additional Details', 'items' => $additional_details,
+									'idKey' => 'ad_id', 'labelKey' => 'ad_name', 'selected' => $p_additional_details, 'required' => false,
+								]) ?>
+	                        </div>
+
 	                        <div class="col-md-12 col-sm-12">
 	                            <div class="form-group">
-									<label>Additional details</label>
+									<?php /* Named apart from the "Additional Details" tick-box group
+									   above it, which is a different field on a different table. */ ?>
+									<label>Additional details for agency</label>
 									<textarea class="form-control summernote" name="p_jobinfo" id="p_jobinfo" rows="10"><?php echo $p_jobinfo;?></textarea>
 								</div>
 	                        </div>

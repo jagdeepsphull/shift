@@ -111,8 +111,19 @@ test.beforeEach(() => {
 async function fillShiftForm(page) {
   await page.selectOption('select[name="p_shift_for"]', { index: 1 });
   await page.fill('input[name="p_hourly_rate"]', '35');
-  await page.fill('input[name="p_dates"]', SHIFT_DATE);
-  await page.fill('input[name="p_shift_time"]', '09:00 - 17:00');
+
+  // Through the widget, not the input: the date box carries a datepicker, and
+  // typing into it re-opens the calendar, which then writes its own idea of the
+  // value back over what was typed. The back-office specs do the same.
+  await page.evaluate((dmy) => {
+    const [d, m, y] = dmy.split('-').map(Number);
+    window.jQuery('input[name="p_dates"]').datepicker('setDate', new Date(y, m - 1, d));
+  }, SHIFT_DATE);
+  await expect(page.locator('input[name="p_dates"]')).toHaveValue(SHIFT_DATE);
+
+  // The time picker fills itself in with the coming hour, which is a valid
+  // shift time and all this form needs.
+  await expect(page.locator('input[name="p_shift_time"]')).not.toHaveValue('');
 
   // The boxes are Bootstrap custom controls: the input itself is covered by
   // its label, which is what a person clicks.
@@ -269,10 +280,15 @@ test("the store list holds exactly the chosen group's active stores", async ({ p
     .map((t) => t.trim())
     .filter((t) => t !== '-- Select Store --');
 
-  // The label every other store picker uses: the name, then the number.
+  // The label every other store picker uses: the name, then the number - plus
+  // the note this one adds when the branch already has a manager, because one
+  // store takes one manager and a taken store is shown rather than hidden.
   const expected = query(`
-    SELECT CONCAT(s_name, IF(s_number = '', '', CONCAT(' (', s_number, ')')))
-      FROM store WHERE u_id = ${groupId} AND s_status = 1 ORDER BY s_name ASC;
+    SELECT CONCAT(s_name, IF(s_number = '', '', CONCAT(' (', s_number, ')')),
+                  IF(EXISTS(SELECT 1 FROM users m
+                             WHERE m.u_store_id = s.s_id AND m.u_usertype = 1 AND m.u_emp_role = 2),
+                     ' - already has a manager', ''))
+      FROM store s WHERE s.u_id = ${groupId} AND s.s_status = 1 ORDER BY s_name ASC;
   `).split('\n').filter((t) => t !== '');
 
   expect(offered, "exactly the group's active stores").toEqual(expected);
@@ -405,7 +421,9 @@ test("a manager works from their corporate group's store, which they do not own"
   try {
     await loginAsFrontUser(page, manager);
 
-    // My Stores shows the group's location, and only that one.
+    // My Stores shows the group's location, and only that one: a manager runs
+    // a branch, not the chain, so the group's other stores are not theirs to
+    // see here.
     await page.goto(STORE_LIST_URL);
     await settle(page);
 

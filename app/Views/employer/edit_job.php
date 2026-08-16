@@ -95,10 +95,21 @@
 									<?= view('partials/checkbox_grid', ['name' => 'p_services', 'label' => 'Details', 'items' => $store_service, 'idKey' => 'st_id', 'labelKey' => 'st_service_name', 'selected' => $p_services, 'required' => true,]) ?>
 								</div>
 	                        </div>
-	                        
+
+	                        <div class="col-lg-4 col-md-4 col-sm-2">
+	                            <div class="form-group">
+									<?php /* Not required, unlike the two beside it: this master starts
+									   empty, and a required group with nothing to tick would make
+									   editing a shift impossible until somebody filled it in. */ ?>
+									<?= view('partials/checkbox_grid', ['name' => 'p_additional_details', 'label' => 'Additional Details', 'items' => $additional_details, 'idKey' => 'ad_id', 'labelKey' => 'ad_name', 'selected' => $p_additional_details, 'required' => false,]) ?>
+								</div>
+	                        </div>
+
 	                        <div class="col-md-12 col-sm-12">
 	                            <div class="form-group">
-									<label>Additional details</label>
+									<?php /* Named apart from the "Additional Details" tick-box group
+									   above it, which is a different field on a different table. */ ?>
+									<label>Additional details for agency</label>
 									<textarea class="form-control summernote" name="p_jobinfo" id="p_jobinfo" ><?php echo $p_jobinfo;?></textarea>
 								</div>
 	                        </div>

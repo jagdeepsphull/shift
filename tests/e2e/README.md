@@ -102,6 +102,16 @@ to be able to log in:
 * an e-mail that is already somebody's login id is refused and inserts nothing
 * no row anywhere is left without a login id
 
+`specs/admin-shift-store-only.spec.js` — the shift form asks for a store, and
+nothing else about who the shift is for:
+* the User Type and Choose Employer dropdowns are gone from the page entirely
+* every store is on the one list, grouped under the employer that owns it — the
+  only thing that tells two chains' identically named branches apart
+* the shift is saved for whoever owns the store chosen; `post_job.u_id` is read
+  off `store.u_id` and never posted
+* the edit screen opens on the shift's own store, and moving it to another
+  chain's store moves the shift to that chain
+
 `specs/account-parity.spec.js` — the same account, made two ways. An Owner, a
 Manager and an Applicant are created once on public registration and once in the
 back office, and the two `users` rows are compared column by column:

@@ -494,6 +494,104 @@ test('a manager cannot claim a store belonging to another group', async ({ page 
   }
 });
 
+test('a store that already has a manager will not take a second one', async ({ page }) => {
+  // One store, one manager. The sitting one here is still waiting for the
+  // administrator, which is the case that matters: if a pending registration
+  // did not hold the store, two people could claim the same branch the same
+  // afternoon and nothing would notice until both were approved.
+  const sitting = `${PREFIX}sitting@example.com`;
+  const second = `${PREFIX}second@example.com`;
+  const claimed = groupStores[1];
+
+  // A branch of the same group with nobody on it, so the test can tell "this
+  // store is taken" apart from "the group is closed". Seeded rather than
+  // borrowed from the fixture: by this point in the file the other one has the
+  // manager that registered at the top of it.
+  query("DELETE FROM store WHERE s_name = 'E2E Group Store Free';");
+  query(`
+    INSERT INTO store (u_id, s_name, s_number, s_province, s_city, s_address, s_pincode, s_phone, s_status)
+    VALUES (${groupId}, 'E2E Group Store Free', 'E2E-G03', 0, 0, '33 Group Close', '${POSTCODE}', '4160000903', 1);
+  `);
+
+  const freeId = Number(scalar("SELECT MAX(s_id) FROM store WHERE s_name = 'E2E Group Store Free';"));
+
+  query(`DELETE FROM users WHERE u_userid = '${sitting}';`);
+  query(`
+    INSERT INTO users
+      (u_usertype, u_usersubtype, u_emp_role, u_parent_id, u_store_id, u_userid, u_fname, u_lname,
+       u_pass, u_comp_name, u_l_provice, u_licence_no, u_company_logo, u_photo, u_provice, u_city,
+       u_address1, u_pincode, u_phone, u_email, u_terms, u_status, u_collartype,
+       created, modified, u_login_attempt, u_login_attempt_dt, u_ipaddress, reset_token, token_expiry)
+    VALUES
+      (1, 0, 2, ${groupId}, ${claimed.id}, '${sitting}', 'Sitting', 'Manager',
+       MD5('${PASSWORD}'), '${claimed.name}', 0, '${claimed.number}', '', '', 0, 0,
+       '${claimed.address}', '${POSTCODE}', '${PHONE}', '${sitting}', 1, 0, 0,
+       NOW(), NOW(), 0, NOW(), '127.0.0.1', '', '1970-01-01 00:00:00');
+  `);
+
+  try {
+    const code = await openRegistration(page);
+    const form = page.locator('#register-form');
+
+    await page.selectOption('#usrtpe', '2');
+
+    const stores = page.waitForResponse((r) => r.url().includes(REG_STORE_ENDPOINT));
+    await page.selectOption('#u_parent_id', String(groupId));
+    await stores;
+
+    // The picker says so, rather than leaving the store off the list and the
+    // person wondering where their own branch went.
+    const option = page.locator(`${REG_STORE_SELECT} option[value="${claimed.id}"]`);
+    await expect(option, 'the taken branch is named as taken').toContainText(/already has a manager/i);
+    await expect(option, 'and cannot be chosen').toHaveAttribute('disabled', /.*/);
+
+    // Only that branch: the group's free store is still there to be chosen.
+    await expect(
+      page.locator(`${REG_STORE_SELECT} option[value="${freeId}"]`),
+      'the branch with no manager is still open',
+    ).not.toHaveAttribute('disabled', /.*/);
+
+    // Choose the taken one anyway - a page that was open before the sitting
+    // manager registered, or a hand-edited form, both arrive looking like this.
+    await page.locator(REG_STORE_SELECT).evaluate((el, id) => {
+      const chosen = el.querySelector(`option[value="${id}"]`);
+      if (chosen) chosen.removeAttribute('disabled');
+      /** @type {HTMLSelectElement} */ (el).value = String(id);
+    }, claimed.id);
+
+    await page.fill('#u_fname', 'Reg');
+    await page.fill('#u_lname', 'Second');
+    await page.fill('#u_email', second);
+    await page.fill('#u_phone', PHONE);
+    await page.fill('#mainpassword', PASSWORD);
+    await page.fill('#conf_password', PASSWORD);
+    await form.locator('input[name="captcha"]').fill(code);
+
+    await Promise.all([
+      page.waitForLoadState('load'),
+      form.locator('[name="signupSubmit"]').click(),
+    ]);
+    await settle(page);
+
+    await expect(page.locator('.alert-danger')).toContainText(/already has a manager/i);
+    expect(account(second), 'no second account on a store that is taken').toBeNull();
+
+    // And the store still belongs to the one who claimed it first.
+    expect(
+      Number(scalar(`
+        SELECT COUNT(*) FROM users
+         WHERE u_store_id = ${claimed.id} AND u_usertype = 1 AND u_emp_role = 2;
+      `) || 0),
+      'one manager on the branch, not two',
+    ).toBe(1);
+
+    await expectNoServerError(page);
+  } finally {
+    query(`DELETE FROM users WHERE u_userid = '${sitting}';`);
+    query("DELETE FROM store WHERE s_name = 'E2E Group Store Free';");
+  }
+});
+
 test('the same email cannot be registered twice', async ({ page }) => {
   const taken = TYPES[2]; // the applicant registered above
 

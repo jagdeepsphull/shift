@@ -35,7 +35,9 @@
               </div>
               <!-- /.card-header -->
               <div class="card-body table-responsive1 p-2" style="1height: 300px;">
-                <table id="example1" class="table table-bordered table-striped datatablecss" data-order-col="6" data-order-dir="desc">
+                <!-- Column 0 is the record id, hidden by the shared table script:
+                     newest shift on top, matching the order the controller sends. -->
+                <table id="example1" class="table table-bordered table-striped datatablecss" data-order-col="0" data-order-dir="desc">
                   <thead>
                   <tr>
                     <th>ID</th>
@@ -80,7 +82,7 @@
                     <td><?php echo getCityName($job->p_city); ?></td>
                     <td><?php echo getProvinceName($job->p_province); ?></td>
                     <td><?php echo getShiftForName($job->p_shift_for); ?></td>
-                    <td data-order="<?php echo shiftDateSortValue($job, 'DESC'); ?>"><?php echo dateFormat($job->p_dates); ?></td>
+                    <td data-order="<?php echo shiftDateSortValue($job); ?>"><?php echo dateFormat($job->p_dates); ?></td>
 					<td><?php echo $approved[$job->p_approved];?></td>
                     <td>
 					<?php if($can_edit){ ?>

@@ -43,22 +43,10 @@
                             <div class="card-body">
 
                                 <div class="row">
-									<?= view('partials/employer_picker', ['agencies' => $agencies, 'employerKinds' => $employerKinds ?? [], 'u_id' => $u_id]) ?>
-									<div class="col-sm-4">
-										<!-- text input -->
-										<div class="form-group">
-											<label>Store (Location)</label>
-											<select class="form-control" name="p_store_id" id="p_store_id" required>
-												<option value="">-- Select Store --</option>
-												<?php if($agency_stores){?>
-												  <?php foreach($agency_stores as $store){?>
-												  <option value="<?php echo $store->s_id;?>" <?php echo ($p_store_id==$store->s_id)?"selected":""; ?> >
-													  <?php echo esc($store->s_name . ($store->s_number !== '' ? ' (' . $store->s_number . ')' : ''));?></option>
-												  <?php } ?>
-												<?php } ?>
-											</select>
-										</div>
-									</div>
+									<?= view('partials/shift_store_picker', [
+									    'shift_stores' => $shift_stores,
+									    'p_store_id'   => $p_store_id,
+									]) ?>
                                 <!-- /.card-body -->
 
 								</div>

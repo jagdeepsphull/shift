@@ -74,7 +74,8 @@ test.afterAll(cleanup);
 async function fillShift(page) {
   await page.goto('sadmin/postjobs/add');
 
-  await page.selectOption('#u_id', String(ids.owner));
+  // The store is the whole of the question: it belongs to one employer, so
+  // choosing it chooses them, and the shift is saved against that owner.
   await expect(page.locator(`#p_store_id option[value="${ids.store}"]`)).toHaveCount(1);
   await page.selectOption('#p_store_id', String(ids.store));
 

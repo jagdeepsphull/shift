@@ -130,6 +130,15 @@ async function loginAsFrontUser(page, account) {
   await page.goto('front/login');
   await captchaLoaded;
 
+  // The page asks for a verification image for the login tab and again for the
+  // register tab beside it, and the session keeps whichever answered last. Wait
+  // for the page to go quiet before reading, or the code posted below is the
+  // one the first request wrote and the login is refused - which then reads as
+  // an unrelated failure on whatever screen the test went on to open.
+  await page.waitForLoadState('networkidle').catch(() => {
+    /* a still-open long poll should not fail the test */
+  });
+
   const code = await readCaptchaCode(page.context());
   expect(code, 'verification code should be in the session').toBeTruthy();
 

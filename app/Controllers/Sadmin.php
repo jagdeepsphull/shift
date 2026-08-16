@@ -2453,13 +2453,14 @@ class Sadmin extends BaseController
 
         switch ($action) {
             default:
-                // Latest shift date first here, unlike the applicant-facing
-                // lists: the admin is looking at what has just been posted
-                // rather than shopping for the next shift to work.
+                // Newest record first here, unlike the applicant-facing lists,
+                // which run by shift date: the admin is looking at what has just
+                // been posted rather than shopping for the next shift to work.
+                // The date column still sorts chronologically when clicked.
                 if ($this->input->get('filter') && $this->input->get('filter') === 'new') {
-                    $jobs = $this->custom->get_where_order('post_job', ['p_approved' => 0], shiftDateOrderBy('', 'DESC'), '', false);
+                    $jobs = $this->custom->get_where_order('post_job', ['p_approved' => 0], 'p_id', 'DESC');
                 } else {
-                    $jobs = $this->custom->get_data_order('post_job', shiftDateOrderBy('', 'DESC'), '', false);
+                    $jobs = $this->custom->get_data_order('post_job', 'p_id', 'DESC');
                 }
 
                 $this->data['jobs'] = $jobs;
@@ -2479,21 +2480,26 @@ class Sadmin extends BaseController
 
             case 'add':
                 if ($this->input->post('savedata')) {
-                    $this->form_validation->set_rules('u_id', 'Agency/Owner Name', 'required');
                     $this->form_validation->set_rules('p_store_id', 'Store', 'required');
 
                     $rowData = cleanArray($this->input->post());
 
-                    $u_data = $this->custom->get_where('users', ['u_id' => $this->input->post('u_id')]);
+                    // The store is the only thing the form asks for, because a
+                    // store belongs to one employer: naming it names them. The
+                    // employer is read off the store here rather than posted,
+                    // so the two can never arrive disagreeing.
+                    $store  = $this->shiftStoreRow((int) $this->input->post('p_store_id'));
+                    $u_data = $store ? $this->custom->get_where('users', ['u_id' => (int) $store->u_id]) : [];
 
-                    // The shift's location is the chosen store - one belonging
-                    // to the chosen employer - falling back to the employer's
-                    // login columns as before (change request B4).
-                    $store = $this->employerStore((int) $this->input->post('p_store_id'), (int) $this->input->post('u_id'));
+                    if ($store && $u_data) {
+                        $rowData['u_id'] = (int) $store->u_id;
 
-                    $rowData['p_store_id'] = $store ? $store->s_id : 0;
-                    $rowData['p_province'] = ($store && $store->s_province) ? $store->s_province : $u_data[0]->u_provice;
-                    $rowData['p_city']     = ($store && $store->s_city) ? $store->s_city : $u_data[0]->u_city;
+                        // The shift's location is the store, falling back to
+                        // the employer's login columns as before (B4).
+                        $rowData['p_store_id'] = $store->s_id;
+                        $rowData['p_province'] = $store->s_province ?: $u_data[0]->u_provice;
+                        $rowData['p_city']     = $store->s_city ?: $u_data[0]->u_city;
+                    }
 
                     $rowData['p_skills']   = implode(',', (array) $this->input->post('p_skills'));
                     $rowData['p_services'] = implode(',', (array) $this->input->post('p_services'));
@@ -2525,7 +2531,12 @@ class Sadmin extends BaseController
                     // is written once the shift has an id.
                     unset($rowData['savedata'], $rowData['files'], $rowData['sj_applicant_id'], $rowData['sj_admin_comment']);
 
-                    if ($applicantId > 0 && ! $applicant) {
+                    if (! $store || ! $u_data) {
+                        // No store, so no employer to post the shift for - the
+                        // dropdown is `required`, so this is a hand-edited form
+                        // or a store deleted since the page was opened.
+                        $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">Choose the store this shift is at.</div>');
+                    } elseif ($applicantId > 0 && ! $applicant) {
                         // Chosen off a list that has since gone stale - the
                         // account is deactivated, or is not an applicant at all.
                         // Nothing is saved: a shift meant to be booked that came
@@ -2552,7 +2563,9 @@ class Sadmin extends BaseController
                     getTableInfo($this->dbname, $table);
                 }
 
-                $this->data['agencies'] = $this->custom->get_where_order('users', ['u_usertype' => 1, 'u_status' => 1], 'u_comp_name', 'asc');
+                // Every store on the site, under the employer that owns it -
+                // the only thing the form asks for.
+                $this->data['shift_stores'] = $this->shiftStoreOptions();
 
                 // Who the shift may be handed to straight away. Active accounts
                 // only - a deactivated applicant is not working shifts.
@@ -2562,13 +2575,6 @@ class Sadmin extends BaseController
                 // about them and the view would have nothing to read.
                 $this->data['sj_applicant_id']  = (string) $this->input->post('sj_applicant_id');
                 $this->data['sj_admin_comment'] = (string) $this->input->post('sj_admin_comment');
-
-                // Stores of the already-chosen employer, so the picker is
-                // populated on a re-render; picking an employer refreshes the
-                // list over ajax_getstorelist.
-                $this->data['agency_stores'] = empty($this->data['u_id'])
-                    ? []
-                    : $this->custom->get_where_order('store', ['u_id' => $this->data['u_id'], 's_status' => 1], 's_name', 'asc');
 
                 $this->load->admin_view('postjobs/add', $this->data);
                 break;
@@ -2589,19 +2595,23 @@ class Sadmin extends BaseController
 
                 if (! $frozen) {
                     if ($this->input->post('savedata')) {
-                        $this->form_validation->set_rules('u_id', 'Agency/Owner Name', 'required');
                         $this->form_validation->set_rules('p_store_id', 'Store', 'required');
 
                         $rowData = cleanArray($this->input->post());
 
-                        $u_data = $this->custom->get_where('users', ['u_id' => $this->input->post('u_id')]);
+                        // Same as on add: the store is the only thing asked
+                        // for, and the employer is read off it. Moving a shift
+                        // to another chain's store moves the shift to that
+                        // chain, which is the whole of what the form can do.
+                        $store  = $this->shiftStoreRow((int) $this->input->post('p_store_id'));
+                        $u_data = $store ? $this->custom->get_where('users', ['u_id' => (int) $store->u_id]) : [];
 
-                        // Same as on add: the location comes off the chosen store.
-                        $store = $this->employerStore((int) $this->input->post('p_store_id'), (int) $this->input->post('u_id'));
-
-                        $rowData['p_store_id'] = $store ? $store->s_id : 0;
-                        $rowData['p_province'] = ($store && $store->s_province) ? $store->s_province : $u_data[0]->u_provice;
-                        $rowData['p_city']     = ($store && $store->s_city) ? $store->s_city : $u_data[0]->u_city;
+                        if ($store && $u_data) {
+                            $rowData['u_id']       = (int) $store->u_id;
+                            $rowData['p_store_id'] = $store->s_id;
+                            $rowData['p_province'] = $store->s_province ?: $u_data[0]->u_provice;
+                            $rowData['p_city']     = $store->s_city ?: $u_data[0]->u_city;
+                        }
 
                         $rowData['p_skills']   = implode(',', (array) $this->input->post('p_skills'));
                         $rowData['p_services'] = implode(',', (array) $this->input->post('p_services'));
@@ -2630,7 +2640,9 @@ class Sadmin extends BaseController
                         // table and is written below.
                         unset($rowData['savedata'], $rowData['files'], $rowData['sj_applicant_id'], $rowData['sj_admin_comment']);
 
-                        if ($applicantId > 0 && ! $applicant) {
+                        if (! $store || ! $u_data) {
+                            $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">Choose the store this shift is at.</div>');
+                        } elseif ($applicantId > 0 && ! $applicant) {
                             // Chosen off a list that has since gone stale. As on
                             // add, nothing at all is saved rather than saving
                             // the shift and quietly losing the booking with it.
@@ -2747,11 +2759,19 @@ class Sadmin extends BaseController
                     $this->data['sj_admin_comment'] = (string) $this->input->post('sj_admin_comment');
                 }
 
-                $this->data['agencies'] = $this->custom->get_where_order('users', ['u_usertype' => 1, 'u_status' => 1], 'u_comp_name', 'asc');
+                // The store list, with this shift's own store in it even if it
+                // has since been deactivated - the picker is what decides the
+                // employer now, so a shift whose store is missing from it would
+                // be handed to somebody else by the next save.
+                $this->data['shift_stores'] = $this->shiftStoreOptions((int) ($this->data['p_store_id'] ?? 0));
 
-                $this->data['agency_stores'] = empty($this->data['u_id'])
-                    ? []
-                    : $this->custom->get_where_order('store', ['u_id' => $this->data['u_id'], 's_status' => 1], 's_name', 'asc');
+                // Named on the form for a shift that predates stores, so
+                // whoever is choosing one can tell whose shift they are moving.
+                $owner = $this->custom->get_where_row('users', ['u_id' => (int) ($this->data['u_id'] ?? 0)]);
+
+                $this->data['shift_owner_name'] = $owner
+                    ? ($owner['u_comp_name'] !== '' ? $owner['u_comp_name'] : trim($owner['u_fname'] . ' ' . $owner['u_lname']))
+                    : 'no employer on record';
 
                 $this->load->admin_view('postjobs/edit', $this->data);
                 break;
@@ -2964,22 +2984,63 @@ class Sadmin extends BaseController
     }
 
     /**
-     * One of the given employer's active stores, or null - so a shift can
-     * only be filed under a store its employer actually owns.
+     * The store a shift is being posted against, or null.
+     *
+     * Not filtered by status: the picker decides what may be chosen, and a
+     * shift already standing against a store that has since been deactivated
+     * must still be savable without being moved somewhere else. What matters
+     * here is that the row exists, because its `u_id` becomes the shift's.
      */
-    private function employerStore(int $storeId, int $employerId)
+    private function shiftStoreRow(int $storeId)
     {
-        if ($storeId <= 0 || $employerId <= 0) {
+        if ($storeId <= 0) {
             return null;
         }
 
-        $rows = $this->custom->get_where('store', [
-            's_id'     => $storeId,
-            'u_id'     => $employerId,
-            's_status' => 1,
-        ]);
+        $rows = $this->custom->get_where('store', ['s_id' => $storeId]);
 
         return $rows[0] ?? null;
+    }
+
+    /**
+     * Every store the shift forms may be posted against, in one list.
+     *
+     * The forms ask for a store and nothing else - a store belongs to one
+     * employer, so choosing it chooses them - which means this list has to
+     * carry the owner's name for the view to group by, and to tell two
+     * branches of different chains that share a name apart.
+     *
+     * Active stores of active employers, plus `$keepStoreId` whatever its
+     * state: that is the store an edit screen is already standing on, and a
+     * picker with no option for it would hand the shift to whoever came first
+     * on the next save.
+     *
+     * `managers` is whoever runs the store - the manager accounts pointed at it
+     * by `u_store_id` - so the form can name the person the shift will actually
+     * be arranged with, not only the company that owns the building. More than
+     * one is possible and they are listed together; none is normal, and the
+     * form simply says nothing.
+     *
+     * @return array<int, object>
+     */
+    private function shiftStoreOptions(int $keepStoreId = 0): array
+    {
+        return $this->custom->query(
+            "SELECT s.s_id, s.s_name, s.s_number, s.u_id, u.u_comp_name,
+                    (SELECT GROUP_CONCAT(TRIM(CONCAT(m.u_fname, ' ', m.u_lname))
+                                         ORDER BY m.u_fname, m.u_lname SEPARATOR ', ')
+                       FROM users m
+                      WHERE m.u_store_id = s.s_id
+                        AND m.u_usertype = 1
+                        AND m.u_emp_role = 2
+                        AND m.u_status   = 1) AS managers
+               FROM store s
+               JOIN users u ON u.u_id = s.u_id
+              WHERE (s.s_status = 1 AND u.u_usertype = 1 AND u.u_status = 1)
+                 OR s.s_id = ?
+           ORDER BY u.u_comp_name ASC, s.s_name ASC",
+            [$keepStoreId]
+        ) ?: [];
     }
 
     /**
@@ -3265,41 +3326,13 @@ class Sadmin extends BaseController
     }
 
     /**
-     * `<option>`s for the store picker on the shift form, refreshed when the
-     * employer changes - same shape as ajax_getcitylist above.
-     */
-    public function ajax_getstorelist()
-    {
-        $this->setup();
-
-        $uid = (int) $this->input->post('u_id');
-        $sid = (int) $this->input->post('sid');
-
-        $stores = $this->db->table('store')
-            ->orderBy('s_name', 'asc')
-            ->getWhere(['u_id' => $uid, 's_status' => 1])
-            ->getResult();
-
-        $store_data = '<option value="">-- Select Store --</option>';
-
-        foreach ($stores as $store) {
-            $selected = ($sid == $store->s_id) ? 'selected' : '';
-            $label    = $store->s_name . ($store->s_number !== '' ? ' (' . $store->s_number . ')' : '');
-            $store_data .= '<option value="' . $store->s_id . '" ' . $selected . '>' . esc($label) . '</option>';
-        }
-
-        echo $store_data;
-    }
-
-    /**
      * A store's shift defaults, for the shift form to start from.
      *
-     * Answers to `s_id` - the store the admin picked - or to `u_id`, the
-     * employer. The employer form of the question only has an answer when that
-     * employer has exactly one active location: with several, which one the
-     * shift is at is precisely what the admin has not said yet, and filling the
-     * form from whichever came first would be a guess. The store id comes back
-     * with the lists so the caller can select that store as well.
+     * Asked by `s_id`, the store the admin picked, which is the only thing that
+     * form asks for: an employer is not a location, and their defaults belong
+     * to each store rather than to the login. (It used to answer to a `u_id`
+     * too, from when the form asked for the employer first and could fill in
+     * for one that had a single store. That question is gone with the picker.)
      *
      * Returns what the store holds; the shift form decides what to do with it.
      * Nothing is written here - the shift keeps its own copy from the moment it
@@ -3310,18 +3343,7 @@ class Sadmin extends BaseController
         $this->setup();
 
         $storeId = (int) $this->input->post('s_id');
-        $userId  = (int) $this->input->post('u_id');
-        $store   = null;
-
-        if ($storeId > 0) {
-            $store = $this->custom->get_where_row('store', ['s_id' => $storeId]);
-        } elseif ($userId > 0) {
-            $stores = $this->custom->get_where('store', ['u_id' => $userId, 's_status' => 1]);
-
-            if ($stores && count($stores) === 1) {
-                $store = (array) $stores[0];
-            }
-        }
+        $store   = $storeId > 0 ? $this->custom->get_where_row('store', ['s_id' => $storeId]) : null;
 
         $ids = static function ($list): array {
             // The columns hold "3,7,12"; '' has to come back as no ids at all
@@ -3330,8 +3352,7 @@ class Sadmin extends BaseController
         };
 
         return $this->response->setJSON([
-            // 0 when no single store answered the question, which tells the
-            // caller to leave the store picker alone.
+            // 0 when the id matched no store at all.
             's_id'                 => $store ? (int) $store['s_id'] : 0,
             'p_skills'             => $store ? $ids($store['s_skills'] ?? '') : [],
             'p_services'           => $store ? $ids($store['s_services'] ?? '') : [],

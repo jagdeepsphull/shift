@@ -43,22 +43,19 @@
                             <div class="card-body">
 
                                 <div class="row">
-									<?= view('partials/employer_picker', ['agencies' => $agencies, 'employerKinds' => $employerKinds ?? [], 'u_id' => $u_id]) ?>
-									<div class="col-sm-4">
-										<!-- text input -->
-										<div class="form-group">
-											<label>Store (Location)</label>
-											<select class="form-control" name="p_store_id" id="p_store_id" required>
-												<option value="">-- Select Store --</option>
-												<?php if($agency_stores){?>
-												  <?php foreach($agency_stores as $store){?>
-												  <option value="<?php echo $store->s_id;?>" <?php echo ($p_store_id==$store->s_id)?"selected":""; ?> >
-													  <?php echo esc($store->s_name . ($store->s_number !== '' ? ' (' . $store->s_number . ')' : ''));?></option>
-												  <?php } ?>
-												<?php } ?>
-											</select>
-										</div>
-									</div>
+									<?php /* A shift posted before stores existed carries p_store_id 0
+									   and has nothing selected here. Saying whose it is matters on
+									   that one screen: the store names the employer, so choosing a
+									   store from another chain hands the shift over. */ ?>
+									<?= view('partials/shift_store_picker', [
+									    'shift_stores' => $shift_stores,
+									    'p_store_id'   => $p_store_id,
+									    // Only for the storeless case: left blank, the picker
+									    // names the owner and whoever manages the chosen store.
+									    'store_note'   => (int) $p_store_id === 0
+									        ? 'This shift predates stores and belongs to ' . trim((string) ($shift_owner_name ?? '')) . '. Choosing a store sets the employer to whoever owns it.'
+									        : '',
+									]) ?>
                                 <!-- /.card-body -->
 
 								</div>

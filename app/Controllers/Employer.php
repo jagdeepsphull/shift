@@ -119,15 +119,20 @@ class Employer extends BaseController
         $this->session->unset_userdata('error_msg');
 
         // "Recent Shift Jobs" on the dashboard - soonest shift first, matching
-        // the full list at employer/all_jobs rather than the record number.
-        $this->joblists = $this->custom->get_where_order(
-            'post_job',
-            ['u_id' => $this->userinfo[0]->u_id],
-            shiftDateOrderBy(),
-            '',
-            false
+        // the full list at employer/all_jobs rather than the record number, and
+        // holding what this login may manage rather than only what it posted:
+        // an owner's managers post on their behalf.
+        [$scope, $binds] = employerShiftScope($this->userinfo[0]);
+
+        $this->joblists = $this->custom->query(
+            'SELECT * FROM post_job WHERE ' . $scope . ' ORDER BY ' . shiftDateOrderBy(),
+            $binds
         );
-        $this->data['restot'] = $this->custom->query("select count(p_id) as totjobs from post_job where u_id = '" . $this->userinfo[0]->u_id . "'");
+
+        $this->data['restot'] = $this->custom->query(
+            'SELECT COUNT(p_id) AS totjobs FROM post_job WHERE ' . $scope,
+            $binds
+        );
 
         $this->data['joblists'] = $this->joblists;
 
@@ -146,13 +151,7 @@ class Employer extends BaseController
             $this->form_validation->set_rules('p_shift_for', 'Shift Requested For', 'required');
             $this->form_validation->set_rules('p_store_id', 'Store', 'required');
 
-            $rowData = cleanArray($this->input->post());
-
-            $rowData['p_skills']   = implode(',', (array) $this->input->post('p_skills'));
-            $rowData['p_services'] = implode(',', (array) $this->input->post('p_services'));
-            $rowData['p_jobinfo']  = $this->input->post('p_jobinfo');
-            // Keep the sortable date column in step with the text one.
-            $rowData['p_date_start'] = parseShiftDate($rowData['p_dates'] ?? null);
+            $rowData = $this->shiftRowFromPost();
 
             // The shift belongs to a chosen store (location) - one this login
             // owns - and its province/city come from that store rather than
@@ -163,11 +162,10 @@ class Employer extends BaseController
             $rowData['p_province'] = ($store && $store->s_province) ? $store->s_province : $this->userinfo[0]->u_provice;
             $rowData['p_city']     = ($store && $store->s_city) ? $store->s_city : $this->userinfo[0]->u_city;
 
-            $rowData['created']   = date('Y-m-d H:i:s');
-            $rowData['modified']  = date('Y-m-d H:i:s');
-            $rowData['u_id']      = $this->userinfo[0]->u_id;
-            $rowData['p_status']  = 0;
-            unset($rowData['savepostjob'], $rowData['files']);
+            $rowData['created']  = date('Y-m-d H:i:s');
+            $rowData['modified'] = date('Y-m-d H:i:s');
+            $rowData['u_id']     = $this->userinfo[0]->u_id;
+            $rowData['p_status'] = 0;
 
             if (! $store) {
                 $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">Please choose one of your stores.</div>');
@@ -199,6 +197,9 @@ class Employer extends BaseController
         $this->data['hourly_rate']     = $this->custom->get_where('hourly_rate', ['hr_status' => 1]);
         $this->data['software_skills'] = $this->custom->get_where('software_skills', ['ss_status' => 1]);
         $this->data['store_service']   = $this->custom->get_where('store_service', ['st_status' => 1]);
+        // Ordered by name, unlike the two above: this master is maintained by
+        // hand and its ids come out in the order they happened to be added.
+        $this->data['additional_details'] = $this->custom->get_where_order('additional_details', ['ad_status' => 1], 'ad_name', 'asc');
 
         // The login's active stores, for the location picker on the form. A
         // manager owns none - theirs is the group's store they were assigned -
@@ -221,19 +222,18 @@ class Employer extends BaseController
             ci_redirect('front/login');
         }
 
-        $count = $this->custom->get_where_count('post_job', ['p_id' => $id, 'p_status' => 0, 'p_approved' => 0]);
+        // Whose shift this is, as well as whether it may still be edited. It
+        // used to ask only for the id and the two flags, so every pending shift
+        // on the site opened in anybody's edit form - and saving it stamped the
+        // editor's own store and ownership over the top.
+        $count = $this->manageableShift($id);
 
         if ($count) {
             if ($this->input->post('savepostjob')) {
                 $this->form_validation->set_rules('p_shift_for', 'Shift Requested For', 'required');
                 $this->form_validation->set_rules('p_store_id', 'Store', 'required');
 
-                $rowData = cleanArray($this->input->post());
-
-                $rowData['p_skills']   = implode(',', (array) $this->input->post('p_skills'));
-                $rowData['p_services'] = implode(',', (array) $this->input->post('p_services'));
-                $rowData['p_jobinfo']  = $this->input->post('p_jobinfo');
-                $rowData['p_date_start'] = parseShiftDate($rowData['p_dates'] ?? null);
+                $rowData = $this->shiftRowFromPost();
 
                 // Same as on create: the location comes off the chosen store.
                 $store = $this->ownStore((int) $this->input->post('p_store_id'));
@@ -242,11 +242,16 @@ class Employer extends BaseController
                 $rowData['p_province'] = ($store && $store->s_province) ? $store->s_province : $this->userinfo[0]->u_provice;
                 $rowData['p_city']     = ($store && $store->s_city) ? $store->s_city : $this->userinfo[0]->u_city;
 
-                $rowData['created']  = date('Y-m-d H:i:s');
+                // Neither `created` nor `u_id` is written here, and neither can
+                // arrive from the post either - see shiftRowFromPost(). `created`
+                // is when the shift was posted and an edit is not a posting; the
+                // front page reads it to decide what counts as recently posted.
+                // `u_id` is whose shift it is, and this form is reachable by the
+                // owner and by the branch manager as well as by whoever raised
+                // it, so writing the editor there would move the shift to
+                // whoever opened it last.
                 $rowData['modified'] = date('Y-m-d H:i:s');
-                $rowData['u_id']     = $this->userinfo[0]->u_id;
                 $rowData['p_status'] = 0;
-                unset($rowData['savepostjob'], $rowData['files']);
 
                 if (! $store) {
                     $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">Please choose one of your stores.</div>');
@@ -254,7 +259,9 @@ class Employer extends BaseController
                     foreach ($rowData as $ky => $vl) {
                         $this->data[$ky] = $vl;
                     }
-                } elseif (updateQry('post_job', $rowData, ['p_id' => $id])) {
+                    // The same two flags the gate above matched on, so a shift
+                    // approved while this form was open is not written anyway.
+                } elseif (updateQry('post_job', $rowData, ['p_id' => $id, 'p_status' => 0, 'p_approved' => 0])) {
                     ci_redirect('employer/all_jobs');
                 } else {
                     foreach ($rowData as $ky => $vl) {
@@ -275,6 +282,9 @@ class Employer extends BaseController
         $this->data['hourly_rate']     = $this->custom->get_where('hourly_rate', ['hr_status' => 1]);
         $this->data['software_skills'] = $this->custom->get_where('software_skills', ['ss_status' => 1]);
         $this->data['store_service']   = $this->custom->get_where('store_service', ['st_status' => 1]);
+        // Ordered by name, unlike the two above: this master is maintained by
+        // hand and its ids come out in the order they happened to be added.
+        $this->data['additional_details'] = $this->custom->get_where_order('additional_details', ['ad_status' => 1], 'ad_name', 'asc');
 
         // The login's active stores, for the location picker on the form. A
         // manager owns none - theirs is the group's store they were assigned -
@@ -297,7 +307,9 @@ class Employer extends BaseController
 
         $id = $this->uri->segment(3);
 
-        $count = $this->custom->get_where_count('post_job', ['p_id' => $id, 'p_status' => 0, 'p_approved' => 0]);
+        // Whose shift this is, as above: the id and the flags alone let anybody
+        // delete anybody's pending shift.
+        $count = $this->manageableShift($id);
 
         if ($count) {
             $this->custom->delete_where('post_job', ['p_id' => $id, 'p_status' => 0, 'p_approved' => 0]);
@@ -317,13 +329,17 @@ class Employer extends BaseController
             ci_redirect('front/login');
         }
 
-        $this->jobslist         = $this->custom->get_where_order(
-            'post_job',
-            ['u_id' => $this->userinfo[0]->u_id],
-            shiftDateOrderBy(),
-            '',
-            false
+        // Everything this login may manage, not only what it posted: an owner
+        // sees their managers' shifts here, and a manager sees whatever stands
+        // against the branch they run. The Edit and Delete buttons on each row
+        // lead to the same rule, so nothing is listed that cannot be opened.
+        [$scope, $binds] = employerShiftScope($this->userinfo[0]);
+
+        $this->jobslist = $this->custom->query(
+            'SELECT * FROM post_job WHERE ' . $scope . ' ORDER BY ' . shiftDateOrderBy(),
+            $binds
         );
+
         $this->data['jobslist'] = $this->jobslist;
 
         $this->load->owner_inner_view('all_jobs', $this->data);
@@ -343,6 +359,8 @@ class Employer extends BaseController
         }
 
         // Deactivated ones included, so they can be seen and turned back on.
+        // A manager gets the one branch they run, not the rest of their
+        // corporate group's: they manage a store, not the chain.
         $this->data['stores'] = employerStores($this->userinfo[0], false);
 
         // A store-role login has its single location; only a manager (or an
@@ -459,6 +477,84 @@ class Employer extends BaseController
     }
 
     /**
+     * The shift columns the employer's own form owns, read off the post.
+     *
+     * A whitelist, not `cleanArray($this->input->post())`. That returned every
+     * key the browser sent, so a hand-made request could set any column on
+     * `post_job`: `p_approved`, which is an employer approving their own shift;
+     * `u_id`, which is handing it to somebody else; `created`, which is lying
+     * about when it was raised. Create and edit both used to overwrite the last
+     * two afterwards, which hid the hole rather than closing it - and the moment
+     * edit stopped overwriting them, to stop an owner's edit stealing their
+     * manager's shift, the post was writing them again.
+     *
+     * Only what the form asks for is here. The location columns are not: they
+     * come off the chosen store. Neither is `p_job_title`, which the system
+     * names `PAS-<id>`, nor any flag that decides a shift's status.
+     */
+    private function shiftRowFromPost(): array
+    {
+        $row = [];
+
+        foreach (['p_shift_for', 'p_hourly_rate', 'p_dates', 'p_shift_time'] as $field) {
+            $row[$field] = strip_tags((string) $this->input->post($field));
+        }
+
+        // Master ids, stored as a comma separated list - cast, because that is
+        // all they ever are.
+        foreach (['p_skills', 'p_services', 'p_additional_details'] as $group) {
+            $row[$group] = implode(',', array_map('intval', (array) $this->input->post($group)));
+        }
+
+        // The one field that keeps its markup: it is a rich-text box, and the
+        // back office stores it the same way.
+        $row['p_jobinfo'] = $this->input->post('p_jobinfo');
+
+        // Keep the sortable date column in step with the text one.
+        $row['p_date_start'] = parseShiftDate($row['p_dates']);
+
+        return $row;
+    }
+
+    /**
+     * Whether this shift is one the logged-in employer may act on.
+     *
+     * Ownership is `employerShiftScope()`: their own shifts, their managers'
+     * if they are an owner, and the branch they run if they are a manager.
+     *
+     * @param bool $pendingOnly also require the shift to be still awaiting
+     *                          approval, which editing and deleting do and
+     *                          looking at the candidate list does not. Checking
+     *                          `p_approved` as well as `p_status` stops the
+     *                          nightly expiry job, which sets `p_status` to 0,
+     *                          from re-opening shifts that have already run.
+     */
+    private function shiftInScope($id, bool $pendingOnly): bool
+    {
+        $id = (int) $id;
+
+        if ($id <= 0) {
+            return false;
+        }
+
+        [$scope, $binds] = employerShiftScope($this->userinfo[0]);
+
+        $rows = $this->custom->query(
+            'SELECT COUNT(p_id) AS n FROM post_job WHERE p_id = ? AND ' . $scope
+                . ($pendingOnly ? ' AND p_status = 0 AND p_approved = 0' : ''),
+            array_merge([$id], $binds)
+        );
+
+        return (int) ($rows[0]->n ?? 0) > 0;
+    }
+
+    /** Whether this shift is theirs to edit or delete. */
+    private function manageableShift($id): bool
+    {
+        return $this->shiftInScope($id, true);
+    }
+
+    /**
      * One of the stores this login may post against, or null.
      *
      * Matched against the same list the form offered rather than against
@@ -488,11 +584,18 @@ class Employer extends BaseController
             ci_redirect('front/login');
         }
 
-        $this->applicationslist = $this->custom->get_where('stu_saved_applied_jobs', [
-            'agency_id'      => $this->userinfo[0]->u_id,
-            'sj_status'      => 1,
-            'sj_is_approved' => 1,
-        ]);
+        // By the shift rather than by `agency_id`, so this holds the bookings
+        // for every shift this login may manage. Scoping it to their own u_id
+        // left an owner able to open their manager's shift and its candidate
+        // list but not the booking made on it.
+        [$scope, $binds] = employerShiftScope($this->userinfo[0], 'pj');
+
+        $this->applicationslist = $this->custom->query(
+            'SELECT ssa.* FROM stu_saved_applied_jobs ssa'
+            . ' JOIN post_job pj ON pj.p_id = ssa.p_id'
+            . ' WHERE ssa.sj_status = 1 AND ssa.sj_is_approved = 1 AND ' . $scope,
+            $binds
+        );
 
         $this->data['applicationslist'] = $this->applicationslist;
 
@@ -508,6 +611,18 @@ class Employer extends BaseController
         }
 
         $pid = $this->uri->segment(3);
+
+        // Who applied for a shift is as much the employer's business as the
+        // shift itself, and no more anybody else's: this used to answer for any
+        // id at all. Not restricted to pending shifts - the point of the screen
+        // is the candidates on a shift that has been approved.
+        if (! $this->shiftInScope($pid, false)) {
+            // The message does not reach All Shifts - flashdata is lost across
+            // every redirect on this side of the site, which is a separate
+            // defect - but the refusal itself is what matters here.
+            $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">Invalid Shift Post</div>');
+            ci_redirect('employer/all_jobs');
+        }
 
         $this->data['job'] = $this->custom->get_where('post_job', ['p_id' => $pid]);
 
@@ -536,7 +651,22 @@ class Employer extends BaseController
         if ($this->input->post('updateprofile')) {
             $this->form_validation->set_rules('u_phone', 'Mobile No.', 'required');
 
-            $rowData = cleanArray($this->input->post());
+            // A whitelist, for the reason spelled out on shiftRowFromPost().
+            // This wrote every key the browser sent, straight onto the `users`
+            // row - so an employer could post `u_emp_role` and `u_store_id` and
+            // make themselves the manager of anybody's branch, which is exactly
+            // what employerShiftScope() then hands them the shifts of. The four
+            // fields the form shows but does not let anyone change (the company
+            // name, licence and e-mail) are re-read off the row as before.
+            $rowData = [];
+
+            foreach (['u_fname', 'u_lname', 'u_phone', 'u_pincode'] as $field) {
+                $rowData[$field] = strip_tags((string) $this->input->post($field));
+            }
+
+            foreach (['u_provice', 'u_city'] as $field) {
+                $rowData[$field] = (int) $this->input->post($field);
+            }
 
             $rowData['u_comp_name']  = $this->userinfo[0]->u_comp_name;
             $rowData['u_l_provice']  = $this->userinfo[0]->u_l_provice;
@@ -544,7 +674,6 @@ class Employer extends BaseController
             $rowData['u_email']      = $this->userinfo[0]->u_email;
 
             $rowData['modified'] = date('Y-m-d H:i:s');
-            unset($rowData['updateprofile']);
 
             if (updateQry($table, $rowData, ['u_id' => $this->data['uid']])) {
                 /* logo upload */
@@ -617,10 +746,27 @@ class Employer extends BaseController
     {
         $this->setup();
 
-        $uid         = $this->input->post('uid');
-        $jobid       = $this->input->post('jobid');
+        $uid         = (int) $this->input->post('uid');
+        $jobid       = (int) $this->input->post('jobid');
         $invite_date = date('Y-m-d  H:i:s');
         $sj_status   = 3;
+
+        // Both ids arrive from the browser, and this used to trust them: any
+        // employer could invite anybody to any shift, including one that is not
+        // theirs. The shift has to be one they may act on - not only pending,
+        // since inviting is worth doing on an approved shift too - and the
+        // person has to be a real, active applicant.
+        $applicant = $this->custom->get_where_count('users', [
+            'u_id'       => $uid,
+            'u_usertype' => 2,
+            'u_status'   => 1,
+        ]);
+
+        if (! $this->shiftInScope($jobid, false) || ! $applicant) {
+            echo 0;
+
+            return;
+        }
 
         $invite = $this->custom->get_where('stu_saved_applied_jobs', [
             'agency_id' => $this->data['uid'],

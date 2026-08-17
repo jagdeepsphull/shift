@@ -235,7 +235,7 @@ locally**. After deploying you have to enter these on the live site by hand:
 | What | Where | Note |
 |---|---|---|
 | Additional Details entries | Main Master → Additional Details | The table arrives empty. Until you add entries, that tick-box group is an empty box on the shift and store forms — harmless, but it looks broken. |
-| Each store's shift defaults | Manage Employers → Stores → Edit → Shift defaults | Blank on every store, so a new shift starts empty exactly as it does today. Set them per store as you go. |
+| Each store's shift defaults | Manage Employers → Stores → Edit → Shift defaults, or the employer's own My Stores → Edit | Blank on every store, so a new shift starts empty exactly as it does today. Set them per store as you go — the employer can now do this themselves, which is usually who knows. |
 
 ---
 
@@ -404,12 +404,14 @@ New in this release:
   and Additional Details. Tick some and press Update Store, then reopen — they
   must come back ticked. *If Update appears to do nothing, see the note below on
   province and city.*
-- Post a shift: the form asks for **Store (Location)** and nothing else about
-  who the shift is for. Every store is on that one list, grouped under the
-  employer that owns it. Choosing one fills all three tick-box groups from that
-  store, and the shift is saved for whoever owns it — the User Type and Choose
-  Employer dropdowns that used to sit in front of it are gone, because a store
-  belongs to one employer and naming it names them.
+- Post a shift: the form asks for **Employer (Group)** and **Store (Location)**
+  and nothing else about who the shift is for. Pick the company on the left and
+  the dropdown beside it holds only that company's stores. Choosing a store
+  fills all three tick-box groups from it, and the shift is saved for whoever
+  owns it — the User Type and Choose Employer dropdowns that used to sit in
+  front of this are still gone, because a store belongs to one employer and
+  naming it names them. The group dropdown does not change that: nothing is
+  posted for it, it only narrows the list.
 - Untick something on that shift and save. The **store's** defaults must be
   unchanged — the shift keeps its own copy from the moment it is saved.
 - Post a shift with **Book an Applicant** filled in: pick somebody from the
@@ -477,6 +479,41 @@ New in this release:
   manages, so an owner sees the bookings on their managers' shifts. It was
   scoped to the login's own id, which left an owner able to open a manager's
   shift and its candidate list but not the booking made on it.
+
+Newest changes — **no migration for any of the four**, so there is nothing extra
+to run for them:
+
+- **Every mobile number field takes ten digits and nothing else**, on the public
+  site and in the back office alike. Registration, both profile pages, the store
+  forms and the employer/applicant forms in the admin all cap at ten and refuse
+  letters, spaces and brackets as you type; pasting `(905) 304-7303` leaves
+  `9053047303`. The server re-checks, so this holds against a hand-made request
+  as well as a typed one. Check one field on each side — the front registration
+  form and Manage Employers → Edit will do.
+- **Website boxes no longer demand `http://`.** Typing `example.com` is accepted
+  and stored as `https://example.com`; that is what the field always did on
+  save, but the browser used to refuse to submit until you typed a scheme.
+  Applies to the employer's website on registration and in the back office, and
+  to a store's website and its Google Maps link. Addresses that run code rather
+  than navigate are still dropped — paste `javascript:alert(1)` into a map link
+  and it must save as blank.
+- **An employer can set their own store's shift defaults.** My Stores → Add or
+  Edit now carries the same Software / Details / Additional Details block the
+  back office has. Tick some, save, then post a shift against that store from
+  the employer's side: the three groups must arrive already ticked. Do the same
+  as a **manager** of that store — they own no store row of their own, and
+  getting the branch's defaults is the point of the change.
+- **Store (Location) on the admin shift form is two dropdowns**, employer group
+  then store. See the bullet above about posting a shift.
+
+**Existing phone numbers are not rewritten by deploying.** Nothing runs over the
+`users` or `store` tables, so a number already stored as `+1 905-304-7303` stays
+exactly as it is and every screen keeps showing it. It is cleaned to ten digits
+the next time somebody opens that record and saves it — the form loads the value
+already trimmed, so what is on screen is what will be stored. Worth knowing
+before it is reported as "the system changed my number": it changes on save, by
+the person saving, and never behind their back. The WhatsApp links are unaffected
+either way — they add the country code from `phoneCountryCode` themselves.
 
 **A store that will not save.** `s_city` is a required dropdown filled by ajax
 from the chosen province. If a store's saved province and city do not match, the

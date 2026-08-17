@@ -1629,7 +1629,7 @@ class Sadmin extends BaseController
                     // Same rule the public form uses: the e-mail becomes the
                     // login id, so it has to be a real address and unused.
                     $this->form_validation->set_rules('u_email', 'Email', 'required|valid_email|is_unique[users.u_userid]');
-                    $this->form_validation->set_rules('u_phone', 'Company Conatct No.', 'required');
+                    $this->form_validation->set_rules('u_phone', 'Company Conatct No.', ['required', 'regex_match[' . PHONE_PATTERN . ']'], ['regex_match' => 'The {field} must be ' . PHONE_LENGTH . ' digits, numbers only.']);
                     // The same name rule the public forms apply: letters, spaces
                     // and the punctuation real names contain. Without it the back
                     // office accepted digits and symbols the rest of the site
@@ -1773,7 +1773,7 @@ class Sadmin extends BaseController
                     // Ignoring this row, so re-saving without touching the
                     // e-mail is not rejected as a duplicate of itself.
                     $this->form_validation->set_rules('u_email', 'Email', 'required|valid_email|is_unique[users.u_userid,u_id,' . (int) $id . ']');
-                    $this->form_validation->set_rules('u_phone', 'Company Conatct No.', 'required');
+                    $this->form_validation->set_rules('u_phone', 'Company Conatct No.', ['required', 'regex_match[' . PHONE_PATTERN . ']'], ['regex_match' => 'The {field} must be ' . PHONE_LENGTH . ' digits, numbers only.']);
                     // The same name rule the public forms apply: letters, spaces
                     // and the punctuation real names contain. Without it the back
                     // office accepted digits and symbols the rest of the site
@@ -2273,7 +2273,8 @@ class Sadmin extends BaseController
             // Normalised and scheme-checked: both end up in an href.
             's_map_url'        => safeUrl($this->input->post('s_map_url')),
             's_pincode'        => strip_tags((string) $this->input->post('s_pincode')),
-            's_phone'          => strip_tags((string) $this->input->post('s_phone')),
+            // Digits only, PHONE_LENGTH of them - see normalisePhone().
+            's_phone'          => normalisePhone($this->input->post('s_phone')),
             's_website'        => safeUrl($this->input->post('s_website')),
             // What a shift at this store starts with. Set unconditionally, the
             // same as on the shift form: an all-clear group posts nothing, and
@@ -2336,7 +2337,7 @@ class Sadmin extends BaseController
                     // Same rules the public form applies - the e-mail is the
                     // login id, so it has to be a real address and unused.
                     $this->form_validation->set_rules('u_email', 'Email', 'required|valid_email|is_unique[users.u_userid]');
-                    $this->form_validation->set_rules('u_phone', 'Mobile No.', 'required');
+                    $this->form_validation->set_rules('u_phone', 'Mobile No.', ['required', 'regex_match[' . PHONE_PATTERN . ']'], ['regex_match' => 'The {field} must be ' . PHONE_LENGTH . ' digits, numbers only.']);
                     // The same name rule the public forms apply: letters, spaces
                     // and the punctuation real names contain. Without it the back
                     // office accepted digits and symbols the rest of the site
@@ -2376,7 +2377,7 @@ class Sadmin extends BaseController
             case 'edit':
                 if ($this->input->post('savedata')) {
                     $this->form_validation->set_rules('u_email', 'Email', 'required|valid_email|is_unique[users.u_userid,u_id,' . (int) $id . ']');
-                    $this->form_validation->set_rules('u_phone', 'Mobile No.', 'required');
+                    $this->form_validation->set_rules('u_phone', 'Mobile No.', ['required', 'regex_match[' . PHONE_PATTERN . ']'], ['regex_match' => 'The {field} must be ' . PHONE_LENGTH . ' digits, numbers only.']);
                     // The same name rule the public forms apply: letters, spaces
                     // and the punctuation real names contain. Without it the back
                     // office accepted digits and symbols the rest of the site

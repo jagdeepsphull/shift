@@ -123,6 +123,51 @@
 			// The three tick-box groups a store can hold defaults for.
 			var defaultGroups = ['p_skills', 'p_services', 'p_additional_details'];
 
+			// Store (Location) is two dropdowns: the employer group on the left,
+			// and only that group's stores on the right. The page arrives already
+			// narrowed to the chosen store's group, so nothing here runs on load -
+			// that is what leaves the edit form's saved tick-boxes alone.
+			(function () {
+				var $group = $('#p_store_group');
+				var $store = $('#p_store_id');
+				var raw    = $('#shift_store_options').text();
+				var byGroup;
+
+				if (!$group.length) { return; }
+
+				try {
+					byGroup = JSON.parse(raw);
+				} catch (e) {
+					// Without the list the group dropdown can only empty the store
+					// one, which would be worse than leaving both alone.
+					return;
+				}
+
+				$group.on('change', function () {
+					var stores = byGroup[$(this).val()] || [];
+
+					// Built as text nodes rather than html: a store name and a
+					// company name are typed by hand and nobody vets a bracket
+					// out of them.
+					$store.empty().append($('<option>').val('').text('-- Select Store --'));
+
+					$.each(stores, function (i, store) {
+						$store.append(
+							$('<option>').val(store.id).text(store.label)
+								.attr('data-owner', store.owner)
+								.attr('data-manager', store.manager)
+						);
+					});
+
+					// Changing group clears the store, so `change` fires with an
+					// empty value: the note goes back to its default sentence and
+					// no defaults are copied. Untargeted on purpose - it reaches
+					// both the handler below and select2's own, which is what
+					// redraws the closed dropdown.
+					$store.val('').trigger('change');
+				});
+			})();
+
 
 			// Always by store: it is the only thing the form asks for.
 			function fillDefaults(ask) {
@@ -708,5 +753,7 @@ let user_country_code = "IN";
 
 
 </script>
+
+<?= view('partials/phone_input_script') ?>
 </body>
 </html>

@@ -120,7 +120,47 @@
 	
 		$(document).ready(function () {
 			$('[data-toggle="tooltip"]').tooltip();
-			
+
+			/* Shift form (post_job / edit_job): choosing a store ticks the three
+			   groups from that store's own defaults, the same as the back office
+			   does. The defaults are whatever was ticked on the store itself, so
+			   an owner sets them once and both they and their manager get them.
+
+			   Bound to `change` only, so the edit screen loads holding the
+			   shift's own saved boxes and leaves them exactly as they are. */
+			if ($('#p_store_id').length) {
+				$('#p_store_id').on('change', function () {
+					var storeId = $(this).val();
+
+					if (!storeId) { return; }
+
+					$.ajax({
+						type: 'POST',
+						url: '<?php echo base_url('employer/ajax_getstoredefaults'); ?>',
+						data: { s_id: storeId },
+						dataType: 'json',
+						success: function (defaults) {
+							$.each(['p_skills', 'p_services', 'p_additional_details'], function (i, field) {
+								var $group = $('#cbg_' + field);
+
+								if (!$group.length) { return; }
+
+								/* Replace rather than add to what is ticked: the
+								   employer asked for this store, so this store's
+								   defaults are the answer, not the last one's. */
+								$group.find('input[type=checkbox]').prop('checked', false);
+
+								$.each(defaults[field] || [], function (j, id) {
+									$group.find('input[value="' + id + '"]').prop('checked', true);
+								});
+
+								$group.removeClass('border-danger');
+							});
+						}
+					});
+				});
+			}
+
 			$('#date-range').daterangepicker({
 				autoApply: true,
 				opens: 'center', // Options: 'left', 'right', 'center'
@@ -344,5 +384,7 @@
 		
 		
 	</script>
+
+	<?= view('partials/phone_input_script') ?>
 	</body>
 </html>

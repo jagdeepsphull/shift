@@ -186,7 +186,7 @@
                                         <!-- text input -->
                                         <div class="form-group">
                                             <label>Mobile No.</label>
-                                            <input  type="text" class="form-control" placeholder="Enter <?php echo $pageinfo['title']; ?> Mobile No." name="u_phone" value="<?php echo $u_phone; ?>">
+                                            <input  type="text" class="form-control" placeholder="Enter <?php echo $pageinfo['title']; ?> Mobile No." name="u_phone" value="<?php echo $u_phone; ?>" maxlength="<?= PHONE_LENGTH ?>" inputmode="numeric" pattern="[0-9]{<?= PHONE_LENGTH ?>}" data-phone-input>
                                         </div>
                                     </div>
 									<div class="col-sm-4">
@@ -195,7 +195,7 @@
                                             <?php /* The group's corporate site for a multi-store owner,
                                                the store's own page for a single one. Optional. */ ?>
                                             <label>Website <small class="text-muted">(optional)</small></label>
-                                            <input type="url" class="form-control" placeholder="https://example.com" name="u_website" value="<?php echo esc($u_website); ?>">
+                                            <input type="text" class="form-control" placeholder="example.com" name="u_website" value="<?php echo esc($u_website); ?>">
                                         </div>
                                     </div>
                                     

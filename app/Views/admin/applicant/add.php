@@ -126,7 +126,7 @@
                                         <!-- text input -->
                                         <div class="form-group">
                                             <label>Mobile No.</label>
-                                            <input  required type="text" class="form-control" placeholder="Enter <?php echo $pageinfo['title']; ?> Mobile No." name="u_phone" value="<?php echo $u_phone; ?>">
+                                            <input  required type="text" class="form-control" placeholder="Enter <?php echo $pageinfo['title']; ?> Mobile No." name="u_phone" value="<?php echo $u_phone; ?>" maxlength="<?= PHONE_LENGTH ?>" inputmode="numeric" pattern="[0-9]{<?= PHONE_LENGTH ?>}" data-phone-input>
                                         </div>
                                     </div>
                                     

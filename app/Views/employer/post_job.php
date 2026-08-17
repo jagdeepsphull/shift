@@ -44,7 +44,10 @@
 							<div class="col-lg-4 col-md-4 col-sm-2">
 	                            <div class="form-group">
 									<label>Store (Location)</label>
-									<select required class="form-control" name="p_store_id">
+									<?php /* The id is what the footer script hangs the shift
+								   defaults off: choosing a store ticks what that store
+								   normally offers. */ ?>
+								<select required class="form-control" name="p_store_id" id="p_store_id">
 										<option value="">-- Choose Store --</option>
 										<?php if($stores) {
 											foreach($stores as $store){

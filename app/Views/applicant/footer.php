@@ -286,7 +286,9 @@
 		
 		
 	</script>
-	
+
+	<?= view('partials/phone_input_script') ?>
+
 </body>
 
 </html>

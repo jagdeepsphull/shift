@@ -406,6 +406,7 @@ class Employer extends BaseController
         }
 
         $this->data['province'] = $this->custom->get_where('province', ['p_status' => 1]);
+        $this->loadShiftDefaultLists();
 
         $this->load->owner_inner_view('add_store', $this->data);
     }
@@ -446,6 +447,7 @@ class Employer extends BaseController
         }
 
         $this->data['province'] = $this->custom->get_where('province', ['p_status' => 1]);
+        $this->loadShiftDefaultLists();
 
         $this->load->owner_inner_view('edit_store', $this->data);
     }
@@ -469,11 +471,78 @@ class Employer extends BaseController
             // end up in an href on the shift page and in booking e-mail.
             's_map_url'  => safeUrl($this->input->post('s_map_url')),
             's_pincode'  => strip_tags((string) $this->input->post('s_pincode')),
-            's_phone'    => strip_tags((string) $this->input->post('s_phone')),
+            // Digits only, PHONE_LENGTH of them - the form caps it, this is what
+            // makes the cap true of what gets stored.
+            's_phone'    => normalisePhone($this->input->post('s_phone')),
             's_website'  => safeUrl($this->input->post('s_website')),
+            // What a shift at this store starts with, the same three columns the
+            // back office's store form writes. Set unconditionally: an all-clear
+            // group posts nothing at all, and clearing the last box has to clear
+            // the column rather than leave the old list standing.
+            's_skills'             => implode(',', array_map('intval', (array) $this->input->post('s_skills'))),
+            's_services'           => implode(',', array_map('intval', (array) $this->input->post('s_services'))),
+            's_additional_details' => implode(',', array_map('intval', (array) $this->input->post('s_additional_details'))),
             's_status'   => $this->input->post('s_status') !== null ? (int) $this->input->post('s_status') : 1,
             'modified'   => date('Y-m-d H:i:s'),
         ];
+    }
+
+    /**
+     * The three masters the store form's shift-default boxes are drawn from.
+     *
+     * The same three lists the shift form loads, so a store cannot offer a
+     * choice a shift at that store could not then hold.
+     */
+    private function loadShiftDefaultLists(): void
+    {
+        $this->data['software_skills'] = $this->custom->get_where('software_skills', ['ss_status' => 1]);
+        $this->data['store_service']   = $this->custom->get_where('store_service', ['st_status' => 1]);
+        // Ordered by name, unlike the two above: this master is maintained by
+        // hand and its ids come out in the order they happened to be added.
+        $this->data['additional_details'] = $this->custom->get_where_order('additional_details', ['ad_status' => 1], 'ad_name', 'asc');
+    }
+
+    /**
+     * A store's shift defaults, for the employer's own shift form.
+     *
+     * The back office has the same endpoint. This one is not it: it answers
+     * only for a store this login may actually post against, so asking for
+     * somebody else's store id returns the empty answer rather than telling a
+     * stranger what that branch offers.
+     */
+    public function ajax_getstoredefaults()
+    {
+        $this->setup();
+
+        if ($this->session->userdata('userType') != '1') {
+            return $this->response->setJSON(['s_id' => 0, 'p_skills' => [], 'p_services' => [], 'p_additional_details' => []]);
+        }
+
+        $storeId = (int) $this->input->post('s_id');
+        $store   = null;
+
+        // Their own stores, resolved the same way the picker on the form is -
+        // so a manager gets their group's branch and an owner gets theirs.
+        foreach (employerStores($this->userinfo[0]) as $candidate) {
+            if ((int) $candidate->s_id === $storeId) {
+                $store = $candidate;
+                break;
+            }
+        }
+
+        $ids = static function ($list): array {
+            // The columns hold "3,7,12"; '' has to come back as no ids at all
+            // rather than as one empty one.
+            return array_values(array_filter(array_map('intval', explode(',', (string) $list))));
+        };
+
+        return $this->response->setJSON([
+            // 0 when the id matched no store this login may use.
+            's_id'                 => $store ? (int) $store->s_id : 0,
+            'p_skills'             => $store ? $ids($store->s_skills ?? '') : [],
+            'p_services'           => $store ? $ids($store->s_services ?? '') : [],
+            'p_additional_details' => $store ? $ids($store->s_additional_details ?? '') : [],
+        ]);
     }
 
     /**
@@ -649,7 +718,7 @@ class Employer extends BaseController
         $table = 'users';
 
         if ($this->input->post('updateprofile')) {
-            $this->form_validation->set_rules('u_phone', 'Mobile No.', 'required');
+            $this->form_validation->set_rules('u_phone', 'Mobile No.', ['required', 'regex_match[' . PHONE_PATTERN . ']'], ['regex_match' => 'The {field} must be ' . PHONE_LENGTH . ' digits, numbers only.']);
 
             // A whitelist, for the reason spelled out on shiftRowFromPost().
             // This wrote every key the browser sent, straight onto the `users`
@@ -663,6 +732,9 @@ class Employer extends BaseController
             foreach (['u_fname', 'u_lname', 'u_phone', 'u_pincode'] as $field) {
                 $rowData[$field] = strip_tags((string) $this->input->post($field));
             }
+
+            // Digits only, PHONE_LENGTH of them - see normalisePhone().
+            $rowData['u_phone'] = normalisePhone($rowData['u_phone']);
 
             foreach (['u_provice', 'u_city'] as $field) {
                 $rowData[$field] = (int) $this->input->post($field);

@@ -11,6 +11,7 @@
 const { test, expect } = require('@playwright/test');
 const { loginAsAdmin, settle, expectNoServerError } = require('../helpers/admin');
 const { query, scalar } = require('../helpers/db');
+const { pickShiftStore } = require('../helpers/stores');
 
 const ids = {};
 
@@ -95,10 +96,10 @@ test('choosing a store fills the shift form from that store', async ({ page }) =
   // Nothing is ticked before a store is chosen.
   expect(await ticked(page, 'p_services')).toEqual([]);
 
-  // No employer is named anywhere on this form - the store carries that.
+  // No employer is *asked for* on this form - the group dropdown only narrows
+  // the store list, and the store carries the employer on its own.
+  await pickShiftStore(page, ids.storeOne);
   await expect(page.locator(`#p_store_id option[value="${ids.storeOne}"]`)).toHaveCount(1);
-
-  await page.selectOption('#p_store_id', String(ids.storeOne));
   await expect
     .poll(() => ticked(page, 'p_additional_details'))
     .toEqual([String(ids.detailA)]);
@@ -131,24 +132,29 @@ test('every store is on the list, under the employer that owns it', async ({ pag
 
   await page.goto('sadmin/postjobs/add');
 
-  // The form asks for a store and nothing else, so every employer's stores are
-  // in the one list - grouped under their owner, which is what tells two
-  // branches of different chains that share a name apart.
-  const groups = await page.locator('#p_store_id optgroup').evaluateAll(
-    (els) => els.map((e) => e.getAttribute('label')));
+  // Every employer that owns a store is in the group dropdown, which is what
+  // tells two branches of different chains that share a name apart.
+  const groups = await page.locator('#p_store_group option').evaluateAll(
+    (els) => els.map((e) => (e.textContent || '').trim()));
 
   expect(groups).toContain('E2E Sdef Chain');
   expect(groups).toContain('E2E Sdef Solo');
 
-  const under = (label) => page.locator(`#p_store_id optgroup[label="${label}"] option`)
-    .evaluateAll((els) => els.map((e) => e.value).sort());
+  // Choosing one leaves only that group's stores in the second dropdown - the
+  // whole point of the split.
+  const storesUnder = async (ownerId) => {
+    await page.selectOption('#p_store_group', String(ownerId));
 
-  expect(await under('E2E Sdef Chain')).toEqual([String(ids.storeOne), String(ids.storeTwo)].sort());
-  expect(await under('E2E Sdef Solo')).toEqual([String(soloStore)]);
+    return page.locator('#p_store_id option').evaluateAll(
+      (els) => els.map((e) => e.value).filter(Boolean).sort());
+  };
+
+  expect(await storesUnder(ids.owner)).toEqual([String(ids.storeOne), String(ids.storeTwo)].sort());
+  expect(await storesUnder(solo)).toEqual([String(soloStore)]);
 
   // And picking one of them fills the form from that store, with the employer
-  // never having been named.
-  await page.selectOption('#p_store_id', String(soloStore));
+  // never having been asked for.
+  await pickShiftStore(page, soloStore);
   await expect.poll(() => ticked(page, 'p_additional_details')).toEqual([String(ids.detailA)]);
   expect(await ticked(page, 'p_skills')).toEqual([String(ids.skill)]);
 
@@ -157,12 +163,12 @@ test('every store is on the list, under the employer that owns it', async ({ pag
 
 test('switching store replaces the defaults rather than adding to them', async ({ page }) => {
   await page.goto('sadmin/postjobs/add');
-  await expect(page.locator(`#p_store_id option[value="${ids.storeTwo}"]`)).toHaveCount(1);
 
-  await page.selectOption('#p_store_id', String(ids.storeOne));
+  await pickShiftStore(page, ids.storeOne);
   await expect.poll(() => ticked(page, 'p_services')).toEqual([String(ids.serviceA)]);
 
-  await page.selectOption('#p_store_id', String(ids.storeTwo));
+  // Both branches belong to the one chain, so this is a move within the group.
+  await pickShiftStore(page, ids.storeTwo);
   await expect.poll(() => ticked(page, 'p_services')).toEqual([String(ids.serviceB)]);
 
   // Store two offers no software, so that group has to end up empty - not

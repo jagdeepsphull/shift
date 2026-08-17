@@ -221,7 +221,7 @@ WHERE
         if ($this->input->post('updateprofile')) {
             $this->form_validation->set_rules('u_fname', 'First Name', ['required', 'regex_match[' . NAME_PATTERN . ']']);
             $this->form_validation->set_rules('u_lname', 'Last Name', ['required', 'regex_match[' . NAME_PATTERN . ']']);
-            $this->form_validation->set_rules('u_phone', 'Mobile Number', 'required');
+            $this->form_validation->set_rules('u_phone', 'Mobile Number', ['required', 'regex_match[' . PHONE_PATTERN . ']'], ['regex_match' => 'The {field} must be ' . PHONE_LENGTH . ' digits, numbers only.']);
 
             $userData = cleanArray($this->input->post());
 

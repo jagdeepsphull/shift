@@ -33,7 +33,10 @@
 							<div class="col-lg-4 col-md-4 col-sm-2">
 	                            <div class="form-group">
 									<label>Store (Location)</label>
-									<select required class="form-control" name="p_store_id">
+									<?php /* See post_job.php: moving the shift to another
+									   store re-ticks from that store's defaults. Nothing
+									   fires on load, so the shift's own saved boxes stand. */ ?>
+									<select required class="form-control" name="p_store_id" id="p_store_id">
 										<option value="">-- Choose Store --</option>
 										<?php if($stores) {
 											foreach($stores as $store){

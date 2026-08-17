@@ -250,9 +250,14 @@
             value.length >= 8;
         }, 'Password must include at least 8 characters, an uppercase letter, a lowercase letter, a number, and a special character.');
 
+        // A mobile number is stored as ten bare digits - no country code,
+        // brackets or dashes - which is what PHONE_PATTERN enforces on the
+        // server. The field itself refuses anything else as it is typed
+        // (see partials/phone_input_script), so this is the backstop for a
+        // short number rather than a badly formatted one.
         $.validator.addMethod('phoneUSCAN', function (value, element) {
-          return this.optional(element) || /^\+?1?[-.\s]?(\(?\d{3}\)?)[-.\s]?\d{3}[-.\s]?\d{4}$/.test(value);
-        }, 'Please enter a valid phone number (e.g., (123) 456-7890 or 123-456-7890).');
+          return this.optional(element) || /^[0-9]{<?= PHONE_LENGTH ?>}$/.test(value);
+        }, 'Please enter a <?= PHONE_LENGTH ?> digit mobile number (digits only, e.g. 9053047303).');
 
         $.validator.addMethod('validateCanadianPostalCode', function (value, element) {
           return this.optional(element) || /^[A-Za-z]\d[A-Za-z] \d[A-Za-z]\d$/.test(value);
@@ -303,7 +308,10 @@
               required: 'Email is required.',
               validEmail: 'Please enter a valid email address ending with a proper domain (e.g., .com, .org).'
             },
-            u_phone: { required: 'Phone number is required.' },
+            u_phone: {
+              required: 'Mobile number is required.',
+              phoneUSCAN: 'Please enter a <?= PHONE_LENGTH ?> digit mobile number (digits only, e.g. 9053047303).'
+            },
             password: {
               required: 'Password is required.',
               strongPassword: 'Password must include at least 8 characters, an uppercase letter, a lowercase letter, a number, and a special character.'
@@ -327,6 +335,8 @@
         });
       });
     </script>
+
+    <?= view('partials/phone_input_script') ?>
 
   </body>
 </html>

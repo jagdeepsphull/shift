@@ -16,6 +16,7 @@
 const { test, expect } = require('@playwright/test');
 const { loginAsAdmin, settle, expectNoServerError } = require('../helpers/admin');
 const { query, scalar } = require('../helpers/db');
+const { pickShiftStore } = require('../helpers/stores');
 
 const ids = {};
 
@@ -84,27 +85,37 @@ test('the form asks for a store and never for an employer', async ({ page }) => 
   await page.goto('sadmin/postjobs/add');
   await expectNoServerError(page);
 
-  // The first select on the form is the store itself.
+  // The form opens on the store question: the group that narrows the list,
+  // then the store itself.
   const ids_ = await page.locator('.card-body select').evaluateAll((els) =>
     els.map((e) => e.id).filter(Boolean));
-  expect(ids_[0]).toBe('p_store_id');
+  expect(ids_.slice(0, 2)).toEqual(['p_store_group', 'p_store_id']);
 
-  // Neither of the two it replaced is anywhere on the page.
+  // Neither of the two it replaced is anywhere on the page. The group dropdown
+  // is not one of them coming back: it is unnamed, so nothing is posted for it
+  // and the employer is still read off the store.
   await expect(page.locator('#u_emp_kind')).toHaveCount(0);
   await expect(page.locator('#u_id')).toHaveCount(0);
   await expect(page.locator('[name="u_id"]')).toHaveCount(0);
+  await expect(page.locator('#p_store_group')).not.toHaveAttribute('name', /./);
 
-  // Both chains' stores are offered, each under its own owner.
-  const groups = await page.locator('#p_store_id optgroup').evaluateAll((els) =>
-    els.map((e) => e.getAttribute('label')));
+  // Both chains are offered as groups.
+  const groups = await page.locator('#p_store_group option').evaluateAll((els) =>
+    els.map((e) => (e.textContent || '').trim()));
   expect(groups).toContain('E2E Storeonly Alpha');
   expect(groups).toContain('E2E Storeonly Beta');
+
+  // And the store list starts empty, holding only its placeholder, until one
+  // of them is picked.
+  const stores = await page.locator('#p_store_id option').evaluateAll((els) =>
+    els.map((e) => e.value).filter(Boolean));
+  expect(stores).toEqual([]);
 });
 
 test('the shift is saved for whoever owns the store that was chosen', async ({ page }) => {
   await page.goto('sadmin/postjobs/add');
 
-  await page.selectOption('#p_store_id', String(ids.betaStore));
+  await pickShiftStore(page, ids.betaStore);
 
   // The store's defaults tick the two required groups; wait for them rather
   // than ticking by hand, or the submit races the fill.
@@ -151,6 +162,11 @@ test('the edit screen opens on the shift own store', async ({ page }) => {
   await expectNoServerError(page);
 
   await expect(page.locator('#p_store_id')).toHaveValue(String(ids.alphaStore));
+
+  // Both dropdowns arrive already on the shift's own store, rendered by the
+  // server - nothing runs on load to put them there, which is what leaves the
+  // shift's saved tick-boxes alone.
+  await expect(page.locator('#p_store_group')).toHaveValue(String(ids.alpha));
   await expect(page.locator('#u_id')).toHaveCount(0);
 });
 
@@ -165,7 +181,7 @@ test('moving a shift to another chain store moves the shift to that chain', asyn
   const shift = scalar("SELECT p_id FROM post_job WHERE p_job_title = 'E2E-STOREONLY-2';");
 
   await page.goto(`sadmin/postjobs/edit/${shift}`);
-  await page.selectOption('#p_store_id', String(ids.betaStore));
+  await pickShiftStore(page, ids.betaStore);
 
   await settle(page);
   await Promise.all([page.waitForLoadState('load'), page.click('input[name="savedata"]')]);
@@ -184,22 +200,22 @@ test('the note names the manager, or the owner when there is none', async ({ pag
   // Before a store is chosen there is nobody to name.
   await expect(page.locator('#store_owner_note')).toHaveText(/employer that owns this store/i);
 
-  await page.selectOption('#p_store_id', String(ids.betaStore));
+  await pickShiftStore(page, ids.betaStore);
 
-  // The manager alone: the store is in the dropdown and its owner is the
-  // group heading above it, so repeating either would say nothing new.
+  // The manager alone: the store is in the second dropdown and its owner is
+  // showing in the first, so repeating either would say nothing new.
   const note = page.locator('#store_owner_note');
   await expect(note).toContainText('Managed by (Priya Raman)');
   expect(await note.locator('strong').allTextContents()).toEqual(['Priya Raman']);
 
   // Neither the store nor its owner is repeated: one is the option showing in
-  // the dropdown, the other is the group heading it sits under.
+  // the store dropdown, the other the one showing in the group dropdown.
   await expect(note).not.toContainText('E2E Storeonly Beta Branch');
   await expect(note).not.toContainText('E2E Storeonly Beta,');
 
   // Most stores have no manager account - the owner runs it themselves - so
   // those name the owner instead of leaving the line saying nobody.
-  await page.selectOption('#p_store_id', String(ids.alphaStore));
+  await pickShiftStore(page, ids.alphaStore);
   await expect(note).toContainText('Owned by (E2E Storeonly Alpha)');
   expect(await note.locator('strong').allTextContents()).toEqual(['E2E Storeonly Alpha']);
 });

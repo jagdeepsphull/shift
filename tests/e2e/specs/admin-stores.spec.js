@@ -225,9 +225,8 @@ test('a pasted map link is normalised, and a dangerous one is dropped', async ({
 
   // Typed without a scheme, the way somebody pastes a bare domain. Stored as
   // typed it would resolve as a path on this site rather than as a link out.
-  await page.locator('input[name="s_map_url"]').evaluate((el) => {
-    /** @type {HTMLInputElement} */ (el).type = 'text';
-  });
+  // The field is deliberately not type="url", so this goes in as typed rather
+  // than being refused by the browser for having no http:// in front of it.
   await page.fill('input[name="s_map_url"]', 'maps.google.com/?q=E2E');
   await save(page);
 
@@ -236,9 +235,6 @@ test('a pasted map link is normalised, and a dangerous one is dropped', async ({
 
   // A scheme that runs code rather than navigating is refused outright.
   await page.goto(`sadmin/stores/edit/${ids.chainStore}`);
-  await page.locator('input[name="s_map_url"]').evaluate((el) => {
-    /** @type {HTMLInputElement} */ (el).type = 'text';
-  });
   await page.fill('input[name="s_map_url"]', 'javascript:alert(1)');
   await save(page);
 

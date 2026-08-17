@@ -118,7 +118,7 @@
                                     <div class="col-sm-3">
                                         <div class="form-group">
                                             <label>Store Phone</label>
-                                            <input type="text" class="form-control" placeholder="Enter Store Phone" name="s_phone" value="<?php echo esc($s_phone); ?>">
+                                            <input type="text" class="form-control" placeholder="Enter Store Phone" name="s_phone" value="<?php echo esc($s_phone); ?>" maxlength="<?= PHONE_LENGTH ?>" inputmode="numeric" pattern="[0-9]{<?= PHONE_LENGTH ?>}" data-phone-input>
                                         </div>
                                     </div>
                                     <div class="col-sm-3">

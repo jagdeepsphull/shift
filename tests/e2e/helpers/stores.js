@@ -56,6 +56,15 @@ const STORE_ADD_URL = 'employer/add_store';
 const STORE_SELECT = `select[name="${SHIFT_STORE_COLUMN}"]`;
 
 /**
+ * The admin shift form's store picker, which is two dropdowns: the employer
+ * group, then that group's stores. The group one is deliberately unnamed - it
+ * is a way of finding the store, not a field the form posts - so it is reached
+ * by id. See app/Views/partials/shift_store_picker.php.
+ */
+const ADMIN_GROUP_SELECT = '#p_store_group';
+const ADMIN_STORE_SELECT = '#p_store_id';
+
+/**
  * Three stores under one login, with deliberately different addresses and
  * phone numbers so a screen that shows the wrong one is caught rather than
  * accidentally matching.
@@ -297,6 +306,41 @@ function storeIdOfShift(shiftTitle) {
   );
 }
 
+/**
+ * Choose a store on an admin shift form.
+ *
+ * Store (Location) is two dropdowns there: the employer group first, and only
+ * that group's stores second. Which group holds a store is read off the page's
+ * own `#shift_store_options` blob - the same data the picker itself filters on -
+ * so a caller needs nothing but the store id, exactly as when it was one
+ * dropdown.
+ *
+ * @param {import('@playwright/test').Page} page
+ * @param {number|string} storeId
+ */
+async function pickShiftStore(page, storeId) {
+  const groupId = await page.locator('#shift_store_options').evaluate((el, id) => {
+    const byGroup = JSON.parse(el.textContent || '{}');
+
+    for (const group of Object.keys(byGroup)) {
+      if ((byGroup[group] || []).some((store) => String(store.id) === String(id))) {
+        return group;
+      }
+    }
+
+    return '';
+  }, String(storeId));
+
+  if (groupId === '') {
+    throw new Error(`Store ${storeId} is not offered by the picker on this page.`);
+  }
+
+  // Choosing the group refills the store dropdown; selectOption waits for the
+  // option to appear.
+  await page.selectOption(ADMIN_GROUP_SELECT, groupId);
+  await page.selectOption(ADMIN_STORE_SELECT, String(storeId));
+}
+
 module.exports = {
   STORES,
   GROUP,
@@ -314,6 +358,9 @@ module.exports = {
   STORE_LIST_URL,
   STORE_ADD_URL,
   STORE_SELECT,
+  ADMIN_GROUP_SELECT,
+  ADMIN_STORE_SELECT,
+  pickShiftStore,
   multiStoreMissing,
   seedStores,
   removeStores,

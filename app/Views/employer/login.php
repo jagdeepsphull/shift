@@ -91,7 +91,9 @@
                                 <label>Mobile</label>
                                 <div class="input-with-icon">
                                     <input type="text" class="form-control" placeholder="Enter Your Mobile"
-                                        name="u_a_cp_mobile" name="u_a_cp_mobile" required>
+                                        name="u_a_cp_mobile" id="u_a_cp_mobile" required
+                                        maxlength="<?= PHONE_LENGTH ?>" inputmode="numeric"
+                                        pattern="[0-9]{<?= PHONE_LENGTH ?>}" data-phone-input>
                                     <i class="theme-cl ti-email"></i>
                                 </div>
                             </div>

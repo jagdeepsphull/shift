@@ -12,6 +12,7 @@
 const { test, expect } = require('@playwright/test');
 const { loginAsAdmin, settle, expectNoServerError, filterTable } = require('../helpers/admin');
 const { query, scalar, count } = require('../helpers/db');
+const { pickShiftStore } = require('../helpers/stores');
 
 const ids = {};
 
@@ -75,9 +76,9 @@ async function fillShift(page) {
   await page.goto('sadmin/postjobs/add');
 
   // The store is the whole of the question: it belongs to one employer, so
-  // choosing it chooses them, and the shift is saved against that owner.
-  await expect(page.locator(`#p_store_id option[value="${ids.store}"]`)).toHaveCount(1);
-  await page.selectOption('#p_store_id', String(ids.store));
+  // choosing it chooses them, and the shift is saved against that owner. It is
+  // reached through its group, which is the first of the two dropdowns.
+  await pickShiftStore(page, ids.store);
 
   // The store's own defaults tick the two required groups; wait for them
   // rather than ticking by hand, or the submit races the fill.

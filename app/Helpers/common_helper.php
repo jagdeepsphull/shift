@@ -185,6 +185,51 @@ if (! function_exists('qry')) {
     }
 }
 
+if (! function_exists('phoneFields')) {
+    /**
+     * The POST/column names that hold a mobile number, anywhere on the site.
+     *
+     * One list, so a number is trimmed to PHONE_LENGTH digits the same way
+     * whether it arrived from registration, a profile page, a store form or the
+     * back office.
+     *
+     * @return string[]
+     */
+    function phoneFields(): array
+    {
+        return ['u_phone', 's_phone', 'mobile', 'u_a_cp_mobile'];
+    }
+}
+
+if (! function_exists('normalisePhone')) {
+    /**
+     * A mobile number as typed, reduced to the bare digits that get stored.
+     *
+     * The forms already cap the field at PHONE_LENGTH and refuse anything but
+     * digits, but a form field is only a suggestion - the value still arrives
+     * over HTTP and can say anything. So brackets, spaces, dashes and a leading
+     * country code are dropped here, and the result is cut to PHONE_LENGTH
+     * digits. An empty box stays empty: the field is optional on the store
+     * forms, and this must not turn a blank into a bogus number.
+     */
+    function normalisePhone($phone): string
+    {
+        $digits = preg_replace('/\D+/', '', (string) $phone);
+
+        if ($digits === '') {
+            return '';
+        }
+
+        // "+1 905 304 7303" and "1-905-304-7303" are the same ten-digit number
+        // with the North American country code in front of it.
+        if (strlen($digits) === PHONE_LENGTH + 1 && $digits[0] === '1') {
+            $digits = substr($digits, 1);
+        }
+
+        return substr($digits, 0, PHONE_LENGTH);
+    }
+}
+
 if (! function_exists('cleanArray')) {
     function cleanArray($arraydata)
     {
@@ -197,6 +242,16 @@ if (! function_exists('cleanArray')) {
                 }
             } else {
                 $cleanarray[$key] = strip_tags((string) $value);
+            }
+        }
+
+        // Every form that writes a row through this funnel - registration, both
+        // profile pages, and the back-office user forms - gets the same
+        // digits-only, PHONE_LENGTH-long number, without each caller having to
+        // remember to ask for it.
+        foreach (phoneFields() as $field) {
+            if (isset($cleanarray[$field]) && ! is_array($cleanarray[$field])) {
+                $cleanarray[$field] = normalisePhone($cleanarray[$field]);
             }
         }
 

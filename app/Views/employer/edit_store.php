@@ -76,7 +76,7 @@
 	                        <div class="col-sm-6">
 	                            <div class="form-group">
 	                                <label>Store Phone</label>
-	                                <input type="text" class="form-control" name="s_phone" placeholder="Enter Store Phone" value="<?php echo esc($s_phone); ?>">
+	                                <input type="text" class="form-control" name="s_phone" placeholder="Enter Store Phone" value="<?php echo esc($s_phone); ?>" maxlength="<?= PHONE_LENGTH ?>" inputmode="numeric" pattern="[0-9]{<?= PHONE_LENGTH ?>}" data-phone-input>
 	                            </div>
 	                        </div>
 	                        <div class="col-sm-6">
@@ -87,6 +87,24 @@
 	                                    <option value="0" <?php echo ($s_status !== '' && $s_status == 0) ? 'selected' : ''; ?>>Inactive</option>
 	                                </select>
 	                            </div>
+	                        </div>
+	                    </div>
+
+	                    <?php /* What a shift at this store starts with - see add_store.php.
+	                       Changing these never reaches back into shifts already posted. */ ?>
+	                    <div class="row">
+	                        <div class="col-md-12 col-sm-12">
+	                            <h5 class="mt-2 mb-1">Shift defaults</h5>
+	                            <p class="text-muted small">Ticked here, these arrive already ticked on a new shift at this store - whether you post it or your manager does. Changing them on a shift affects that shift only; change them here to affect future ones.</p>
+	                        </div>
+	                        <div class="col-sm-4">
+	                            <?= view('partials/checkbox_grid', ['name' => 's_skills', 'label' => 'Software', 'items' => $software_skills, 'idKey' => 'ss_id', 'labelKey' => 'ss_name', 'selected' => $s_skills, 'required' => false,]) ?>
+	                        </div>
+	                        <div class="col-sm-4">
+	                            <?= view('partials/checkbox_grid', ['name' => 's_services', 'label' => 'Details', 'items' => $store_service, 'idKey' => 'st_id', 'labelKey' => 'st_service_name', 'selected' => $s_services, 'required' => false,]) ?>
+	                        </div>
+	                        <div class="col-sm-4">
+	                            <?= view('partials/checkbox_grid', ['name' => 's_additional_details', 'label' => 'Additional Details', 'items' => $additional_details, 'idKey' => 'ad_id', 'labelKey' => 'ad_name', 'selected' => $s_additional_details, 'required' => false,]) ?>
 	                        </div>
 	                    </div>
 

@@ -36,8 +36,11 @@ $showWebsite = $showWebsite ?? true;
     <div class="col-sm-6">
         <div class="form-group">
             <label>Google Maps Link <small class="text-muted">(optional)</small></label>
-            <input type="url" class="form-control" name="s_map_url"
-                   placeholder="https://maps.app.goo.gl/..."
+            <!-- Deliberately not type="url": that makes the browser refuse
+                 anything without an http:// in front of it, and what people
+                 paste is "maps.app.goo.gl/...". safeUrl() puts the scheme on. -->
+            <input type="text" class="form-control" name="s_map_url"
+                   placeholder="maps.app.goo.gl/..."
                    value="<?= esc($mapUrl ?? '') ?>">
             <small class="form-text text-muted">
                 In Google Maps, find this store, then Share &gt; Copy link and paste it here.
@@ -52,8 +55,9 @@ $showWebsite = $showWebsite ?? true;
     <div class="col-sm-6">
         <div class="form-group">
             <label>Store Website <small class="text-muted">(optional)</small></label>
-            <input type="url" class="form-control" name="s_website"
-                   placeholder="https://example.com"
+            <!-- Plain text, for the reason on the map link above. -->
+            <input type="text" class="form-control" name="s_website"
+                   placeholder="example.com"
                    value="<?= esc($website ?? '') ?>">
             <small class="form-text text-muted">
                 Only if this location has a page of its own. Left blank, the employer's

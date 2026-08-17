@@ -104,3 +104,12 @@ defined('ASSETS_URL') || define('ASSETS_URL', 'assets/');
  | Kept here so the browser rule and the server rule cannot drift apart.
  */
 defined('NAME_PATTERN') || define('NAME_PATTERN', "/^[\p{L}\s'’\-().,]+$/u");
+
+/*
+ | A mobile number is exactly ten digits and nothing else - no spaces, brackets,
+ | dashes or country code. Kept here, next to NAME_PATTERN and for the same
+ | reason: the browser rule, the `maxlength` and the server rule are all driven
+ | from this one length so they cannot drift apart.
+ */
+defined('PHONE_LENGTH')  || define('PHONE_LENGTH', 10);
+defined('PHONE_PATTERN') || define('PHONE_PATTERN', '/^[0-9]{' . PHONE_LENGTH . '}$/');

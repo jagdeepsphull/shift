@@ -494,6 +494,9 @@ class Front extends BaseController
             $this->form_validation->set_rules('password', 'password', 'required');
             $this->form_validation->set_rules('u_fname', 'First Name', ['required', 'regex_match[' . NAME_PATTERN . ']']);
             $this->form_validation->set_rules('u_lname', 'Last Name', ['required', 'regex_match[' . NAME_PATTERN . ']']);
+            // The form marks this required and the browser refuses anything but
+            // PHONE_LENGTH digits; this is the same rule where it counts.
+            $this->form_validation->set_rules('u_phone', 'Mobile No.', ['required', 'regex_match[' . PHONE_PATTERN . ']'], ['regex_match' => 'The {field} must be ' . PHONE_LENGTH . ' digits, numbers only.']);
 
             $this->form_validation->set_message('is_unique', 'The %s is already taken');
             $this->form_validation->set_rules('conf_password', 'confirm password', 'required|matches[password]');
@@ -574,7 +577,9 @@ class Front extends BaseController
             $userData = [
                 'u_userid'     => strip_tags((string) $this->input->post('u_email')),
                 'u_pass'       => $this->custom->hashPassword((string) $this->input->post('password')),
-                'u_phone'      => strip_tags((string) $this->input->post('u_phone')),
+                // Digits only, PHONE_LENGTH of them - see normalisePhone(). The
+                // store row below copies this, so both land the same.
+                'u_phone'      => normalisePhone($this->input->post('u_phone')),
                 'u_email'      => strip_tags((string) $this->input->post('u_email')),
                 'u_comp_name'  => $isOwner ? strip_tags((string) $this->input->post('u_comp_name')) : '',
                 // Optional, and only meaningful for an employer. Normalised and

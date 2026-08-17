@@ -180,7 +180,7 @@
 											<div class="col-sm-6">
 												<div class="form-group">
 													<label id="websitelbl">Store Website <span class="text-muted" style="font-size:12px;">(optional)</span></label>
-													<input type="url" class="form-control" placeholder="https://example.com" name="u_website" id="u_website" value="<?php echo esc($u_website ?? ''); ?>">
+													<input type="text" class="form-control" placeholder="example.com" name="u_website" id="u_website" value="<?php echo esc($u_website ?? ''); ?>">
 												</div>
 											</div>
 										</div>
@@ -243,7 +243,7 @@
 												<div class="form-group">
 													<label>Mobile No.</label>
 													<div class="input-with-icon">
-														<input  type="text" class="form-control" placeholder="Enter Mobile No." id="u_phone" name="u_phone" value="<?php echo $u_phone; ?>">
+														<input  type="text" class="form-control" placeholder="Enter Mobile No." id="u_phone" name="u_phone" value="<?php echo $u_phone; ?>" maxlength="<?= PHONE_LENGTH ?>" inputmode="numeric" pattern="[0-9]{<?= PHONE_LENGTH ?>}" data-phone-input>
 													</div>
 												</div>
 											</div>

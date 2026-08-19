@@ -34,15 +34,11 @@
                         <tbody>
                             <?php if($jobslist){?>
                             <?php foreach($jobslist as $job){
-								//$applied_cand = custom()->get_where('stu_saved_applied_jobs',array('p_id'=>$job->p_id,'sj_status'=>1,'sj_is_approved'=>1));
-								// $selected_cand = custom()->get_where('stu_saved_applied_jobs',array('p_id'=>$job->p_id,'sj_status'=>1,'sj_is_approved'=>1));
-								// pr($selected_cand);
-								
-								$selected_cand = custom()->query("select phrmcist.* from stu_saved_applied_jobs ssa,  users phrmcist where ssa.u_id = phrmcist.u_id and ssa.p_id = ".$job->p_id. " and ssa.sj_status =1 and ssa.sj_is_approved =1  ");
-								
-								//qry();
-								//pr($selected_cand);
-								
+								// Who is booked on this shift, looked up in the controller for the
+								// whole list at once. Null while nobody is on it.
+								$booked      = $bookings[(int) $job->p_id] ?? null;
+								$booked_name = $booked ? trim($booked->u_fname.' '.$booked->u_lname) : '';
+								$booked_msg  = $booked ? trim((string) $booked->sj_admin_comment) : '';
 							?>
                             <tr>
                                 <td><?php echo $job->p_id;?></td>
@@ -51,15 +47,16 @@
 								<td><?php echo getProvinceName($job->p_province); ?></td>
 								<td data-order="<?php echo shiftDateSortValue($job); ?>"><?php echo dateFormat($job->p_dates); ?></td>
 								<td><?php echo $job->p_shift_time; ?></td>
-								<td><a href="<?php //echo base_url("employer/applied_candidates/".$job->p_id);?>"><?php //echo count($applied_cand);?></a> 
-								<?php if($selected_cand){ $application = $selected_cand[0];?>
-								<button type="button" data-toggle="tooltip" data-placement="top" title="View Applicant Details" class="btn btn-info btn-sm applicant-btn" data-shiftfor="<?php echo getShiftForName($job->p_shift_for);?>" data-name="<?php echo $application->u_fname.' '. $application->u_lname; ?>" data-licen="<?php echo $application->u_licence_no; ?>" data-licen_prov="<?php echo getProvinceName($application->u_l_provice); ?>" >View</button>
-								<?php }?>
+								<td>
+								<?php if($booked){?>
+								<span class="d-block"><?php echo esc($booked_name); ?></span>
+								<button type="button" data-toggle="tooltip" data-placement="top" title="View Applicant Details" class="btn btn-info btn-sm applicant-btn" data-shiftfor="<?php echo esc(getShiftForName($job->p_shift_for), 'attr');?>" data-name="<?php echo esc($booked_name, 'attr'); ?>" data-licen="<?php echo esc($booked->u_licence_no, 'attr'); ?>" data-licen_prov="<?php echo esc(getProvinceName($booked->u_l_provice), 'attr'); ?>" data-message="<?php echo esc($booked_msg, 'attr'); ?>">View</button>
+								<?php } else { echo '-'; }?>
 								</td>
                                 <!-- <td><?php echo ($job->p_status==0) ? 'Pending for Approval'  : 'Approved' ; ?></td> -->
                                 <td><?php echo $approved[$job->p_approved] ; ?></td>
                                 <td>
-									<button type="button" data-toggle="tooltip" data-placement="top" title="View Shift Details"  class="btn btn-info btn-sm view-btn" data-shiftfor="<?php echo getShiftForName($job->p_shift_for);?>" data-shift_date="<?php echo dateFormat($job->p_dates); ?>" data-shift_time="<?php echo $job->p_shift_time; ?>"  data-shift_rate="<?php echo '$'.$job->p_hourly_rate; ?>" data-sofskills="<?php echo getSoftwareSkills($job->p_skills); ?>" data-ofcser="<?php echo getStoreServices($job->p_services); ?>">View</button>
+									<button type="button" data-toggle="tooltip" data-placement="top" title="View Shift Details"  class="btn btn-info btn-sm view-btn" data-shiftfor="<?php echo getShiftForName($job->p_shift_for);?>" data-shift_date="<?php echo dateFormat($job->p_dates); ?>" data-shift_time="<?php echo $job->p_shift_time; ?>" <?php if ($can_set_rate) { ?>data-shift_rate="<?php echo (trim((string) $job->p_hourly_rate) !== '') ? '$' . $job->p_hourly_rate : 'Not set yet'; ?>"<?php } ?> data-sofskills="<?php echo getSoftwareSkills($job->p_skills); ?>" data-ofcser="<?php echo getStoreServices($job->p_services); ?>" data-assigned="<?php echo esc($booked_name, 'attr'); ?>" data-message="<?php echo esc($booked_msg, 'attr'); ?>">View</button>
 									<?php /* Only while the shift is still awaiting approval. Checking
 								   p_approved too stops the nightly expiry job (which sets
 								   p_status = 0) from re-opening past shifts for editing. */ ?>
@@ -98,22 +95,34 @@
                 <div class="modal-body">
 					<form class="form">
 						<div class="form-group">
-							<label>Shift Requested For:</label> <input id="modalShiftFor" class="form-control" >
+							<label>Shift Requested For:</label> <input id="modalShiftFor" class="form-control" readonly>
 						</div>
 						<div class="form-group">
-							<label>Shift Date:</label> <input id="modalShiftDate" class="form-control" >
+							<label>Shift Date:</label> <input id="modalShiftDate" class="form-control" readonly>
 						</div>
 						<div class="form-group">
-							<label>Shift Time:</label> <input id="modalShiftTime" class="form-control" >
+							<label>Shift Time:</label> <input id="modalShiftTime" class="form-control" readonly>
+						</div>
+						<?php /* The group sets what a shift pays, so a manager is not
+						   shown it back here either - see Employer::setup(). */ ?>
+						<?php if ($can_set_rate) { ?>
+							<div class="form-group">
+								<label>Your Shift Rate:</label> <input id="modalShiftRate" class="form-control" readonly>
+							</div>
+						<?php } ?>
+						<div class="form-group">
+							<label>Softwares:</label> <input id="modalSoftSkills" class="form-control" readonly>
 						</div>
 						<div class="form-group">
-							<label>Your Shift Rate:</label> <input id="modalShiftRate" class="form-control" >
+							<label>Details:</label> <input id="modalOffSer" class="form-control" readonly>
 						</div>
-						<div class="form-group">
-							<label>Softwares:</label> <input id="modalSoftSkills" class="form-control" >
+						<?php /* The booking, when there is one. Hidden by the footer script on a
+						   shift nobody is on yet, rather than shown empty. */ ?>
+						<div class="form-group" id="modalAssignedGroup">
+							<label>Assigned To:</label> <input id="modalAssigned" class="form-control" readonly>
 						</div>
-						<div class="form-group">
-							<label>Details:</label> <input id="modalOffSer" class="form-control" >
+						<div class="form-group" id="modalMessageGroup">
+							<label>Message:</label> <textarea id="modalMessage" class="form-control" rows="3" readonly></textarea>
 						</div>
 					</form>
                 </div>
@@ -137,16 +146,19 @@
                 <div class="modal-body">
 					<form class="form">
 						<div class="form-group">
-							<label>Applicant Name:</label> <input id="modalName" class="form-control" >
+							<label>Applicant Name:</label> <input id="modalName" class="form-control" readonly>
 						</div>
 						<div class="form-group">
-							<label>Licence No.:</label> <input id="modalLicen" class="form-control" >
+							<label>Licence No.:</label> <input id="modalLicen" class="form-control" readonly>
 						</div>
 						<div class="form-group">
-							<label>Licence Province:</label> <input id="modalLicen_prov" class="form-control" >
+							<label>Licence Province:</label> <input id="modalLicen_prov" class="form-control" readonly>
 						</div>
 						<div class="form-group">
-							<label>Shift Requested For:</label> <input id="modalShiftFor1" class="form-control" >
+							<label>Shift Requested For:</label> <input id="modalShiftFor1" class="form-control" readonly>
+						</div>
+						<div class="form-group" id="modalApplicantMessageGroup">
+							<label>Message:</label> <textarea id="modalApplicantMessage" class="form-control" rows="3" readonly></textarea>
 						</div>
 					</form>
                 </div>

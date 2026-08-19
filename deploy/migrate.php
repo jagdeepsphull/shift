@@ -789,6 +789,69 @@ $migrations = [
             return $notes;
         },
     ],
+    [
+        'version' => '2026-08-17-090000',
+        'class'   => 'App\Database\Migrations\AddTestimonialTable',
+        'label'   => 'AddTestimonialTable',
+        'apply'   => static function (mysqli $db): array {
+            $notes = [];
+
+            // The Testimonials master - the same shape as additional_details
+            // beside it, but with two text columns rather than one: a
+            // testimonial is a heading plus the quote, and the home page
+            // carousel draws both. t_status defaults to 1 so the add form,
+            // which posts the two text fields and nothing else, does not leave
+            // a new testimonial Deactive and invisible.
+            if (! tableExists($db, 'testimonial')) {
+                run($db, 'CREATE TABLE `testimonial` (
+                    `t_id` INT NOT NULL AUTO_INCREMENT,
+                    `t_title` VARCHAR(150) NULL DEFAULT NULL,
+                    `t_description` TEXT NULL DEFAULT NULL,
+                    `t_status` INT NOT NULL DEFAULT 1,
+                    PRIMARY KEY (`t_id`)
+                ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci');
+                $notes[] = 'created testimonial';
+            } else {
+                $notes[] = 'testimonial already there';
+            }
+
+            return $notes;
+        },
+    ],
+    [
+        'version' => '2026-08-18-100000',
+        'class'   => 'App\Database\Migrations\AddShiftEmailRecipients',
+        'label'   => 'AddShiftEmailRecipients',
+        'apply'   => static function (mysqli $db): array {
+            $notes = [];
+
+            // Who "your shift is live" goes to, per shift: a comma separated
+            // list of the words owner and manager, ticked on the shift form.
+            if (! columnExists($db, 'post_job', 'p_email_to')) {
+                run($db, "ALTER TABLE `post_job`
+                          ADD COLUMN `p_email_to` VARCHAR(32) NOT NULL DEFAULT ''
+                          COMMENT 'Comma separated: owner, manager. Empty = the fallback address.'
+                          AFTER `p_approved`");
+                $notes[] = 'added post_job.p_email_to';
+            } else {
+                $notes[] = 'post_job.p_email_to already there';
+            }
+
+            // Empty means "send to the fallback address", and every shift that
+            // already exists was never asked - so they are set to the owner,
+            // which is exactly who they mailed before the column existed.
+            $res     = $db->query("SELECT COUNT(*) AS n FROM `post_job` WHERE `p_email_to` = ''");
+            $pending = $res === false ? 0 : (int) $res->fetch_assoc()['n'];
+
+            run($db, "UPDATE `post_job` SET `p_email_to` = 'owner' WHERE `p_email_to` = ''");
+
+            $notes[] = $pending > 0
+                ? "pointed {$pending} existing shift(s) at the store's owner, as before"
+                : 'every shift already names who to e-mail';
+
+            return $notes;
+        },
+    ],
 ];
 
 $applied = 0;

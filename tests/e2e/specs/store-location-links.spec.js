@@ -25,11 +25,16 @@ const MAP_URL = 'https://maps.app.goo.gl/e2eMapLinkPin';
 const LABEL = 'Inside the Superstore, north entrance';
 const HEAD_OFFICE = '1 Head Office Plaza';
 const BRANCH_ADDRESS = '250 Branch Boulevard';
+const BRANCH_PHONE = '4165552222';
+
+/** What the applicant is paid - `p_ac_hourly_rate`, not the employer's rate. */
+const RATE = 30;
 
 /** @type {Record<string, number>} */
 const ids = {};
 let PROVINCE = '0';
 let CITY = '0';
+let CITY_NAME = '';
 
 function removeSeeded() {
   query("DELETE FROM stu_saved_applied_jobs WHERE p_id IN (SELECT p_id FROM (SELECT p_id FROM post_job WHERE p_job_title LIKE 'E2E-MAPLINK-%') x);");
@@ -43,6 +48,8 @@ test.beforeAll(() => {
 
   PROVINCE = scalar('SELECT p_id FROM province WHERE p_status = 1 LIMIT 1;') || '0';
   CITY = scalar(`SELECT c_id FROM city WHERE c_status = 1 AND c_province = ${PROVINCE} LIMIT 1;`) || '0';
+  // The town is shown at every tier, so the tests need to know its name.
+  CITY_NAME = scalar(`SELECT c_name FROM city WHERE c_id = ${CITY};`) || '';
 
   // A multi-store owner whose login address is a head office, not a shop.
   query(`
@@ -80,7 +87,7 @@ test.beforeAll(() => {
        s_pincode, s_phone, s_website, s_status)
     VALUES
       (${ids.owner}, 'E2E Maplink Branch', 'BR-9', ${PROVINCE}, ${CITY}, '${BRANCH_ADDRESS}',
-       '${LABEL}', '${MAP_URL}', 'M5A 2B2', '4165552222', 'https://branch.example.com', 1);
+       '${LABEL}', '${MAP_URL}', 'M5A 2B2', '${BRANCH_PHONE}', 'https://branch.example.com', 1);
   `);
   ids.store = Number(scalar("SELECT s_id FROM store WHERE s_name = 'E2E Maplink Branch';"));
 
@@ -99,6 +106,10 @@ test.beforeAll(() => {
   for (const [title, storeId] of [
     ['E2E-MAPLINK-PIN', ids.store],
     ['E2E-MAPLINK-PLAIN', ids.plainStore],
+    // A shift at the same branch that the applicant is never booked onto, for
+    // the middle tier: signed in, so the rate shows, but not booked, so the
+    // pharmacy behind it still does not.
+    ['E2E-MAPLINK-OPEN', ids.store],
   ]) {
     query(`
       INSERT INTO post_job
@@ -107,37 +118,123 @@ test.beforeAll(() => {
          p_skills, p_services, p_jobinfo, p_featured, p_status, p_approved, created, modified)
       VALUES
         (${ids.owner}, ${storeId}, 'E2E Maplink Chain', '${title}', 0,
-         ${PROVINCE}, ${CITY}, ${shiftFor}, 30, 30, '15-09-2027', '2027-09-15', '09:00 - 17:00',
+         ${PROVINCE}, ${CITY}, ${shiftFor}, 45, ${RATE}, '15-09-2027', '2027-09-15', '09:00 - 17:00',
          '', '', 'Seeded by the end-to-end suite.', 0, 1, 1, NOW(), NOW());
     `);
   }
 
   ids.pinShift = Number(scalar("SELECT p_id FROM post_job WHERE p_job_title = 'E2E-MAPLINK-PIN';"));
   ids.plainShift = Number(scalar("SELECT p_id FROM post_job WHERE p_job_title = 'E2E-MAPLINK-PLAIN';"));
+  ids.openShift = Number(scalar("SELECT p_id FROM post_job WHERE p_job_title = 'E2E-MAPLINK-OPEN';"));
+
+  // Book the applicant onto two of the three. `sj_is_approved = 1` is the
+  // confirmed booking - the point at which the branch is theirs to know.
+  for (const shiftId of [ids.pinShift, ids.plainShift]) {
+    query(`
+      INSERT INTO stu_saved_applied_jobs
+        (u_id, agency_id, p_id, sj_applied_date, sj_status, sj_is_approved,
+         sj_admin_comment, sj_applied_desc, sj_resubmit_comments, sj_rejected_comments,
+         created, modified)
+      VALUES
+        (${ids.applicant}, ${ids.owner}, ${shiftId}, NOW(), 1, 1, '', '', '', 0, NOW(), NOW());
+    `);
+  }
 });
 
 test.afterAll(() => {
   removeSeeded();
 });
 
-test('the shift page shows the branch address, the label and the pasted pin', async ({ page }) => {
+/**
+ * Which pharmacy the shift is at waits for a confirmed booking, so the page
+ * assertions below read a shift this applicant is booked onto, as them.
+ *
+ * @param {import('@playwright/test').Page} page
+ * @param {number} shiftId
+ */
+async function openShiftBooked(page, shiftId) {
+  await loginAsFrontUser(page, { user: APPLICANT, pass: PASSWORD });
+  await page.goto(`front/job_detail/${shiftId}`);
+  await settle(page);
+}
+
+/**
+ * Nothing that names or locates the branch is on the page.
+ *
+ * @param {import('@playwright/test').Page} page
+ */
+async function expectPharmacyHidden(page) {
+  const body = page.locator('body');
+
+  await expect(body).not.toContainText(BRANCH_ADDRESS);
+  await expect(body).not.toContainText(LABEL);
+  await expect(body).not.toContainText('E2E Maplink Branch');
+  await expect(body).not.toContainText(BRANCH_PHONE);
+  await expect(page.locator('a[href*="google.com/maps"], a[href*="maps.app.goo.gl"]')).toHaveCount(0);
+  await expect(page.locator('a[href="https://branch.example.com"]')).toHaveCount(0);
+  await expect(page.locator('a[href="https://chain.example.com"]')).toHaveCount(0);
+}
+
+test('a signed-out visitor gets neither the pharmacy nor the rate', async ({ page }) => {
   await page.goto(`front/job_detail/${ids.pinShift}`);
   await settle(page);
 
+  await expectPharmacyHidden(page);
+
   const body = page.locator('body');
 
+  // The rate waits for an account.
+  await expect(body).not.toContainText(`CAD$ ${RATE}`);
+  await expect(body).toContainText(/to be disclosed/i);
+
+  // The public outline stays: the town, the date and the way in.
+  await expect(body).toContainText(CITY_NAME);
+  await expect(body).toContainText('09:00 - 17:00');
+  await expect(body).toContainText(/sign in/i);
+});
+
+test('signing in reveals the rate but still not the pharmacy', async ({ page }) => {
+  // The middle tier, and the one worth pinning: an account is enough to be told
+  // what the shift pays, and not enough to be told which branch it is at - or
+  // the platform is only a listing that people arrange around.
+  await loginAsFrontUser(page, { user: APPLICANT, pass: PASSWORD });
+  await page.goto(`front/job_detail/${ids.openShift}`);
+  await settle(page);
+
+  await expectPharmacyHidden(page);
+
+  const body = page.locator('body');
+
+  await expect(body).toContainText(`CAD$ ${RATE}/hour`);
+  await expect(body).toContainText(CITY_NAME);
+  await expect(body).toContainText(/once your booking .* is confirmed/i);
+});
+
+test('a confirmed booking shows the branch name, address, phone and pasted pin', async ({
+  page,
+}) => {
+  await openShiftBooked(page, ids.pinShift);
+
+  const body = page.locator('body');
+
+  await expect(body).toContainText('E2E Maplink Branch');
   await expect(body).toContainText(BRANCH_ADDRESS);
   await expect(body).toContainText(LABEL);
+  await expect(body).toContainText(BRANCH_PHONE);
 
   // The head office is the employer's login address and has no business here.
   await expect(body).not.toContainText(HEAD_OFFICE);
+
+  // 45 is `p_hourly_rate`, what the employer is billed. It is not the
+  // applicant's business and must never reach this page at any tier.
+  await expect(body).toContainText(`CAD$ ${RATE}/hour`);
+  await expect(body).not.toContainText('CAD$ 45');
 
   await expect(page.locator(`a[href="${MAP_URL}"]`)).toHaveText(/get directions/i);
 });
 
 test('a store with no pasted link still gets directions, via its address', async ({ page }) => {
-  await page.goto(`front/job_detail/${ids.plainShift}`);
-  await settle(page);
+  await openShiftBooked(page, ids.plainShift);
 
   const link = page.locator('a[href*="google.com/maps"]');
   await expect(link).toHaveText(/get directions/i);
@@ -145,16 +242,14 @@ test('a store with no pasted link still gets directions, via its address', async
 });
 
 test("the store's own website wins over the employer's", async ({ page }) => {
-  await page.goto(`front/job_detail/${ids.pinShift}`);
-  await settle(page);
+  await openShiftBooked(page, ids.pinShift);
 
   await expect(page.locator('a[href="https://branch.example.com"]')).toBeVisible();
   await expect(page.locator('a[href="https://chain.example.com"]')).toHaveCount(0);
 });
 
 test("a store with no site of its own falls back to the employer's", async ({ page }) => {
-  await page.goto(`front/job_detail/${ids.plainShift}`);
-  await settle(page);
+  await openShiftBooked(page, ids.plainShift);
 
   await expect(page.locator('a[href="https://chain.example.com"]')).toBeVisible();
 });

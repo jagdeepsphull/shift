@@ -123,11 +123,12 @@ Everything below is applied by the migrations — there is nothing to type into
 phpMyAdmin. It is listed so you know what to expect, and what to check
 afterwards.
 
-**One new table**
+**Two new tables**
 
 | Table | Columns | Holds |
 |---|---|---|
 | `additional_details` | `ad_id`, `ad_name`, `ad_status` | The Additional Details master, maintained at Main Master → Additional Details. `ad_status` defaults to 1, so a newly added entry is Active. |
+| `testimonial` | `t_id`, `t_title`, `t_description`, `t_status` | The Testimonials master, maintained in the back office and drawn by the home page carousel. Two text columns because a testimonial is a heading plus the quote. `t_status` defaults to 1, so a newly added one is Active. |
 
 **Four new columns**, all `VARCHAR(255) NULL`, all holding a comma-separated
 list of ids in the same shape as the existing `p_skills` / `p_services`
@@ -138,6 +139,17 @@ list of ids in the same shape as the existing `p_skills` / `p_services`
 | `store.s_skills` | `software_skills.ss_id` | The store's default software, copied onto a new shift |
 | `store.s_services` | `store_service.st_id` | The store's default details |
 | `store.s_additional_details` | `additional_details.ad_id` | The store's default additional details |
+
+**One more new column**, which is not a list of ids like the four above
+
+| Column | Holds |
+|---|---|
+| `post_job.p_email_to` | `VARCHAR(32) NOT NULL DEFAULT ''` — who the "your shift is live" e-mail goes to, as the words `owner`, `manager`, both, or neither. Ticked on the shift form. |
+
+Empty is a real answer there and means *send it to the fallback address*, not
+*send nothing* — so the migration sets every shift that already exists to
+`owner`, which is exactly who it mailed before the column existed. Deploying
+therefore changes nothing about a shift already on the site.
 
 **Employer kinds are now two, not three**
 
@@ -235,13 +247,14 @@ locally**. After deploying you have to enter these on the live site by hand:
 | What | Where | Note |
 |---|---|---|
 | Additional Details entries | Main Master → Additional Details | The table arrives empty. Until you add entries, that tick-box group is an empty box on the shift and store forms — harmless, but it looks broken. |
+| Testimonials | The Testimonials screen in the back office | The table arrives empty, so the home page carousel has nothing to show. Add a few before anyone looks at the live front page. |
 | Each store's shift defaults | Manage Employers → Stores → Edit → Shift defaults, or the employer's own My Stores → Edit | Blank on every store, so a new shift starts empty exactly as it does today. Set them per store as you go — the employer can now do this themselves, which is usually who knows. |
 
 ---
 
 ## Migrations
 
-**Fifteen** migrations exist. They are safe to run more than once — CodeIgniter
+**Seventeen** migrations exist. They are safe to run more than once — CodeIgniter
 tracks which have been applied. A staging database imported from live will have
 **none** of them: live is still on the CI3 code, so nothing has ever applied them
 there either.
@@ -259,14 +272,14 @@ delete it:
 https://reliefshifts.com/staging/migrate.php?key=b7f4c1e93a2d6058
 ```
 
-It applies all fifteen over mysqli and writes the same rows into `migrations` that
+It applies all seventeen over mysqli and writes the same rows into `migrations` that
 spark would, so a later `php spark migrate` sees them as done instead of
 re-running them into a "duplicate column" error. Every step checks the schema
 first, so running it twice is safe — the second run prints `[SKIP]` for each and
 changes nothing. It prints what it did, including counts: how many stores it
 built, how many shifts it pointed at one, and anything it had to leave alone.
 
-This is now clearly the right route without SSH. Six of the fifteen are no longer
+This is now clearly the right route without SSH. Six of the seventeen are no longer
 a column you could reasonably type by hand: `AddStoreTable` creates a table *and*
 runs two data statements, and two more repair data rather than change the schema.
 
@@ -289,6 +302,8 @@ runs two data statements, and two more repair data rather than change the schema
 | `MakeEmployersMultiStore` | Nothing breaks, but every employer that registered before the kinds existed stays kind-less: absent from every User Type filter, and refused a second store. Data only — no schema change. |
 | `AddUserEmailBlocked` | Manage Email 500s on an unknown column — and so does **every guarded send site**: registration, activation, posting a shift, both halves of a booking and the nightly reminder all read `u_email_blocked`. Unlike the other columns this one is on the *sending* path, so skipping it stops mail rather than breaking one screen. |
 | `BackfillManagerStoreSnapshot` | Nothing breaks, but any Manager added from the back office before this release stays nameless: a blank row on the employer list, a blank entry in the employer dropdown on both shift forms, and no address in their booking e-mails. Data only — no schema change. |
+| `AddShiftEmailRecipients` | Saving a shift from the back office fails on an unknown column — both shift forms post `p_email_to`. Add Shift and Edit Shift are the whole of the back office's shift handling, so skipping this one stops the administrator posting shifts at all. |
+| `AddTestimonialTable` | Creates the `testimonial` master. Without it the new Testimonials screen in the back office 500s, and so does **the public home page**, which reads the table to draw its carousel. That second one is the whole site, not one screen — check it first if the front page is blank after deploying. |
 
 ### Checking which have run
 
@@ -305,8 +320,32 @@ a "duplicate column" error, and `AddStoreTable`'s two data statements are the
 part that matters most: without them the `store` table is empty, every employer
 signs in to an empty store list, and every shift already on the site loses the
 address it was posted against. If you have no way to run `migrate.php` at all,
-the exact SQL for all fifteen is in `deploy/migrate.php` itself — read the
+the exact SQL for all seventeen is in `deploy/migrate.php` itself — read the
 `$migrations` array, which is ordered and commented.
+
+### The phpMyAdmin route, for a database that is only a few releases behind
+
+`deploy/release-2026-08-19.sql` is that SQL, written out and ready to paste. It
+carries the **last four** migrations — `AddUserEmailBlocked`,
+`BackfillManagerStoreSnapshot`, `AddTestimonialTable` and
+`AddShiftEmailRecipients` — with the `migrations` rows that go with them, so
+`spark migrate` afterwards sees them as done.
+
+Use it only on a database that is already at `2026-08-14-160000` or later; the
+file's first query prints where the database actually is, so run that on its own
+if you are not sure. Anything further behind than that — a staging copy imported
+from live, which has applied none of the seventeen — needs `migrate.php`, not
+this.
+
+It is safe to run twice: every step checks the schema first, and the one backfill
+that is not naturally repeatable (`p_email_to`, which sets existing shifts to
+`owner`) only runs on the pass that adds the column, so a second run cannot
+rewrite a shift somebody deliberately saved as "tell neither side".
+
+`release-2026-08-19.sql` replaces `release-2026-08-18.sql`, which carried only
+two of the four and left `users.u_email_blocked` out — the one column on the
+*sending* path, so a database updated with that file alone stops mailing rather
+than breaking a screen. Run the 08-19 file whether or not the 08-18 one was run.
 
 ---
 
@@ -392,9 +431,11 @@ Then, in a browser:
 - On a store row, the green **Map pin** badge opens Google Maps. A grey **Map
   search** badge means no link has been pasted and it is searching the address
   instead — a fallback, not a fault.
-- Open a shift on the front page: the address carries a **Get directions** link.
-  Check the same link reaches the booking e-mail with `email:preview` rather than
-  by booking a real shift.
+- Open a shift on the front page **as the applicant booked on it**: the address
+  carries a **Get directions** link. Before that booking is confirmed there is
+  no address on the page to carry one — see the three tiers further down. Check
+  the same link reaches the booking e-mail with `email:preview` rather than by
+  booking a real shift.
 
 New in this release:
 
@@ -505,6 +546,71 @@ to run for them:
   getting the branch's defaults is the point of the change.
 - **Store (Location) on the admin shift form is two dropdowns**, employer group
   then store. See the bullet above about posting a shift.
+
+- **Details is no longer a required tick-box group** on any of the four shift
+  forms — the employer's Post and Edit, and the back office's. Software is still
+  required; Additional Details always was optional. Post a shift with Details
+  left empty on both sides: it must save.
+- **Testimonials** are maintained in the back office and drawn by the home page
+  carousel. **This is the one item on this list with a migration** — see the
+  `testimonial` table above. Add an entry, check it appears on the front page,
+  then deactivate it and check it goes.
+- **Assigned To** on the employer's All Shifts names the applicant booked on
+  each shift. It reads `stu_saved_applied_jobs` on `sj_is_approved = 1` alone,
+  so an applicant the administrator placed by hand (whose row is written at
+  `sj_status = 6`) is named too — before, only a self-applied booking was, and a
+  shift the same screen reported as Closed showed nobody against it. No schema.
+- **The employer's own store list names whoever manages each branch**, so an
+  owner can see which of their stores has somebody on it. No schema.
+- **The back-office shift form asks who to tell.** Add Shift and Edit Shift now
+  carry **Send shift e-mail to** beside Shift Approval: *Owner*, *Manager*,
+  both, or neither. **This is the second item with a migration** — see
+  `post_job.p_email_to` above. Add a shift with only *Owner* ticked, reopen it,
+  and the boxes must come back as you left them; untick both, save, reopen, and
+  they must still be clear. A new shift opens with both ticked.
+  - Sent when the shift **goes Live** — saved as Live, or approved later — so
+    editing a shift that is already live sends nothing. A shift saved straight
+    to Live from the back office now announces itself, which it did not before
+    this release: only approving one on the edit screen did.
+  - **Neither ticked sends to `AppSettings::$shiftEmailFallback`**
+    (`info@reliefshifts.com`), not to nobody. Same if the ticked side cannot be
+    reached — a store with no manager account on it, or a recipient who turned
+    this e-mail off in Manage Email. `writable/logs/` names which it was.
+  - The applicant's booking e-mail is untouched by any of this and still goes
+    out on every booking.
+- **A shift page now tells three different readers three different amounts.**
+  This is the change most worth checking by hand, because two of the three
+  tiers are about what must *not* be on the page:
+
+  | Reader | Sees |
+  |---|---|
+  | Signed out | Role, **town**, date, time, Software, Details. Rate reads *To be disclosed*. |
+  | Signed in | The above **plus the hourly rate** (`CAD$ n/hour`) and the pharmacy's Additional details. |
+  | Booking confirmed | The above **plus the pharmacy**: store name, street address, Get directions, *Where to find it*, its website and its phone. |
+
+  Open a shift from Browse Shifts signed out, then signed in, then as somebody
+  whose booking on that shift is approved. At the first two tiers the store
+  name, address, Get directions link, location label, website and phone must
+  **not** be on the page — check the page **source**, not only the screen: a
+  field hidden in CSS is still a field that has been published. The rate shown
+  is `p_ac_hourly_rate`, what the applicant is paid; `p_hourly_rate`, what the
+  employer is billed, must never appear. A shift posted from the employer's own
+  form has no applicant rate — that form asks for one number — so those keep
+  reading *To be disclosed* even signed in, which is correct, not a fault.
+  No schema.
+- **The shift page is laid out in cards**, like the rest of the front end, with
+  the facts in a two-column grid rather than a column of large icon discs. The
+  sidebar is now a plain **Related shifts** list: it was rendering *empty* on
+  live, because nothing initialises owl carousel any more and its stylesheet
+  keeps an uninitialised carousel hidden. It also lists at most six other
+  shifts and no longer offers the shift you are reading as related to itself.
+  Look at it on a phone as well as a desktop. No schema.
+- **The employer area now wears the home page's colours** — the lavender-grey
+  ground, white cards, the purple-to-orange gradient on the current menu item
+  and the section headings, and Plus Jakarta Sans. Post New Shift is also laid
+  out in three numbered sections and works on a phone; the side menu collapses
+  behind a Menu button below 768px. Nothing to migrate, but it is the most
+  visible change in the release, so look at it on a phone as well as a desktop.
 
 **Existing phone numbers are not rewritten by deploying.** Nothing runs over the
 `users` or `store` tables, so a number already stored as `+1 905-304-7303` stays

@@ -173,6 +173,12 @@
                   <p>Resources Menu</p>
                 </a>
               </li>
+              <li class="nav-item">
+                <a href="<?php echo base_url('sadmin/testimonials/index');?>" class="nav-link">
+                  <i class="far fa-circle nav-icon"></i>
+                  <p>Testimonials</p>
+                </a>
+              </li>
 			  
             </ul>
           </li>

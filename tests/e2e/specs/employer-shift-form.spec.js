@@ -97,8 +97,9 @@ async function fillShiftForm(page) {
   // and all this form needs.
   await expect(page.locator('input[name="p_shift_time"]')).not.toHaveValue('');
 
-  // Software and Details are both required groups, and the form's own guard
-  // refuses to submit while either is empty.
+  // Software is the one required group, and the form's own guard refuses to
+  // submit while it is empty. Details is ticked too because this fixture is
+  // meant to look like a real shift, not because the form insists on it.
   for (const name of ['p_skills', 'p_services']) {
     const box = page.locator(`input[name="${name}[]"]`).first();
     await page.locator(`label[for="${await box.getAttribute('id')}"]`).click();
@@ -121,8 +122,14 @@ test('the employer shift form offers the Additional Details group, as the back o
   await expect(grid.locator(`input[value="${detailId}"]`)).toHaveCount(1);
   await expect(grid, 'a deactivated row is not offered').not.toContainText(DETAIL_OFF);
 
-  // Optional, unlike the two beside it - the master can legitimately be empty.
+  // Optional, and so is Details beside it: a shift that offers nothing out of
+  // the ordinary is a real shift. Software is the only group that must hold
+  // something.
   await expect(grid).toHaveAttribute('data-required', '0');
+  await expect(page.locator('#cbg_p_services'), 'Details must not be mandatory')
+    .toHaveAttribute('data-required', '0');
+  await expect(page.locator('#cbg_p_skills'), 'Software still is')
+    .toHaveAttribute('data-required', '1');
 
   // And the free-text box below is named apart from the group.
   await expect(jobinfoLabel(page)).toHaveText('Additional details for agency');

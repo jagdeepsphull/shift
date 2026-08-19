@@ -34,3 +34,10 @@ tests/e2e/row.txt
 # OS
 Thumbs.db
 .DS_Store
+
+# PHPUnit's cache and log output (phpunit.dist.xml writes both here)
+/build/
+
+# Playwright drops a run marker at the root when it is invoked from here;
+# its real output is under tests/e2e/, which has its own ignore file
+/test-results/

@@ -149,3 +149,62 @@ asort($wz_types);
     </div>
   </div>
 </section>
+
+<?php if (! empty($testimonials)): ?>
+<!-- What people say about us. Hidden entirely when the admin has added none. -->
+<section id="testimonials" class="section-padding">
+  <div class="wz-shell">
+    <div class="text-center mb-5">
+      <h2 class="wz-section-title">What People Say</h2>
+    </div>
+
+    <?php
+      // Three to a slide, so the row matches the three tiles above it. Bootstrap
+      // moves one slide at a time, so the grouping is done here rather than by
+      // sliding a wider track - a fourth testimonial starts the next slide.
+      $slides = array_chunk($testimonials, 3);
+    ?>
+    <div id="wz-testimonials" class="carousel slide wz-testimonials" data-bs-ride="carousel" data-bs-interval="6000">
+      <div class="carousel-inner">
+        <?php foreach ($slides as $i => $slide): ?>
+          <div class="carousel-item <?php echo $i === 0 ? 'active' : ''; ?>">
+            <div class="row g-4">
+              <?php foreach ($slide as $testimonial): ?>
+                <div class="col-md-6 col-lg-4">
+                  <figure class="wz-testimonial">
+                    <div class="wz-testimonial-mark" aria-hidden="true">&ldquo;</div>
+                    <blockquote>
+                      <h3><?php echo esc($testimonial->t_title); ?></h3>
+                      <p><?php echo nl2br(esc($testimonial->t_description)); ?></p>
+                    </blockquote>
+                  </figure>
+                </div>
+              <?php endforeach; ?>
+            </div>
+          </div>
+        <?php endforeach; ?>
+      </div>
+
+      <?php if (count($slides) > 1): ?>
+        <button class="carousel-control-prev" type="button" data-bs-target="#wz-testimonials" data-bs-slide="prev">
+          <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+          <span class="visually-hidden">Previous</span>
+        </button>
+        <button class="carousel-control-next" type="button" data-bs-target="#wz-testimonials" data-bs-slide="next">
+          <span class="carousel-control-next-icon" aria-hidden="true"></span>
+          <span class="visually-hidden">Next</span>
+        </button>
+
+        <div class="carousel-indicators">
+          <?php foreach ($slides as $i => $slide): ?>
+            <button type="button" data-bs-target="#wz-testimonials" data-bs-slide-to="<?php echo $i; ?>"
+                    class="<?php echo $i === 0 ? 'active' : ''; ?>"
+                    <?php echo $i === 0 ? 'aria-current="true"' : ''; ?>
+                    aria-label="Testimonials <?php echo $i + 1; ?>"></button>
+          <?php endforeach; ?>
+        </div>
+      <?php endif; ?>
+    </div>
+  </div>
+</section>
+<?php endif; ?>

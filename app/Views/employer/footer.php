@@ -180,6 +180,8 @@
 				const shift_rate = $(this).data('shift_rate');
                 const sofskills = $(this).data('sofskills');
                 const ofcser = $(this).data('ofcser');
+                const assigned = $(this).data('assigned');
+                const message = $(this).data('message');
 
                 // Populate modal with row data
                 $('#modalShiftFor').val(shiftfor);
@@ -188,6 +190,14 @@
 				$('#modalShiftRate').val(shift_rate);
                 $('#modalSoftSkills').val(sofskills);
                 $('#modalOffSer').val(ofcser);
+
+                // Who is on the shift and what was said when they were booked.
+                // Both are hidden on a shift nobody is on yet - an empty box
+                // reads as "no message" rather than "not booked".
+                $('#modalAssigned').val(assigned);
+                $('#modalAssignedGroup').toggle(Boolean(assigned));
+                $('#modalMessage').val(message);
+                $('#modalMessageGroup').toggle(Boolean(message));
 
                 // Show the modal
                 $('#viewModal').modal('show');
@@ -199,12 +209,15 @@
                 const licen = $(this).data('licen');
                 const licen_prov = $(this).data('licen_prov');
                 const shiftfor = $(this).data('shiftfor');
+                const message = $(this).data('message');
 
                 // Populate modal with row data
                 $('#modalName').val(name);
                 $('#modalLicen').val(licen);
                 $('#modalLicen_prov').val(licen_prov);
                 $('#modalShiftFor1').val(shiftfor);
+                $('#modalApplicantMessage').val(message);
+                $('#modalApplicantMessageGroup').toggle(Boolean(message));
 
                 // Show the modal
                 $('#applicantModal').modal('show');

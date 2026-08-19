@@ -980,9 +980,9 @@ if (! function_exists('storesForOwner')) {
     }
 }
 
-if (! function_exists('storeManagerIds')) {
+if (! function_exists('storeManagers')) {
     /**
-     * Which of these stores already have a manager on them, and who.
+     * The manager account on each of these stores, with who they are.
      *
      * One store, one manager. A branch has a single person running it, and a
      * second account pointed at the same `s_id` would give two logins the same
@@ -993,12 +993,15 @@ if (! function_exists('storeManagerIds')) {
      * claimed the store - without that, two people could register for the same
      * branch the same afternoon and only the second would be stopped. Freeing a
      * store means removing the account holding it, which the back office does.
+     * `u_status` comes back with the row so a caller that shows the person to an
+     * owner can say the account is not approved yet, rather than naming somebody
+     * who cannot log in.
      *
      * @param array<int, int|string> $storeIds
      *
-     * @return array<int, int> `store.s_id` => `users.u_id` of the manager on it
+     * @return array<int, object> `store.s_id` => the `users` row of its manager
      */
-    function storeManagerIds(array $storeIds): array
+    function storeManagers(array $storeIds): array
     {
         $ids = array_values(array_unique(array_filter(
             array_map('intval', $storeIds),
@@ -1010,7 +1013,7 @@ if (! function_exists('storeManagerIds')) {
         }
 
         $rows = ci_db()->table('users')
-            ->select('u_id, u_store_id')
+            ->select('u_id, u_store_id, u_fname, u_lname, u_email, u_phone, u_status')
             ->where('u_usertype', 1)
             ->where('u_emp_role', 2)
             ->whereIn('u_store_id', $ids)
@@ -1018,15 +1021,35 @@ if (! function_exists('storeManagerIds')) {
             ->get()
             ->getResult();
 
-        $taken = [];
+        $managers = [];
 
         foreach ($rows as $row) {
             // The first one there is the answer. On a database that somehow
             // holds two for a store, it is taken either way.
-            $taken[(int) $row->u_store_id] ??= (int) $row->u_id;
+            $managers[(int) $row->u_store_id] ??= $row;
         }
 
-        return $taken;
+        return $managers;
+    }
+}
+
+if (! function_exists('storeManagerIds')) {
+    /**
+     * Which of these stores already have a manager on them, and who.
+     *
+     * The same lookup as `storeManagers()`, for callers that only need to know
+     * whether a store is spoken for.
+     *
+     * @param array<int, int|string> $storeIds
+     *
+     * @return array<int, int> `store.s_id` => `users.u_id` of the manager on it
+     */
+    function storeManagerIds(array $storeIds): array
+    {
+        return array_map(
+            static fn (object $manager): int => (int) $manager->u_id,
+            storeManagers($storeIds)
+        );
     }
 }
 
@@ -1614,5 +1637,121 @@ if (! function_exists('testHello')) {
     function testHello($sid = 0)
     {
         echo 'hello';
+    }
+}
+
+if (! function_exists('shiftEmailChoice')) {
+    /**
+     * The two sides a shift's "your shift is live" e-mail can be sent to.
+     *
+     * The words the shift form posts and `post_job.p_email_to` stores. They are
+     * here rather than in AppSettings because nothing may ever add a third: the
+     * form is asking about a store, and a store has an owner and a manager.
+     *
+     * @return array<int, string>
+     */
+    function shiftEmailSides(): array
+    {
+        return ['owner', 'manager'];
+    }
+
+    /**
+     * Read a posted or stored choice back as a clean list.
+     *
+     * Accepts what the form posts (an array of ticked boxes) and what the
+     * column holds (a comma separated string), so the form, the save and the
+     * send site all read it the same way. Anything not one of the two sides is
+     * dropped - the column is small and this is the only thing that writes it,
+     * but a hand-made post is not going to decide who gets mail.
+     *
+     * @param mixed $choice
+     *
+     * @return array<int, string>
+     */
+    function shiftEmailChoice($choice): array
+    {
+        $parts = is_array($choice) ? $choice : explode(',', (string) $choice);
+
+        $parts = array_map(
+            static fn ($part): string => strtolower(trim((string) $part)),
+            $parts
+        );
+
+        // array_values so the result is a list: it is stored with implode and
+        // compared with in_array, and neither wants the original keys.
+        return array_values(array_intersect(shiftEmailSides(), $parts));
+    }
+}
+
+if (! function_exists('shiftPostedRecipients')) {
+    /**
+     * Who is actually sent "your shift is live", and why.
+     *
+     * The shift names a side - the store's owner, its manager, both or neither
+     * - and this turns that into addresses. Kept pure and out of the
+     * controller: it is the one piece of the send that has to be right, and the
+     * cases that go wrong are the quiet ones (a store with no manager, a
+     * recipient who opted out) rather than anything a screen would show.
+     *
+     * A side that was ticked but cannot be reached is not silently dropped: it
+     * comes back in `missing`, so the caller can log which of them it was.
+     *
+     * The configured address is on every one of these e-mails, whoever else is:
+     * it is the site's own record that a shift went live, and the shift form
+     * shows it as a recipient that cannot be unticked. When it is the only one
+     * left - nobody ticked, or nobody reachable - `fellBack` says so, which is
+     * what the caller logs. The e-mail always goes somewhere; a shift going
+     * live unannounced is the one outcome to avoid.
+     *
+     * @param object|null $owner   the `users` row that owns the store
+     * @param object|null $manager the `users` row running it, if any
+     *
+     * @return array{to: array<int, string>, missing: array<int, string>, fellBack: bool}
+     */
+    function shiftPostedRecipients(?object $owner, ?object $manager, $choice, string $fallback): array
+    {
+        $wanted  = shiftEmailChoice($choice);
+        $to      = [];
+        $missing = [];
+
+        foreach ([['owner', $owner], ['manager', $manager]] as [$side, $user]) {
+            if (! in_array($side, $wanted, true)) {
+                continue;
+            }
+
+            $email = trim((string) ($user->u_email ?? ''));
+
+            if ($user === null || $email === '') {
+                // Nobody on that side of the store, which is normal for a
+                // manager and means the tick cannot be honoured.
+                $missing[] = $side;
+
+                continue;
+            }
+
+            if (! userAllowsEmail($user, 'shift-posted')) {
+                $missing[] = $side;
+
+                continue;
+            }
+
+            $to[] = $email;
+        }
+
+        // Both sides of a store can be the same login on a small chain.
+        $to = array_values(array_unique($to));
+
+        // Nobody reachable on the store's side is still worth saying in the
+        // log, even though the address below means something is always sent.
+        $fellBack = $to === [];
+        $fallback = trim($fallback);
+
+        // Last, so the store's own people stay at the head of the list, and
+        // only once when the configured address is also a store's login.
+        if ($fallback !== '' && ! in_array($fallback, $to, true)) {
+            $to[] = $fallback;
+        }
+
+        return ['to' => $to, 'missing' => $missing, 'fellBack' => $fellBack];
     }
 }

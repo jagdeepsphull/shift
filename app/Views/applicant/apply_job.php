@@ -4,7 +4,7 @@
 	        <div class="dashboard-caption">
 
 	            <div class="dashboard-caption-header">
-	                <h4><i class="ti-briefcase"></i>Apply Job</h4>
+	                <h4><i class="lni-briefcase"></i>Apply Job</h4>
 	            </div>
             <?php 
 			if(session()->getFlashdata('error_msg')){echo session()->getFlashdata('error_msg');}		

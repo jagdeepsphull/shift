@@ -63,6 +63,10 @@ class Front extends BaseController
 
         $this->data['agencylist'] = $this->custom->get_where('users', ['u_usertype' => 1, 'u_status' => 1]);
 
+        // The carousel under "What Makes Us Stand Out", oldest first so the
+        // running order matches the back-office list.
+        $this->data['testimonials'] = $this->custom->get_where_order('testimonial', ['t_status' => 1], 't_id', 'asc');
+
         $this->load->front_view('index', $this->data, 1);
     }
 
@@ -236,12 +240,16 @@ class Front extends BaseController
         );
 
         $this->data['appliedjob'] = $this->custom->get_where('stu_saved_applied_jobs', ['p_id' => $id, 'u_id' => $uid]);
-        // "Related job posts" in the sidebar - soonest shift first, as elsewhere.
+        // "Related shifts" in the sidebar - soonest first, as elsewhere. The
+        // shift being read is left out, and the list is capped: it used to
+        // print every approved shift on the site down the side of the page.
         $this->data['relatedjobs'] = $this->custom->query(
             'Select pj.*,pr.p_name, cit.c_name ,u.u_comp_name,u.u_company_logo,u.u_licence_no '
             . 'from post_job pj, province pr, city cit, users u '
             . 'where pj.p_province= pr.p_id and p_city=cit.c_id and  pj.u_id=u.u_id and pj.p_approved=1 '
-            . 'ORDER BY ' . shiftDateOrderBy('pj')
+            . 'and pj.p_id != ? '
+            . 'ORDER BY ' . shiftDateOrderBy('pj') . ' LIMIT 6',
+            [$id]
         );
 
         $this->data['applied'] = 0;

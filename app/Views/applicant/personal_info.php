@@ -4,7 +4,7 @@
 	        <div class="dashboard-caption">
 
 	            <div class="dashboard-caption-header">
-	                <h4><i class="ti-briefcase"></i>Edit Profile</h4>
+	                <h4><i class="lni-user"></i>Edit Profile</h4>
 	            </div>
 
 	            <?php  

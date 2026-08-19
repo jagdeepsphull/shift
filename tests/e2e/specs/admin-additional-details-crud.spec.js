@@ -114,9 +114,10 @@ test('a shift remembers which additional details were ticked', async ({ page }) 
   const shiftFor = scalar('SELECT sf_id FROM shift_for WHERE sf_status = 1 LIMIT 1;');
   test.skip(!owner || !store, 'no active employer with a store to hang a shift on');
 
-  // Software and Details have to hold something: both groups are required, and
-  // the form's own guard refuses to submit while either is empty - which would
-  // fail this test for a reason that has nothing to do with what it checks.
+  // Software has to hold something: it is the one required group, and the
+  // form's own guard refuses to submit while it is empty - which would fail
+  // this test for a reason that has nothing to do with what it checks. Details
+  // is optional, and filled in here only so the row looks like a real shift.
   const skill = scalar('SELECT ss_id FROM software_skills WHERE ss_status = 1 LIMIT 1;');
   const service = scalar('SELECT st_id FROM store_service WHERE st_status = 1 LIMIT 1;');
 

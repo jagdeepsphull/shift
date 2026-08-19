@@ -81,8 +81,28 @@ class Employer extends BaseController
         $this->data['lgcls']   = ($pagesection === 'logout') ? 'active' : '';
         $this->data['sccls']   = ($pagesection === 'search_applicants') ? 'active' : '';
         $this->data['epcls']   = ($pagesection === 'edit_profile') ? 'active' : '';
+        // Change Password used to reuse `epcls`, so Edit Profile lit up on both
+        // screens and Change Password lit up on neither.
+        $this->data['cpcls']   = ($pagesection === 'change_password') ? 'active' : '';
         $this->data['iccls']   = ($pagesection === 'invited_applicants') ? 'active' : '';
         $this->data['apcls']   = ($pagesection === 'applications') ? 'active' : '';
+
+        // What a shift pays is the group's decision, not the branch's, so a
+        // manager neither sets it on the shift form nor is shown it back in the
+        // panel on All Shifts. Resolved once here because three screens ask.
+        $this->data['can_set_rate'] = ! $this->isManager();
+    }
+
+    /**
+     * Whether this login runs one of a group's branches rather than owning it.
+     *
+     * `u_emp_role` 2 is a manager; 1 is an owner, and an account from before
+     * the two kinds existed carries 0 and is treated as an owner - the same way
+     * every other role check in this file reads the column.
+     */
+    private function isManager(): bool
+    {
+        return ((int) ($this->userinfo[0]->u_emp_role ?? 0)) === 2;
     }
 
     public function index()
@@ -342,7 +362,52 @@ class Employer extends BaseController
 
         $this->data['jobslist'] = $this->jobslist;
 
+        // Who is booked on each of those shifts. Fetched here, once for the
+        // whole list, rather than a query per row from inside the view, and
+        // keyed on sj_is_approved alone - that flag is what "booked" means.
+        // The old lookup also demanded sj_status = 1 ("Applied"), so an
+        // applicant the administrator placed on a shift himself, whose row is
+        // written at status 6, left Assigned To empty on a shift the very same
+        // screen was reporting as Closed.
+        $this->data['bookings'] = $this->shiftBookings($this->jobslist);
+
         $this->load->owner_inner_view('all_jobs', $this->data);
+    }
+
+    /**
+     * The booked applicant for each of the given shifts, keyed by shift id.
+     *
+     * At most one row per shift: booking one applicant rejects the rest, so
+     * `sj_is_approved = 1` is unique per `p_id`.
+     *
+     * @param array<int, object>|null $shifts `post_job` rows
+     *
+     * @return array<int, object>
+     */
+    private function shiftBookings(?array $shifts): array
+    {
+        $ids = array_map(static fn ($shift) => (int) $shift->p_id, $shifts ?: []);
+
+        if (! $ids) {
+            return [];
+        }
+
+        $rows = $this->custom->query(
+            'SELECT ssa.p_id, ssa.sj_admin_comment, ssa.sj_accept_date,'
+            . ' u.u_fname, u.u_lname, u.u_licence_no, u.u_l_provice'
+            . ' FROM stu_saved_applied_jobs ssa'
+            . ' JOIN users u ON u.u_id = ssa.u_id'
+            // Cast to int above, so the list is digits and nothing else.
+            . ' WHERE ssa.sj_is_approved = 1 AND ssa.p_id IN (' . implode(',', $ids) . ')'
+        );
+
+        $bookings = [];
+
+        foreach ($rows ?: [] as $row) {
+            $bookings[(int) $row->p_id] = $row;
+        }
+
+        return $bookings;
     }
 
     /**
@@ -365,12 +430,19 @@ class Employer extends BaseController
 
         // A store-role login has its single location; only a manager (or an
         // employer from before the feature) adds more.
-        $this->data['can_add_store'] = (($this->userinfo[0]->u_emp_role ?? 0) != 2);
+        $this->data['can_add_store'] = ! $this->isManager();
 
         // A manager is shown their corporate group's store, which they do not
         // own: edit_store() would refuse it, so the row is listed without the
         // button rather than with one that leads nowhere.
         $this->data['store_owner_id'] = (int) $this->userinfo[0]->u_id;
+
+        // Who runs each branch, so an owner can see at a glance which of their
+        // stores has somebody on it and how to reach them. A manager looking at
+        // their own store sees themselves, which is harmless and true.
+        $this->data['store_managers'] = storeManagers(
+            array_column($this->data['stores'], 's_id')
+        );
 
         $this->load->owner_inner_view('stores', $this->data);
     }
@@ -383,7 +455,7 @@ class Employer extends BaseController
             ci_redirect('front/login');
         }
 
-        if (($this->userinfo[0]->u_emp_role ?? 0) == 2) {
+        if ($this->isManager()) {
             $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">A store account cannot add stores. Ask your manager.</div>');
             ci_redirect('employer/stores');
         }
@@ -565,7 +637,16 @@ class Employer extends BaseController
     {
         $row = [];
 
-        foreach (['p_shift_for', 'p_hourly_rate', 'p_dates', 'p_shift_time'] as $field) {
+        $fields = ['p_shift_for', 'p_dates', 'p_shift_time'];
+
+        // The rate is not on a manager's form, so it must not be in their save
+        // either: taking the missing post value would write an empty rate over
+        // whatever the group had already set, on every edit they make.
+        if (! $this->isManager()) {
+            $fields[] = 'p_hourly_rate';
+        }
+
+        foreach ($fields as $field) {
             $row[$field] = strip_tags((string) $this->input->post($field));
         }
 
@@ -662,7 +743,10 @@ class Employer extends BaseController
         $this->applicationslist = $this->custom->query(
             'SELECT ssa.* FROM stu_saved_applied_jobs ssa'
             . ' JOIN post_job pj ON pj.p_id = ssa.p_id'
-            . ' WHERE ssa.sj_status = 1 AND ssa.sj_is_approved = 1 AND ' . $scope,
+            // sj_is_approved = 1 is the booking; sj_status is where the row came
+            // from (1 applied, 6 placed by an administrator) and asking for 1
+            // hid every booking the agency made on the employer's behalf.
+            . ' WHERE ssa.sj_is_approved = 1 AND ' . $scope,
             $binds
         );
 
@@ -697,7 +781,9 @@ class Employer extends BaseController
 
         $this->appliedlist         = $this->custom->query(
             'select * from stu_saved_applied_jobs ssa, users u '
-            . "where ssa.u_id = u.u_id and ssa.p_id = ? and ssa.sj_status = '1' and ssa.sj_is_approved = '1'",
+            // Same reason as applications(): the booked row is the one with
+            // sj_is_approved = 1, whatever sj_status it was written at.
+            . 'where ssa.u_id = u.u_id and ssa.p_id = ? and ssa.sj_is_approved = 1',
             [$pid]
         );
         $this->data['appliedlist'] = $this->appliedlist;

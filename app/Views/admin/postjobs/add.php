@@ -135,7 +135,7 @@
 									<div class="col-sm-3">
 										<!-- text input -->
 										<div class="form-group">
-											<?= view('partials/checkbox_grid', ['name' => 'p_services', 'label' => 'Details', 'items' => $store_service, 'idKey' => 'st_id', 'labelKey' => 'st_service_name', 'selected' => $p_services, 'required' => true,]) ?>
+											<?= view('partials/checkbox_grid', ['name' => 'p_services', 'label' => 'Details', 'items' => $store_service, 'idKey' => 'st_id', 'labelKey' => 'st_service_name', 'selected' => $p_services, 'required' => false,]) ?>
 										</div>
 									</div>
 									<div class="col-sm-3">
@@ -251,6 +251,10 @@
                                                 <?php } ?>
                                             </select>
                                         </div>
+                                    </div>
+
+                                    <div class="col-sm-5">
+                                        <?= view('partials/shift_email_recipients', ['selected' => $p_email_to]) ?>
                                     </div>
 									
                                 </div>

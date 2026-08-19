@@ -86,6 +86,9 @@ class Applicant extends BaseController
         $this->data['crcls']   = ($pagesection === 'certification') ? 'active' : '';
         $this->data['dccls']   = ($pagesection === 'documents') ? 'active' : '';
         $this->data['trcls']   = ($pagesection === 'tranings') ? 'active' : '';
+        // Change Password used to share the logout flag, so the link it marks
+        // was never the screen you were on.
+        $this->data['cpcls']   = ($pagesection === 'change_password') ? 'active' : '';
         $this->data['lgcls']   = ($pagesection === 'logout') ? 'active' : '';
     }
 

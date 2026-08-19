@@ -22,6 +22,7 @@
 	                                <th>City</th>
 	                                <th>Province</th>
 	                                <th>Phone</th>
+	                                <th>Manager</th>
 	                                <th>Status</th>
 	                                <th>Action</th>
 	                            </tr>
@@ -36,6 +37,15 @@
 	                                <td><?php echo getCityName($store->s_city); ?></td>
 	                                <td><?php echo getProvinceName($store->s_province); ?></td>
 	                                <td><?php echo esc($store->s_phone); ?></td>
+	                                <td><?php $manager = ($store_managers ?? [])[(int) $store->s_id] ?? null; ?>
+	                                <?php if ($manager) { ?>
+	                                    <?php echo esc(trim($manager->u_fname . ' ' . $manager->u_lname)); ?>
+	                                    <?php if ($manager->u_email) { ?><br><small class="text-muted"><?php echo esc($manager->u_email); ?></small><?php } ?>
+	                                    <?php if ($manager->u_phone) { ?><br><small class="text-muted"><?php echo esc($manager->u_phone); ?></small><?php } ?>
+	                                    <?php if ((int) $manager->u_status !== 1) { ?><br><small class="text-danger">Awaiting approval</small><?php } ?>
+	                                <?php } else { ?>
+	                                    <small class="text-muted">No manager</small>
+	                                <?php } ?></td>
 	                                <td><?php echo $store->s_status == 1 ? 'Active' : 'Inactive'; ?></td>
 	                                <td><?php if ((int) $store->u_id === (int) ($store_owner_id ?? 0)) { ?>
                                     <a class="btn btn-sm btn-info" href="<?php echo base_url('employer/edit_store/' . $store->s_id); ?>">Edit</a>

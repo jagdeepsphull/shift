@@ -4,7 +4,7 @@
         <div class="dashboard-caption">
 
             <div class="dashboard-caption-header">
-                <h4><i class="ti-settings"></i>Applicant Dashboard</h4>
+                <h4><i class="lni-dashboard"></i>Applicant Dashboard</h4>
             </div>
 
             <div class="dashboard-caption-wrap">
@@ -16,7 +16,7 @@
                             <div class="dashboard-stat-content">
                                 <h4><?php echo $jobapp[0]->tot; ?></h4> <span>Shift Applied</span>
                             </div>
-                            <div class="dashboard-stat-icon"><i class="ti-location-pin"></i></div>
+                            <div class="dashboard-stat-icon"><i class="lni-map-marker"></i></div>
                         </div>
                     </div>
 

@@ -708,6 +708,106 @@ header#header-wrap .navbar {
 
 .section-header .shape { display: none; }
 
+/* ------------------------------------------------------- testimonials --- */
+
+/* Three cards to a slide. The arrows sit outside the row, so the track is inset
+   to leave room for them; the indicators go below rather than over the cards,
+   so a long quote never has dots sitting on its last line. */
+.wz-testimonials {
+  padding: 0 56px 44px;
+}
+
+/* A slide is a grid row, and the cards in it stand equal height however much
+   each quote runs to. A last slide holding only the remainder is centred, so
+   four testimonials do not leave a lone card hanging off the left. */
+.wz-testimonials .carousel-item > .row {
+  align-items: stretch;
+  justify-content: center;
+}
+
+.wz-testimonial {
+  background: var(--wz-surface);
+  border-radius: var(--wz-radius);
+  box-shadow: var(--wz-shadow);
+  padding: 30px;
+  margin: 0;
+  height: 100%;
+  text-align: center;
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+
+.wz-testimonial:hover { transform: translateY(-3px); box-shadow: var(--wz-shadow-lg); }
+
+.wz-testimonial-mark {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 64px;
+  line-height: 1;
+  height: 40px;
+  background: var(--wz-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.wz-testimonial blockquote { margin: 0; }
+
+.wz-testimonial blockquote h3 {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -.02em;
+  text-transform: none;
+  margin: 0 0 12px;
+  color: var(--wz-ink);
+}
+
+.wz-testimonial blockquote p {
+  color: var(--wz-ink-soft);
+  font-size: 15.5px;
+  line-height: 1.7;
+  margin: 0;
+}
+
+.wz-testimonials .carousel-control-prev,
+.wz-testimonials .carousel-control-next {
+  width: 44px;
+  height: 44px;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-bottom: 44px; /* clears the indicator strip below the card */
+  border-radius: 50%;
+  background: var(--wz-surface);
+  box-shadow: var(--wz-shadow);
+  opacity: 1;
+}
+
+.wz-testimonials .carousel-control-prev:hover,
+.wz-testimonials .carousel-control-next:hover { background: var(--wz-bg); }
+
+.wz-testimonials .carousel-control-prev-icon,
+.wz-testimonials .carousel-control-next-icon {
+  width: 16px;
+  height: 16px;
+  /* Bootstrap ships a white glyph, invisible on the light disc; this is the
+     same inversion `.carousel-dark` uses. */
+  filter: invert(1) grayscale(100);
+}
+
+.wz-testimonials .carousel-indicators {
+  bottom: 0;
+  margin: 0;
+}
+
+.wz-testimonials .carousel-indicators [data-bs-target] {
+  width: 8px;
+  height: 8px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--wz-line);
+  opacity: 1;
+}
+
+.wz-testimonials .carousel-indicators .active { background: var(--wz-purple); }
+
 /* --------------------------------------------------------------- forms --- */
 
 .form-control,
@@ -1144,6 +1244,14 @@ footer#footer,
 
   .wz-card { padding: 20px; border-radius: 18px; }
 
+  /* No room beside the card for the arrows on a phone - drop them and let the
+     quote have the full width; swipe and the indicators still move it. */
+  .wz-testimonials { padding: 0 0 36px; }
+  .wz-testimonials .carousel-control-prev,
+  .wz-testimonials .carousel-control-next { display: none; }
+  .wz-testimonial { padding: 24px 20px 28px; border-radius: 18px; }
+  .wz-testimonial blockquote p { font-size: 15.5px; }
+
   .wz-footer-grid { grid-template-columns: 1fr 1fr; gap: 30px; }
   .wz-footer-grid > :first-child { grid-column: 1 / -1; }
   /* One column on a phone - the three would be unreadably narrow side by side.
@@ -1368,4 +1476,208 @@ footer#footer,
 
 .wz-auth-card .select2-container--default .select2-selection--single .select2-selection__rendered {
   font-size: 14.5px;
+}
+
+/* --------------------------------------------------------- shift detail ---
+   front/job_detail. The page still wore the legacy theme: a 120px section
+   gap, a 30px-padded grey panel, and every fact on its own line behind a 30px
+   icon circle carrying another 20px of margin - eight short lines filling a
+   screen and a half. The facts are set here as a compact two-column grid of
+   small labelled rows, in the card language the rest of the front end uses. */
+
+/* The page banner already leaves 44px under itself; the section's own 56px on
+   top of that opened a blank band between the two. */
+.wz-detail-wrap { padding-top: 6px !important; }
+
+.wz-detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 330px;
+  gap: 20px;
+  align-items: start;
+}
+
+.wz-detail-main { display: flex; flex-direction: column; gap: 18px; }
+
+.wz-detail-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding-bottom: 18px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--wz-line);
+}
+
+.wz-detail-title {
+  margin: 0;
+  font-size: clamp(22px, 2.6vw, 28px);
+  font-weight: 800;
+  letter-spacing: -.02em;
+}
+
+.wz-detail-role { margin: 8px 0 0; }
+
+.wz-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 13px;
+  border-radius: 999px;
+  background: var(--wz-bg);
+  color: var(--wz-ink-soft);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.wz-detail-top .btn.btn-common { flex: 0 0 auto; padding: 12px 28px !important; }
+
+.wz-applied {
+  flex: 0 0 auto;
+  border: 1px solid var(--wz-line);
+  border-radius: 999px;
+  padding: 11px 22px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--wz-ink-soft);
+  white-space: nowrap;
+}
+
+/* Two facts to a row; the address and the finding-it note take the width. */
+.wz-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 32px;
+  margin: 0;
+}
+
+.wz-fact { min-width: 0; }
+.wz-fact.is-wide { grid-column: 1 / -1; }
+
+.wz-fact dt {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 3px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--wz-muted);
+}
+
+/* Small inline glyphs - the legacy rule dressed these as 30px discs. */
+.wz-fact dt i {
+  font-size: 14px;
+  line-height: 1;
+  color: var(--wz-purple);
+}
+
+.wz-fact dd {
+  margin: 0;
+  font-size: 15.5px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--wz-ink);
+  overflow-wrap: anywhere;
+}
+
+.wz-fact dd a { color: var(--wz-purple); font-weight: 700; }
+.wz-fact dd a:hover { text-decoration: underline; }
+
+/* Sits at the end of the address line, so it needs its own gap. */
+.wz-directions { margin-left: 10px; white-space: nowrap; }
+
+.wz-detail-note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 20px 0 0;
+  padding: 13px 16px;
+  border-radius: 14px;
+  background: var(--wz-bg);
+  color: var(--wz-ink-soft);
+  font-size: 14.5px;
+  font-weight: 600;
+}
+
+.wz-detail-note i { color: var(--wz-purple); font-size: 16px; line-height: 1; }
+.wz-detail-note a { color: var(--wz-purple); font-weight: 700; }
+
+.wz-card-title {
+  margin: 0 0 16px;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -.02em;
+}
+
+/* Label above value, so a long software list is never squeezed into a column. */
+.wz-deflist { display: grid; gap: 14px; margin: 0; }
+
+.wz-deflist-row dt {
+  margin: 0 0 3px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--wz-muted);
+}
+
+.wz-deflist-row dd {
+  margin: 0;
+  font-size: 15.5px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--wz-ink);
+}
+
+.wz-detail-subhead {
+  margin: 22px 0 8px;
+  padding-top: 18px;
+  border-top: 1px solid var(--wz-line);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.wz-richtext {
+  color: var(--wz-ink-soft);
+  font-size: 15.5px;
+  line-height: 1.6;
+}
+
+.wz-richtext > :last-child { margin-bottom: 0; }
+
+/* ------------------------------------------------------- related shifts -- */
+
+.wz-detail-side .wz-card { position: sticky; top: calc(var(--wz-nav-h) + 16px); }
+
+.wz-related { list-style: none; margin: 0; padding: 0; }
+
+.wz-related-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 13px 0;
+  border-top: 1px solid var(--wz-line);
+}
+
+.wz-related-item:first-child { padding-top: 0; border-top: 0; }
+.wz-related-item:last-child { padding-bottom: 0; }
+
+.wz-related-title { font-size: 15.5px; font-weight: 800; letter-spacing: -.01em; }
+.wz-related-title:hover { color: var(--wz-purple); }
+
+.wz-related-meta { font-size: 13.5px; font-weight: 600; color: var(--wz-muted); }
+.wz-related-meta .sep { opacity: .6; }
+
+.wz-related-empty { margin: 0; color: var(--wz-muted); font-weight: 600; font-size: 14.5px; }
+
+@media (max-width: 991px) {
+  /* The sidebar goes under the shift, so it has no column left to stick to. */
+  .wz-detail { grid-template-columns: minmax(0, 1fr); }
+  .wz-detail-side .wz-card { position: static; }
+}
+
+@media (max-width: 575px) {
+  .wz-facts { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .wz-detail-top { flex-direction: column; align-items: stretch; gap: 14px; }
+  .wz-detail-top .btn.btn-common, .wz-applied { align-self: flex-start; }
 }

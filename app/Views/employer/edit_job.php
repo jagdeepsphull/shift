@@ -26,7 +26,7 @@
 	                            <div class="form-group">
 	                                <div class="form-group">
 										<label>Shift Title</label>
-										<input type="text" required class="form-control" name="p_job_title"  placeholder="Enter Shift Title" value="<?php echo $p_job_title; ?>">
+										<input type="text" required class="form-control" name="p_job_title"  placeholder="Enter Shift Title" value="<?php echo esc($p_job_title); ?>">
 									</div>
 	                            </div>
 	                        </div> */ ?>
@@ -73,21 +73,21 @@
 								<div class="col-lg-4 col-md-4 col-sm-2">
 									<div class="form-group">
 										<label>Hourly Rate</label>
-										<input type="number" required min="10" max="200" class="form-control" name="p_hourly_rate"  placeholder="Enter Hourly Rate" value="<?php echo $p_hourly_rate; ?>">
+										<input type="number" required min="10" max="200" class="form-control" name="p_hourly_rate"  placeholder="Enter Hourly Rate" value="<?php echo esc($p_hourly_rate); ?>">
 									</div>
 								</div>
 							<?php } ?>
 	                        <div class="col-lg-4 col-md-4 col-sm-2">
 	                            <div class="form-group">
 									<label>Select Date</label>
-									<input type="text" required class="form-control date" name="p_dates" placeholder="Pick date" value="<?php echo $p_dates; ?>">
+									<input type="text" required class="form-control date" name="p_dates" placeholder="Pick date" value="<?php echo esc($p_dates); ?>">
 								</div>
 	                        </div>
 
 	                        <div class="col-lg-4 col-md-4 col-sm-2">
 	                            <div class="form-group">
 									<label>Shift Time</label>
-									<input required type="text" class="form-control timePicker" name="p_shift_time" placeholder="Shift Time" value="<?php echo $p_shift_time; ?>">
+									<input required type="text" class="form-control timePicker" name="p_shift_time" placeholder="Shift Time" value="<?php echo esc($p_shift_time); ?>">
 								</div>
 	                        </div>
 						</div>

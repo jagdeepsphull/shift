@@ -203,25 +203,6 @@
                 $('#viewModal').modal('show');
             });
 			
-			// Handle View Button Click
-            $(document).on('click', '.applicant-btn', function () {
-                const name = $(this).data('name');
-                const licen = $(this).data('licen');
-                const licen_prov = $(this).data('licen_prov');
-                const shiftfor = $(this).data('shiftfor');
-                const message = $(this).data('message');
-
-                // Populate modal with row data
-                $('#modalName').val(name);
-                $('#modalLicen').val(licen);
-                $('#modalLicen_prov').val(licen_prov);
-                $('#modalShiftFor1').val(shiftfor);
-                $('#modalApplicantMessage').val(message);
-                $('#modalApplicantMessageGroup').toggle(Boolean(message));
-
-                // Show the modal
-                $('#applicantModal').modal('show');
-            });
 			
 			
 			
@@ -258,7 +239,7 @@
 			  "searching": true,
 			  "ordering": true,
 			  "info": true,
-			  "autoWidth": true,
+			  "autoWidth": false,
 			  "responsive": true,
 			});
 
@@ -272,8 +253,23 @@
 			  "searching": true,
 			  "ordering": true,
 			  "info": true,
-			  "autoWidth": true,
+			  "autoWidth": false,
 			  "responsive": true,
+			});
+
+			// My Stores. Nine columns of address and contact detail, which on a
+			// phone ran off the side of the screen with no way to reach them.
+			// DataTables is here for its responsive extension alone - the list
+			// is short and the controller's order is the one to keep, so there
+			// is no pager, no search box and no sorting, only the fold.
+			$('#storelist').DataTable({
+			  "paging": false,
+			  "searching": false,
+			  "ordering": false,
+			  "info": false,
+			  "autoWidth": false,
+			  "responsive": true,
+			  "language": { "emptyTable": "No stores yet." },
 			});
 
 			// Applications list has its own columns - it must not inherit the
@@ -285,7 +281,7 @@
 			  "searching": true,
 			  "ordering": true,
 			  "info": true,
-			  "autoWidth": true,
+			  "autoWidth": false,
 			  "responsive": true,
 			});
 

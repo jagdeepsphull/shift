@@ -30,14 +30,14 @@
 	                        <div class="col-lg-4 col-md-4 col-sm-2">
 	                            <div class="form-group">
 									<label>First Name</label>
-									<input required type="text" class="form-control" placeholder="Enter First Name" name="u_fname" value="<?php echo $u_fname; ?>">
+									<input required type="text" class="form-control" placeholder="Enter First Name" name="u_fname" value="<?php echo esc($u_fname); ?>">
 								</div>
 	                        </div>
 	                        <div class="col-lg-4 col-md-4 col-sm-2">
 	                            <!-- text input -->
 								<div class="form-group">
 									<label>Last Name</label>
-									<input required type="text" class="form-control" placeholder="Enter Last Name" name="u_lname" value="<?php echo $u_lname; ?>">
+									<input required type="text" class="form-control" placeholder="Enter Last Name" name="u_lname" value="<?php echo esc($u_lname); ?>">
 								</div>
 	                        </div>
 						</div>
@@ -68,7 +68,7 @@
 	                        <div class="col-lg-4 col-md-4 col-sm-2">
 	                            <div class="form-group">
 									<label>Licence No.</label>
-									<input required type="text" class="form-control" placeholder="Enter Licence No." name="u_licence_no" value="<?php echo $u_licence_no; ?>">
+									<input required type="text" class="form-control" placeholder="Enter Licence No." name="u_licence_no" value="<?php echo esc($u_licence_no); ?>">
 								</div>
 	                        </div>
 						</div>
@@ -78,14 +78,14 @@
 							<div class="col-sm-4">
 								<div class="form-group">
 									<label>Email Id</label>
-									<input required  readonly disabled type="email" class="form-control" placeholder="Enter Email Id" name="u_email" value="<?php echo $u_email; ?>">
+									<input required  readonly disabled type="email" class="form-control" placeholder="Enter Email Id" name="u_email" value="<?php echo esc($u_email); ?>">
 								</div>
 							</div>
 							<div class="col-sm-4">
 								<!-- text input -->
 								<div class="form-group">
 									<label>Mobile No.</label>
-									<input required type="text" class="form-control" placeholder="Enter <?php echo $pageinfo['title']; ?> Mobile No." name="u_phone" value="<?php echo $u_phone; ?>" maxlength="<?= PHONE_LENGTH ?>" inputmode="numeric" pattern="[0-9]{<?= PHONE_LENGTH ?>}" data-phone-input>
+									<input required type="text" class="form-control" placeholder="Enter <?php echo $pageinfo['title']; ?> Mobile No." name="u_phone" value="<?php echo esc($u_phone); ?>" maxlength="<?= PHONE_LENGTH ?>" inputmode="numeric" pattern="[0-9]{<?= PHONE_LENGTH ?>}" data-phone-input>
 								</div>
 							</div>
 							
@@ -98,7 +98,7 @@
 								<!-- text input -->
 								<div class="form-group">
 									<label>Address</label>
-									<textarea required class="form-control" placeholder="Enter Address" name="u_address1"><?php echo $u_address1; ?></textarea>
+									<textarea required class="form-control" placeholder="Enter Address" name="u_address1"><?php echo esc($u_address1); ?></textarea>
 								</div>
 							</div>
 							<div class="col-sm-3">
@@ -127,7 +127,7 @@
 								<!-- text input -->
 								<div class="form-group">
 									<label>Zipcode</label><span class="text-danger font-weight-bold ml-1" style="font-size:12px;"> e.g., M5A 1A1</span>
-									<input required class="form-control" placeholder="Enter Zipcode" name="u_pincode" value="<?php echo $u_pincode; ?>" >
+									<input required class="form-control" placeholder="Enter Zipcode" name="u_pincode" value="<?php echo esc($u_pincode); ?>" >
 								</div>
 							</div>
 						</div>

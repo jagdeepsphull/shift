@@ -119,7 +119,7 @@
 									<div class="form-group">
 										<label>Shift Date<span class="ps-req">*</span></label>
 										<div class="input-group">
-											<input type="text" required class="form-control date" name="p_dates" placeholder="Pick date" value="<?php echo $p_dates; ?>">
+											<input type="text" required class="form-control date" name="p_dates" placeholder="Pick date" value="<?php echo esc($p_dates); ?>">
 											<div class="input-group-append">
 												<span class="input-group-text"><i class="lni-calendar"></i></span>
 											</div>
@@ -130,7 +130,7 @@
 									<div class="form-group">
 										<label>Shift Time<span class="ps-req">*</span></label>
 										<div class="input-group">
-											<input required type="text" class="form-control timePicker" name="p_shift_time" placeholder="Shift Time" value="<?php echo $p_shift_time; ?>">
+											<input required type="text" class="form-control timePicker" name="p_shift_time" placeholder="Shift Time" value="<?php echo esc($p_shift_time); ?>">
 											<div class="input-group-append">
 												<span class="input-group-text"><i class="lni-alarm-clock"></i></span>
 											</div>
@@ -145,7 +145,7 @@
 												<div class="input-group-prepend">
 													<span class="input-group-text">$</span>
 												</div>
-												<input type="number" required min="10" max="200" class="form-control" name="p_hourly_rate" placeholder="Enter Hourly Rate" value="<?php echo $p_hourly_rate; ?>">
+												<input type="number" required min="10" max="200" class="form-control" name="p_hourly_rate" placeholder="Enter Hourly Rate" value="<?php echo esc($p_hourly_rate); ?>">
 												<div class="input-group-append">
 													<span class="input-group-text">/ hr</span>
 												</div>

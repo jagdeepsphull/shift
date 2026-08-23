@@ -254,8 +254,11 @@ body.ps-portal .table thead th {
 /* The row a cursor is on, tinted from the same run of colour. */
 body.ps-portal .table tbody tr:hover > td { background-color: rgba(124, 58, 237, .04); }
 
+/* A step below the 13px heading above it: the headings name the columns and
+   are read once, the rows are read down. */
 body.ps-portal .table td {
     color: var(--ps-ink-soft);
+    font-size: 12px;
     border-top: 1px solid var(--ps-line);
     vertical-align: middle;
 }
@@ -365,6 +368,22 @@ body.ps-portal .modal-body .form-control[readonly] {
     box-shadow: none;
 }
 
+/* ------------------------------------------------------------ map link --- */
+
+/* Under the store address on a booking, in the applicant's list. */
+body.ps-portal .ps-map-link {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ps-accent);
+    text-decoration: none;
+}
+
+body.ps-portal .ps-map-link:hover { text-decoration: underline; }
+
+body.ps-portal .ps-map-link i { margin-right: 4px; }
+
 /* ----------------------------------------------------------- datatables --- */
 
 /* The furniture DataTables draws around every list in this area - a search box,
@@ -440,5 +459,61 @@ body.ps-portal table.dataTable.dtr-inline.collapsed > tbody > tr.parent > th.dtr
 
 /* The panel it opens: a list of label/value pairs, which arrive unstyled. */
 body.ps-portal table.dataTable > tbody > tr > td.child ul.dtr-details { width: 100%; }
-body.ps-portal table.dataTable > tbody > tr > td.child span.dtr-title { color: var(--ps-muted); font-weight: 700; }
+/* The gap is the plugin's min-width on the label, so a label longer than it -
+   "Store Number" - sat against its own value. */
+body.ps-portal table.dataTable > tbody > tr > td.child span.dtr-title {
+    color: var(--ps-muted);
+    font-weight: 700;
+    margin-right: 10px;
+}
+
+/* ------------------------------------------------------------- phones --- */
+
+@media (max-width: 767.98px) {
+    /* The search box shared a line with its label and with the entry count,
+       which on a phone put its right edge past the screen. Its own line,
+       the width of the card. */
+    body.ps-portal .dataTables_wrapper .dataTables_filter {
+        float: none;
+        text-align: left;
+    }
+
+    body.ps-portal .dataTables_wrapper .dataTables_filter label {
+        display: block;
+        width: 100%;
+    }
+
+    body.ps-portal .dataTables_wrapper .dataTables_filter input {
+        display: block;
+        width: 100%;
+        margin: 6px 0 0;
+    }
+
+    /* DataTables measures the columns and writes the total onto the table, so
+       a list wider than the phone was simply cut off at the right - the fold
+       control on each row had nothing to fold, because as far as the plugin
+       was concerned every column already fitted. Held to the width of the
+       card, the responsive extension folds what does not fit into the panel
+       under the row, which is where the rest of the shift is read. */
+    body.ps-portal table.dataTable {
+        width: 100% !important;
+    }
+
+    /* A store name written as one word - INDIANPHARMACYSTORE001 - has nowhere
+       to wrap, and pushed the row past the side of the screen however narrow
+       the columns around it were made. */
+    body.ps-portal .table td,
+    body.ps-portal .table thead th {
+        padding-left: 10px !important;
+        padding-right: 10px !important;
+        overflow-wrap: anywhere;
+    }
+
+    /* Except the cell carrying the fold control, which needs the room the
+       plugin positions the round +/- into - tightened with the rest, the
+       control sat on top of the shift id. */
+    body.ps-portal table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control {
+        padding-left: 30px !important;
+    }
+}
 </style>

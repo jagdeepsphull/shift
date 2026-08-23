@@ -1,11 +1,6 @@
 <!-- Services Section Start -->
     <section id="services" class="section-padding  section-gap">
       <div class="container">
-        <div class="section-header text-center">
-          <h2 class="section-title wow fadeInDown" data-wow-delay="0.3s">Resources</h2>
-		  <div class="shape wow fadeInDown" data-wow-delay="0.3s"></div>
-        </div>
-		
     <div class="container mt-5">
 	
 	

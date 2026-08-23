@@ -46,17 +46,17 @@
 											<h3 class="card-title">Applicant Information</h3>
 										</div>
 										<div class="card border-0 shadow">
-											<img src="<?php echo base_url('uploads/profile/'.$application->u_photo );?>" style="max-width:110px; border-radius:10%; border: 5px solid #e9ecf3; margin: 10px auto 0 10px" alt="">
+											<img src="<?php echo esc(base_url('uploads/profile/'.$application->u_photo ), 'attr')?>" style="max-width:110px; border-radius:10%; border: 5px solid #e9ecf3; margin: 10px auto 0 10px" alt="">
 											<div class="card-body">
 												<div class="mb-4">
-													<h3 class="h4 mb-0"><?php echo $application->u_fname.' '. $application->u_lname; ?></h3>
-													<h5 class="mt-2"><span class="mb-0 text-primary">Licence No - </span><?php echo $application->u_licence_no; ?></h5>
+													<h3 class="h4 mb-0"><?php echo esc($application->u_fname . ' ' . $application->u_lname); ?></h3>
+													<h5 class="mt-2"><span class="mb-0 text-primary">Licence No - </span><?php echo esc($application->u_licence_no); ?></h5>
 													<h5 class="mt-2"><span class="mb-0 text-primary">Licence Province - </span><?php echo getProvinceName($application->u_l_provice); ?></h5>
 												</div>
 												<ul class="list-unstyled mb-4">
-													<li class="mb-3"><a href="mailto:<?php echo $application->u_email; ?>"><i class="far fa-envelope display-25 mr-1 text-secondary"></i><?php echo $application->u_email; ?></a></li>
+													<li class="mb-3"><a href="mailto:<?php echo esc($application->u_email); ?>"><i class="far fa-envelope display-25 mr-1 text-secondary"></i><?php echo esc($application->u_email); ?></a></li>
 													<li class="mb-3"><?php echo whatsappPhoneLink($application->u_phone, 'Message ' . $application->u_fname . ' on WhatsApp'); ?></li>
-													<li><a href="#!"><i class="fas fa-map-marker-alt display-25 mr-1 text-secondary"></i><?php echo $application->u_address1.', '.getCityName($application->u_city).', '.getProvinceName($application->u_provice) .', '.$application->u_pincode ; ?></a></li>
+													<li><a href="#!"><i class="fas fa-map-marker-alt display-25 mr-1 text-secondary"></i><?php echo esc($application->u_address1 . ', ' . getCityName($application->u_city) . ', ' . getProvinceName($application->u_provice) . ', ' . $application->u_pincode); ?></a></li>
 												</ul>
 											</div>
 										</div>
@@ -70,14 +70,14 @@
 										<div class="card border-0 shadow">
 											<div class="card-body">
 												<div class="mb-4">
-													<h3 class="h4 mb-0"><?php echo $u_comp_name;?> (<?php echo $u_fname.' '. $u_lname; ?>) </h3>
-													<h5 class="mt-2"><span class="mb-0 text-primary">Store No. - </span><?php echo $u_licence_no; ?></h5>
+													<h3 class="h4 mb-0"><?php echo esc($u_comp_name);?> (<?php echo esc($u_fname).' '. $u_lname; ?>) </h3>
+													<h5 class="mt-2"><span class="mb-0 text-primary">Store No. - </span><?php echo esc($u_licence_no); ?></h5>
 													<h5 class="mt-2"><span class="mb-0 text-primary">Store Licence Province - </span><?php echo getProvinceName($u_l_provice); ?></h5>
 												</div>
 												<ul class="list-unstyled mb-4">
-													<li class="mb-3"><a href="mailto:<?php echo $u_email; ?>"><i class="far fa-envelope display-25 mr-1 text-secondary"></i><?php echo $u_email; ?></a></li>
+													<li class="mb-3"><a href="mailto:<?php echo esc($u_email); ?>"><i class="far fa-envelope display-25 mr-1 text-secondary"></i><?php echo esc($u_email); ?></a></li>
 													<li class="mb-3"><?php echo whatsappPhoneLink($u_phone, 'Message ' . $u_comp_name . ' on WhatsApp'); ?></li>
-													<li><a href="#!"><i class="fas fa-map-marker-alt display-25 mr-1 text-secondary"></i><?php echo $u_address1.', '.getCityName($u_city).', '.getProvinceName($u_provice). ', '.$u_pincode ; ?></a></li>
+													<li><a href="#!"><i class="fas fa-map-marker-alt display-25 mr-1 text-secondary"></i><?php echo esc($u_address1).', '.getCityName($u_city).', '.getProvinceName($u_provice). ', '.$u_pincode ; ?></a></li>
 												</ul>
 											</div>
 										</div>
@@ -92,17 +92,17 @@
 												<div class="text-start mb-1-6 wow fadeIn">
 													<span class="mb-0 text-primary">Shift ID</span>
 												</div>
-												<p><?php echo $application->p_job_title;?></p>
+												<p><?php echo esc($application->p_job_title);?></p>
 												<hr>
 												<div class="text-start mb-1-6 wow fadeIn">
 													<span class="mb-0 text-primary">Employer Rate</span>
 												</div>
-												<p> CAD$ <?php echo $application->p_hourly_rate;?></p>
+												<p> CAD$ <?php echo esc($application->p_hourly_rate);?></p>
 												<hr>
 												<div class="text-start mb-1-6 wow fadeIn">
 													<span class="mb-0 text-primary">Actual Rate</span>
 												</div>
-												<p> CAD$ <?php echo $application->p_ac_hourly_rate;?></p>
+												<p> CAD$ <?php echo esc($application->p_ac_hourly_rate);?></p>
 												<hr>
 												<div class="text-start mb-1-6 wow fadeIn">
 													<span class="mb-0 text-primary">Shift Date</span>
@@ -112,7 +112,7 @@
 												<div class="text-start mb-1-6 wow fadeIn">
 													<span class="mb-0 text-primary">Shift Time</span>
 												</div>
-												<p><?php echo $application->p_shift_time;?></p>
+												<p><?php echo esc($application->p_shift_time);?></p>
 												<hr>
 											</div>
 										</div>
@@ -121,7 +121,7 @@
 												<div class="text-start mb-1-6 wow fadeIn">
 													<span class="mb-0 text-primary">Job Application Hourly Rate/Remarks</span>
 												</div>
-												<p><?php echo $application->sj_applied_desc;?></p>
+												<p><?php echo esc($application->sj_applied_desc);?></p>
 											</div>
 										</div>
 										
@@ -137,9 +137,9 @@
 											<input type="hidden" name="p_id" value="<?php echo $application->p_id ; ?>" >
 											<input type="hidden" name="u_id" value="<?php echo $application->u_id; ?>" >
 											<?php if($application->sj_is_approved ==0){ ?>
-											<textarea rows="4"  cols="50" required class="form-control" placeholder="Response/Message" name="sj_admin_comment"><?php echo $sj_admin_comment;?></textarea>
+											<textarea rows="4"  cols="50" required class="form-control" placeholder="Response/Message" name="sj_admin_comment"><?php echo esc($sj_admin_comment);?></textarea>
 											<?php } else {?>
-											<div class="border p-3 mb-2 "><?php echo $application->sj_admin_comment ; ?></div>
+											<div class="border p-3 mb-2 "><?php echo esc($application->sj_admin_comment); ?></div>
 											<?php } ?>
                                         </div>
                                     </div>

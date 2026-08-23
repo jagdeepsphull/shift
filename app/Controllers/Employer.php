@@ -52,6 +52,11 @@ class Employer extends BaseController
         $this->userinfo         = $this->custom->get_where('users', ['u_id' => $this->data['uid']]);
         $this->data['userinfo'] = $this->userinfo;
 
+        // The row is already here, so checking it still may sign in costs
+        // nothing. Without this, deactivating an employer takes effect only
+        // once their session ends.
+        $this->stopIfAccountClosed($this->userinfo, 'front/login');
+
         $this->data['company_logo'] = ! empty($this->userinfo[0]->u_a_company_logo)
             ? $this->userinfo[0]->u_a_company_logo
             : 'nologo.jpg';
@@ -91,6 +96,11 @@ class Employer extends BaseController
         // manager neither sets it on the shift form nor is shown it back in the
         // panel on All Shifts. Resolved once here because three screens ask.
         $this->data['can_set_rate'] = ! $this->isManager();
+
+        // The administrator's note against a booking is written to the group -
+        // it usually states what was agreed for the shift - so the panel on All
+        // Shifts keeps it from a manager for the same reason it keeps the rate.
+        $this->data['can_see_message'] = ! $this->isManager();
     }
 
     /**

@@ -37,9 +37,24 @@ $wz_address = ($wz_booked && $shift_store && trim((string) $shift_store->s_addre
     : '';
 $wz_place = $wz_address . $wz_shift->c_name . ', ' . $wz_shift->p_name;
 
-// The pasted pin where the store has one, otherwise a search for the address
-// just printed - so it travels with that address.
-$wz_map = ($wz_booked && $shift_store) ? storeMapLink($shift_store) : '';
+// A map for whatever location the reader is being shown, so the line that
+// names a place is always a line they can open.
+//
+// Booked, that is the store's own pin where somebody pasted one, or a search
+// for the street address just printed. Signed in without a booking it is a
+// search for the town, built from the same text as the line above it - the
+// branch is still withheld at that tier, and its pin would give it away as
+// plainly as its address would.
+$wz_map = '';
+
+if ($wz_booked && $shift_store) {
+    $wz_map = storeMapLink($shift_store);
+} elseif ($wz_signedIn) {
+    $wz_map = mapSearchLink($wz_place);
+}
+
+// Directions to a doorway; a town is somewhere you look at first.
+$wz_map_label = $wz_booked ? 'Get directions' : 'View on Google Maps';
 
 // The store's own page where it has one, else the employer's. Either one names
 // the pharmacy as plainly as the store row does, so it keeps the same company.
@@ -119,7 +134,7 @@ $wz_extra = $wz_signedIn ? trim(strip_tags((string) $wz_shift->p_jobinfo)) : '';
               <dd>
                 <?php echo esc($wz_place); ?>
                 <?php if ($wz_map !== '') { ?>
-                  <a class="wz-directions" href="<?php echo esc($wz_map); ?>" target="_blank" rel="noopener noreferrer">Get directions</a>
+                  <a class="wz-directions" href="<?php echo esc($wz_map); ?>" target="_blank" rel="noopener noreferrer"><?php echo esc($wz_map_label); ?></a>
                 <?php } ?>
               </dd>
             </div>

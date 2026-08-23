@@ -77,7 +77,7 @@
 					?>
                   <tr class="<?php echo ($job->p_approved==1) ? 'bg-gradient-success'  : '' ;?> <?php echo ($job->p_approved==3) ? 'bg-gradient-warning'  : '' ;?>" >
                     <td><?php echo $job-> p_id ; ?></td>
-                    <td><?php echo $job->p_job_title; ?></td>
+                    <td><?php echo esc($job->p_job_title); ?></td>
                     <td><?php echo getPharmacyName($job-> u_id ); ?></td>
                     <td><?php echo getCityName($job->p_city); ?></td>
                     <td><?php echo getProvinceName($job->p_province); ?></td>

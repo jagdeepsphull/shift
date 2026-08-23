@@ -27,6 +27,9 @@ const MANAGER = { user: `${PREFIX}manager@example.com`, pass: PASSWORD };
 /** The rate the group set, which a manager's edit must not touch. */
 const RATE = 47;
 
+/** The administrator's note on a booking, which a manager is not shown either. */
+const MESSAGE = 'Agreed at $52 for this one.';
+
 /** @type {{owner: number, manager: number}} */
 let user;
 
@@ -34,6 +37,10 @@ let user;
 let branch;
 
 function removeFixtures() {
+  query(`
+    DELETE FROM stu_saved_applied_jobs WHERE p_id IN (
+      SELECT p_id FROM (SELECT p_id FROM post_job WHERE p_job_title LIKE 'E2E-RATE-%') x);
+  `);
   query(`
     DELETE FROM post_job WHERE u_id IN (
       SELECT u_id FROM (SELECT u_id FROM users WHERE u_userid LIKE '${PREFIX}%') x);
@@ -284,5 +291,57 @@ test('the details panel shows the rate to the owner, not to the manager', async 
   await row.getByRole('button', { name: 'View' }).click();
   await expect(page.locator('#viewModal')).toBeVisible();
   await expect(page.locator('#viewModal')).not.toContainText('Shift Rate');
+  await expectNoServerError(page);
+});
+
+/**
+ * Book the fixture's shift, with the note the administrator left on it.
+ *
+ * Any active pharmacist will do - the panel names whoever is on the shift, and
+ * this test is about the note beside the name rather than the name.
+ *
+ * @param {number} pid post_job.p_id
+ */
+function bookWithMessage(pid) {
+  const applicant = scalar('SELECT u_id FROM users WHERE u_usertype = 2 AND u_status = 1 LIMIT 1;');
+
+  expect(applicant, 'a pharmacist to put on the shift').not.toBe('');
+
+  query(`
+    INSERT INTO stu_saved_applied_jobs
+      (u_id, agency_id, p_id, sj_applied_date, sj_accept_date, sj_status, sj_is_approved,
+       sj_admin_comment, sj_applied_desc, sj_resubmit_comments, sj_rejected_comments, created, modified)
+    VALUES (${applicant}, ${user.owner}, ${pid}, NOW(), NOW(), 6, 1, '${MESSAGE}', '', '', 0, NOW(), NOW());
+  `);
+  query(`UPDATE post_job SET p_status = 1, p_approved = 3 WHERE p_id = ${pid};`);
+}
+
+test('the details panel shows the booking message to the owner, not to the manager', async ({ page }) => {
+  bookWithMessage(seedShifts());
+
+  await loginAsFrontUser(page, OWNER);
+  await page.goto('employer/all_jobs');
+  await settle(page);
+  await page.locator('#joblist tbody tr', { hasText: 'E2E-RATE-SHIFT' }).getByRole('button', { name: 'View' }).click();
+
+  await expect(page.locator('#modalMessage')).toBeVisible();
+  await expect(page.locator('#modalMessage')).toHaveValue(MESSAGE);
+
+  await page.goto('employer/logout');
+  await loginAsFrontUser(page, MANAGER);
+  await page.goto('employer/all_jobs');
+  await settle(page);
+
+  const row = page.locator('#joblist tbody tr', { hasText: 'E2E-RATE-SHIFT' });
+  await expect(row, "the manager sees their branch's shift").toHaveCount(1);
+
+  // Gone from the page rather than hidden in it: the note names what the shift
+  // was agreed at, which is the same thing the rate is.
+  await expect(page.locator('#modalMessage')).toHaveCount(0);
+  expect(await page.content(), 'no note anywhere in the source').not.toContain(MESSAGE);
+
+  await row.getByRole('button', { name: 'View' }).click();
+  await expect(page.locator('#viewModal')).toBeVisible();
+  await expect(page.locator('#viewModal')).not.toContainText('Message');
   await expectNoServerError(page);
 });

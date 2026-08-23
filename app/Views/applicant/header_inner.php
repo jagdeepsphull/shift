@@ -219,5 +219,7 @@
                                     <li class="ps-menu-out <?php echo $lgcls; ?>"><a href="<?php echo base_url('applicant/logout')?>"><i class="lni-power-switch"></i>Logout</a></li>
                                 </ul>
                             </div>
+
+                            <?= view('partials/portal_support') ?>
                         </div>
                     </div>

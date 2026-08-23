@@ -21,8 +21,47 @@ $root = dirname(__DIR__);
 $target = $argv[1] ?? '';
 $makeZip = in_array('--zip', $argv, true);
 
+/**
+ * Split the bundle into a public half and a private one.
+ *
+ * Without it everything sits in the document root and `app/`, `vendor/`,
+ * `writable/` and `.env` are kept out of reach by the rules in `.htaccess`.
+ * That works - it is checked by the test suite - but it is one file away from
+ * not working: a host that stops honouring `.htaccess`, an `AllowOverride`
+ * changed during a server move, a migration to nginx, and every one of those
+ * folders is suddenly a URL.
+ *
+ * With it, they are not under any document root at all. There is no rule to
+ * honour, because there is nothing to reach. On this account the addon domain's
+ * root is /home/<user>/pickashift.ca, so the private half sits beside it at
+ * /home/<user>/pickashift_app - a sibling of the document roots, under none of
+ * them.
+ */
+$split = in_array('--split', $argv, true);
+
+/** The private folder's name, which the front controller looks for. */
+$privateName = 'pickashift_app';
+
+foreach ($argv as $arg) {
+    if (str_starts_with($arg, '--private=')) {
+        $privateName = trim(substr($arg, strlen('--private=')), '/\\ ');
+    }
+}
+
 if (! in_array($target, ['staging', 'production'], true)) {
-    fwrite(STDERR, "Usage: php deploy/build.php staging|production [--zip]\n");
+    fwrite(STDERR, "Usage: php deploy/build.php staging|production [--zip] [--split] [--private=NAME]\n");
+    exit(1);
+}
+
+if ($split && $target === 'staging') {
+    // Staging lives in a subfolder of a document root, so "outside the document
+    // root" is a different question there and the answer is not this.
+    fwrite(STDERR, "  --split is for production. Staging is a subfolder deploy.\n");
+    exit(1);
+}
+
+if ($privateName === '' || ! preg_match('/^[A-Za-z0-9._-]+$/', $privateName)) {
+    fwrite(STDERR, "  --private must be a plain folder name, e.g. --private=pickashift_app\n");
     exit(1);
 }
 
@@ -118,19 +157,49 @@ foreach (['cache', 'logs', 'session', 'debugbar', 'uploads'] as $dir) {
 
 file_put_contents($out . '/writable/index.html', '');
 
+// Sessions and logs live in here. The root .htaccess already refuses the whole
+// folder; this is the same refusal from inside it, so a host that ignores the
+// outer rule - or a folder moved by hand - is still covered.
+file_put_contents(
+    $out . '/writable/.htaccess',
+    "# Sessions, logs and cache. Nothing in here is ever served.\n"
+    . "<IfModule mod_authz_core.c>\n    Require all denied\n</IfModule>\n"
+    . "<IfModule !mod_authz_core.c>\n    Order allow,deny\n    Deny from all\n</IfModule>\n"
+);
+
 // The live uploads folder holds real user files. It is created here only so a
 // first deploy has somewhere to write; UPLOAD.md warns never to overwrite it.
 mkdir($out . '/uploads', 0775, true);
 file_put_contents($out . '/uploads/index.html', '');
 
-echo "  writable/ + uploads/: skeleton created\n";
+// This one is not a skeleton - it is the rule that stops anything uploaded
+// here from being executed, and the bundle is wrong without it.
+if (! is_file($root . '/uploads/.htaccess')) {
+    fwrite(STDERR, "  ERROR: uploads/.htaccess is missing from the repository\n");
+    exit(1);
+}
+
+copy($root . '/uploads/.htaccess', $out . '/uploads/.htaccess');
+
+echo "  writable/ + uploads/: skeleton created, both closed to the web\n";
 
 // ------------------------------------------------------------------ .env ----
 
 $env = file_get_contents($root . '/deploy/templates/env.' . $target);
+
+// The cron key is generated rather than left blank. Blank means the cron URLs
+// return 404, which is the safe way for them to fail - but it fails the shift
+// reminders too, silently, and "fill this in" is exactly the line that gets
+// skipped. A key that is already there only has to be copied into the cron
+// entry, and it is a different one in every bundle.
+$cronKey = bin2hex(random_bytes(16));
+$env     = preg_replace('/^cron\.key\s*=.*$/m', 'cron.key = ' . $cronKey, $env, 1);
+
 file_put_contents($out . '/.env', $env);
 
 echo "  .env: from templates/env.{$target}\n";
+echo "  .env: cron.key generated - {$cronKey}\n";
+echo "        cron URL: /cron/remind_shifts?key={$cronKey}\n";
 
 // -------------------------------------------------------------- htaccess ----
 // Generated from the live .htaccess so the two cannot drift. Staging gets a
@@ -182,6 +251,98 @@ if ($isStg) {
     echo "  robots.txt: copied\n";
 }
 
+// ----------------------------------------------------------------- split ----
+// Public half and private half. Up to here the bundle has been assembled flat,
+// which is also the shape it ships in without --split; this pulls it apart.
+//
+// What has to stay in the document root is exactly what a browser asks for by
+// URL: the front controller, the rules that route to it, the stylesheets and
+// scripts, and the files people have uploaded. Everything else is machinery.
+
+/** Where the two halves end up. Both are `$out` when the bundle is flat. */
+$pub  = $out;
+$priv = $out;
+
+if ($split) {
+    $pub  = $out . '/site';
+    $priv = $out . '/private/' . $privateName;
+
+    mkdir($pub, 0755, true);
+    mkdir($priv, 0755, true);
+
+    // `uploads/` is public because the site serves those files by URL - a logo
+    // in a page, a licence scan an administrator opens. It keeps its own
+    // .htaccess, which is what stops anything in there being executed.
+    $public = ['index.php', '.htaccess', 'robots.txt', 'assets', 'uploads'];
+
+    // `preload.php` goes with the application: it is an opcache script that
+    // names vendor paths, and it is never requested over the web.
+    $private = ['app', 'vendor', 'writable', '.env', 'composer.json', 'composer.lock', 'spark', 'preload.php'];
+
+    foreach ([[$public, $pub], [$private, $priv]] as [$entries, $dest]) {
+        foreach ($entries as $entry) {
+            if (! file_exists($out . '/' . $entry)) {
+                continue;
+            }
+
+            if (! rename($out . '/' . $entry, $dest . '/' . $entry)) {
+                fwrite(STDERR, "  ERROR: could not move {$entry} into " . basename($dest) . "\n");
+                exit(1);
+            }
+        }
+    }
+
+    // Anything the two lists forgot would be left behind in the root, where it
+    // would be neither uploaded nor missed. Better to stop than to ship it.
+    $stranded = array_diff(scandir($out) ?: [], ['.', '..', 'site', 'private']);
+
+    if ($stranded !== []) {
+        fwrite(STDERR, '  ERROR: not sorted into a half: ' . implode(', ', $stranded) . "\n");
+        exit(1);
+    }
+
+    // The front controller is the only file that has to know where the other
+    // half went.
+    $index = (string) file_get_contents($pub . '/index.php');
+    $needle = "require FCPATH . 'app/Config/Paths.php';";
+
+    if (! str_contains($index, $needle)) {
+        fwrite(STDERR, "  ERROR: index.php does not have the line that loads Paths.php\n");
+        exit(1);
+    }
+
+    $locate = <<<PHP
+        // The application itself is not in this folder, and not under any
+        // document root: app/, vendor/, writable/ and .env live one level up,
+        // in {$privateName}/. They have no URL at all - not a blocked one,
+        // none - so no rule has to hold for them to stay unreachable.
+        //
+        // Built by deploy/build.php --split. FCPATH stays the document root, so
+        // uploads/ and assets/ still resolve here, where the browser expects.
+        \$privateDir = realpath(FCPATH . '../{$privateName}');
+
+        if (\$privateDir === false || ! is_file(\$privateDir . '/app/Config/Paths.php')) {
+            header('HTTP/1.1 503 Service Unavailable.', true, 503);
+
+            echo 'Application files not found. This document root expects them in '
+                . '../{$privateName}/ - see deploy/UPLOAD.md.';
+
+            exit(1);
+        }
+
+        define('PRIVATEPATH', \$privateDir . DIRECTORY_SEPARATOR);
+
+        require PRIVATEPATH . 'app/Config/Paths.php';
+        PHP;
+
+    // The heredoc above is indented for readability here; the file gets it flush.
+    $locate = preg_replace('/^        /m', '', $locate);
+
+    file_put_contents($pub . '/index.php', str_replace($needle, $locate, $index));
+
+    echo "  split: site/ (document root) + private/{$privateName}/ (above it)\n";
+}
+
 // ---------------------------------------------------------------- report ----
 
 [$files, $bytes] = measure($out);
@@ -191,16 +352,18 @@ printf("  %d files, %.1f MB\n", $files, $bytes / 1048576);
 echo "  -> deploy/build/{$target}/\n\n";
 
 foreach (['.git', 'plan', 'tests', 'phpunit.dist.xml', '_backup_ci3_20260804', 'env'] as $mustNot) {
-    if (file_exists($out . '/' . $mustNot)) {
-        fwrite(STDERR, "  LEAK: {$mustNot} is in the bundle\n");
-        exit(1);
+    foreach (array_unique([$pub, $priv]) as $half) {
+        if (file_exists($half . '/' . $mustNot)) {
+            fwrite(STDERR, "  LEAK: {$mustNot} is in the bundle\n");
+            exit(1);
+        }
     }
 }
 
 // The bundle is useless without the framework, and a dropped vendor/ shows up
 // as a blank "Whoops!" page rather than anything that names the cause. Fail the
 // build here rather than let that reach a server.
-$boot = $out . '/vendor/codeigniter4/framework/system/Boot.php';
+$boot = $priv . '/vendor/codeigniter4/framework/system/Boot.php';
 
 if (! is_file($boot)) {
     fwrite(STDERR, "  ERROR: vendor/codeigniter4/framework/system/Boot.php missing\n");
@@ -210,13 +373,92 @@ if (! is_file($boot)) {
 echo "  Checked: no .git, plan/, tests/ or local env in the bundle.\n";
 echo "  Checked: framework Boot.php present.\n";
 
+// ------------------------------------------------------------ safety net ----
+// Each of these has been wrong at least once, and every one of them fails
+// silently: the site works perfectly and is simply less safe than it reads.
+
+$mustContain = [
+    [$pub,  'uploads/.htaccess',                 'Require all denied'],
+    [$priv, 'writable/.htaccess',                'Require all denied'],
+    [$pub,  '.htaccess',                         'X-Content-Type-Options'],
+    [$priv, 'app/Config/Security.php',           "csrfProtection = 'session'"],
+    [$priv, 'app/Filters/CsrfTokenInjector.php', 'injectIntoForms'],
+
+    // The front controller has to agree with the layout it was built for.
+    // A split bundle whose index.php still looks for app/ beside itself is a
+    // 503 on every page, and a flat one rewritten for a private folder is the
+    // same. Neither is visible until it is on a server.
+    [$pub,  'index.php',                         $split ? 'PRIVATEPATH' : "FCPATH . 'app/Config/Paths.php'"],
+];
+
+foreach ($mustContain as [$half, $file, $needle]) {
+    $path = $half . '/' . $file;
+
+    if (! is_file($path) || ! str_contains((string) file_get_contents($path), $needle)) {
+        fwrite(STDERR, "  ERROR: {$file} is missing or does not contain \"{$needle}\"\n");
+        exit(1);
+    }
+}
+
+// The CSRF check and the filter that puts the token in the page are one
+// feature. Shipping the first without the second locks every form on the site.
+$filters = (string) file_get_contents($priv . '/app/Config/Filters.php');
+
+if (! preg_match("/'before'\s*=>\s*\[[^\]]*'csrf'/s", $filters) || ! str_contains($filters, "'csrftoken'")) {
+    fwrite(STDERR, "  ERROR: the csrf filter and its token injector are not both registered in Config/Filters.php\n");
+    exit(1);
+}
+
+echo "  Checked: uploads/ and writable/ closed, security headers set, CSRF on.\n";
+
 // ------------------------------------------------------------------- zip ----
 // One file uploads reliably; 5,000 over FTP do not. A dropped or half-copied
 // vendor/ is the usual result, and it is invisible until the site 500s.
 
-if ($makeZip) {
-    $zipPath = $root . '/deploy/build/pickashift-' . $target . '.zip';
+if ($makeZip && ! $split) {
+    zipUp($out, $root . '/deploy/build/pickashift-' . $target . '.zip', '');
 
+    echo "  Upload that one file into the document root, then Extract it.\n";
+}
+
+if ($makeZip && $split) {
+    // Two archives, because the halves are extracted in two different places.
+    //
+    // The private one carries its own folder name inside it, so extracting it
+    // in the home directory creates `<name>/` rather than emptying the
+    // application over whatever is already there. The public one does not -
+    // its contents go straight into the document root, which already exists.
+    zipUp($pub, $root . '/deploy/build/pickashift-site.zip', '');
+    zipUp($priv, $root . '/deploy/build/pickashift-private.zip', $privateName . '/');
+
+    echo "\n";
+    echo "  Upload and extract these in two places:\n";
+    echo "    pickashift-site.zip     -> the document root  (pickashift.ca/)\n";
+    echo "    pickashift-private.zip  -> the home directory (creates {$privateName}/ beside it)\n";
+}
+
+if ($split) {
+    echo "\n";
+    echo "  Layout on the server:\n";
+    echo "    /home/<user>/pickashift.ca/   index.php  .htaccess  robots.txt  assets/  uploads/\n";
+    echo "    /home/<user>/{$privateName}/" . str_repeat(' ', max(1, 14 - strlen($privateName)))
+        . "app/  vendor/  writable/  .env  spark\n";
+    echo "\n";
+    echo "  The two must stay siblings: index.php looks for ../{$privateName}/.\n";
+}
+
+echo "  Next: deploy/UPLOAD.md\n";
+
+// --------------------------------------------------------------- helpers ----
+
+/**
+ * Zip a tree, optionally under a folder name inside the archive.
+ *
+ * @param string $prefix '' puts the contents at the archive root; 'name/' wraps
+ *                       them in a folder of that name
+ */
+function zipUp(string $dir, string $zipPath, string $prefix): void
+{
     if (file_exists($zipPath)) {
         unlink($zipPath);
     }
@@ -229,7 +471,7 @@ if ($makeZip) {
     }
 
     $it = new RecursiveIteratorIterator(
-        new RecursiveDirectoryIterator($out, FilesystemIterator::SKIP_DOTS)
+        new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS)
     );
 
     $n = 0;
@@ -239,7 +481,7 @@ if ($makeZip) {
             continue;
         }
 
-        $local = str_replace('\\', '/', substr($file->getPathname(), strlen($out) + 1));
+        $local = $prefix . str_replace('\\', '/', substr($file->getPathname(), strlen($dir) + 1));
         $zip->addFile($file->getPathname(), $local);
         $n++;
     }
@@ -247,12 +489,7 @@ if ($makeZip) {
     $zip->close();
 
     printf("  zip: %d entries, %.1f MB -> deploy/build/%s\n", $n, filesize($zipPath) / 1048576, basename($zipPath));
-    echo "  Upload that one file, then Extract it in cPanel File Manager.\n";
 }
-
-echo "  Next: deploy/UPLOAD.md\n";
-
-// --------------------------------------------------------------- helpers ----
 
 function copyTree(string $src, string $dst): int
 {

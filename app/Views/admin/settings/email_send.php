@@ -46,7 +46,7 @@
                                         <div class="form-group">
                                             <label>To: (separate multiple emails with commas):</label> 
                                             <!--<input type="email" name="to" id="to" required class="form-control" 
-                                                placeholder="Enter Email id" value="<?php echo $p_company_name;?>"> -->
+                                                placeholder="Enter Email id" value="<?php echo esc($p_company_name);?>"> -->
 											<textarea name="to" id="to" rows="3" required class="form-control" 
                                                 placeholder="Enter Email id" ></textarea>
                                         </div>

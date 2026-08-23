@@ -32,6 +32,43 @@ DMARC (`p=quarantine`), so mail sent through Mailgun authenticates. Mail sent an
 other way — including PHP `mail()` — does not, and gets quarantined. That is why
 `email.protocol` is `smtp` and must stay that way.
 
+### Changing the mail settings later
+
+**There is no screen for this.** The back office has no SMTP page and the
+`settings` table has no SMTP columns — mail configuration lives in `.env` and
+nowhere else. On a split deploy that file is
+`/home/m50dt2r0daoy/pickashift_app/.env`; on a flat one it sits beside
+`index.php`. Edit it in cPanel's File Manager, save, and the next page load uses
+it: nothing to restart, no cache to clear.
+
+| Line in `.env` | What it changes |
+|---|---|
+| `email.SMTPHost` | the server the mail is sent *through* |
+| `email.SMTPUser` / `email.SMTPPass` | the credentials for it |
+| `email.SMTPPort` / `email.SMTPCrypto` | `587` pairs with `tls`, `465` pairs with `ssl` |
+| `email.protocol` | leave it `smtp` — see the DKIM note above |
+| `appsettings.mailFromEmail` | the address the mail is **from** |
+| `appsettings.mailFromName` | the name beside it |
+| `appsettings.shiftEmailFallback` | where a shift e-mail goes when the ticked side cannot be reached |
+
+The sender is `appsettings.` and not `email.`, which is worth knowing before you
+spend an afternoon on it. Every send site in the application calls `setFrom()`
+with `Config\AppSettings::$mailFromEmail`, so an `email.fromEmail` line is read
+into `Config\Email` and then never looked at. Bundles built before 22 August
+2026 carried exactly that line — it looked like the sender setting and changed
+nothing.
+
+Check the result without booking a real shift:
+
+```
+php spark email:test you@gmail.com      # run from pickashift_app/, needs SSH
+```
+
+Without SSH, the back office's bulk e-mail screen sends through the same
+configuration. When sending fails, `writable/logs/` names the reason — a wrong
+password reads as *"Failed to authenticate password"*, a wrong host as a
+connection timeout.
+
 ---
 
 ## Staging → `/staging/`
@@ -89,20 +126,112 @@ mysqldump -u USER -p pickashift --ignore-table=pickashift.visit_log | mysql -u U
 
 ---
 
-## Production → site root
+## Production → `pickashift.ca`
+
+The live site is the **pickashift.ca** folder in cPanel's file manager
+(`/home/m50dt2r0daoy/pickashift.ca`), which is that domain's document root — not
+`public_html/`, which is `reliefshifts.com`. Uploading into the wrong one of the
+two is the mistake to watch for: nothing errors, the files simply appear under a
+domain nobody was told to visit.
 
 Once staging is approved:
 
-1. `php deploy/build.php production`
-2. Fill in `deploy/build/production/.env`.
+1. `php deploy/build.php production --split --zip`
+   (drop `--split` for the single-folder layout — see **Where the application
+   files go** below; split is the recommended one)
+2. Fill in the `.env` — database and SMTP. It is at
+   `deploy/build/production/private/pickashift_app/.env` in a split build, and
+   `deploy/build/production/.env` in a flat one. `cron.key` is already
+   generated; note the value the build prints, the cron entry needs it.
 3. **Back up first** — database export *and* a copy of the current files.
-4. Upload the contents to the site root.
-5. Run the migrations.
-6. Check the site, then check `writable/logs/` for anything new.
+4. Upload: `pickashift-site.zip` into `/pickashift.ca/` and
+   `pickashift-private.zip` into the home directory, extracting each in place.
+5. Set `pickashift.ca/uploads/` and `pickashift_app/writable/` to 755 (775 on
+   some hosts).
+6. Run the migrations.
+7. Work down **After deploying, verify**, starting with the security checks.
 
-Do **not** copy the `/staging/` folder to the root. Its `.env` and `.htaccess`
+Do **not** copy the `/staging/` folder into place. Its `.env` and `.htaccess`
 are built for a subfolder and would break the live site. Build the production
 bundle instead — that is what the second command is for.
+
+### Before the DNS is pointed
+
+`app.baseURL` is `https://pickashift.ca/`, so every link the site writes names
+that domain whether or not it resolves yet. Open the site by its real name and
+check the padlock before announcing it: with `forceGlobalSecureRequests` on and
+HSTS being sent, a browser that meets the site once over a broken certificate
+remembers the refusal for a year.
+
+Run cPanel → **SSL/TLS Status** → *Run AutoSSL* for pickashift.ca first, and
+confirm the certificate covers **both** `pickashift.ca` and `www.pickashift.ca`.
+The `.htaccess` sends www to the bare domain, and that redirect is itself served
+over https.
+
+### Where the application files go: two layouts
+
+`pickashift.ca/` is the document root of an addon domain, and the home directory
+above it — `/home/m50dt2r0daoy/` — is not the document root of anything. That
+makes a second, better layout possible, and `--split` builds it:
+
+```
+php deploy/build.php production --split --zip
+```
+
+|  | Flat (default) | Split (`--split`, recommended) |
+|---|---|---|
+| Document root holds | `index.php` `.htaccess` `robots.txt` `assets/` `uploads/` **and** `app/` `vendor/` `writable/` `.env` | `index.php` `.htaccess` `robots.txt` `assets/` `uploads/` |
+| Beside it, `pickashift_app/` | — | `app/` `vendor/` `writable/` `.env` `spark` |
+| What keeps `app/` and `.env` private | the rules in `.htaccess` | nothing has to — they have no URL |
+| Upload | one zip | two zips, two places |
+
+Both are safe **today**: the `.htaccess` rules are real and the test suite checks
+them. The difference is what happens the day they stop being honoured — an
+`AllowOverride` changed during a server move, a migration to nginx, a host
+tightening something. In the flat layout that is the whole application and the
+database password becoming readable over the web. In the split layout there is
+nothing under any document root to read, so there is no rule left to fail.
+
+The cost is one extra upload. That is the whole trade.
+
+#### Uploading the split build
+
+```
+pickashift-site.zip     ->  /home/m50dt2r0daoy/pickashift.ca/   (Extract there)
+pickashift-private.zip  ->  /home/m50dt2r0daoy/                 (Extract there;
+                                                                 it creates pickashift_app/)
+```
+
+The private zip carries its own folder name inside it, so extracting it in the
+home directory creates `pickashift_app/` rather than scattering the application
+across the home directory. The site zip does not — its contents go straight into
+the document root, which already exists.
+
+**They have to stay siblings.** `index.php` looks for `../pickashift_app/`, and
+nothing else in the application knows or cares where it is: `Config\Paths` is
+written in `__DIR__`-relative terms, so the framework, `writable/` and `.env`
+all follow the folder wherever it goes. `uploads/` and `assets/` deliberately
+stay in the document root, because the browser fetches those by URL.
+
+If the halves are separated, every page is a **503** saying the application
+files were not found — a clear failure rather than a broken-looking site.
+
+Rename the private folder with `--private=NAME` if you prefer something else;
+the front controller is built to match.
+
+#### What changes for the rest of this document
+
+- **Migrations:** `php spark migrate` is run from `pickashift_app/`, not the
+  document root. With no SSH, `deploy/migrate.php` reads the `.env` beside it —
+  upload it into `pickashift_app/`, open it via… it has no URL there. So on a
+  split deploy without SSH, run the release `.sql` in phpMyAdmin instead, or
+  drop `migrate.php` and a copy of `.env` into the document root temporarily and
+  **delete both** the moment it has run.
+- **Permissions:** `pickashift_app/writable/` needs to be writable (755, or 775
+  on some hosts). `uploads/` stays in the document root and still needs it too.
+- **`.env` checks:** `https://pickashift.ca/.env` returns **404** rather than
+  403 on a split deploy. Both are fine — 404 because there is genuinely nothing
+  there.
 
 ### Two folders to leave alone
 
@@ -114,6 +243,190 @@ somewhere to write. On an existing site they already hold real data:
 - **`writable/`** holds live sessions. Replacing it signs everyone out.
 
 Upload *around* them, or exclude both from the transfer after the first deploy.
+
+---
+
+## What is locked down, and how to check it
+
+The production bundle is not just the development site with a different
+`.env`. Ten things are different, and most of them have a way to check from
+outside — do that once after the first upload, because every one of them fails
+silently. The site works perfectly either way; it is simply less safe than it
+reads.
+
+`tests/e2e/specs/security-hardening.spec.js` checks the same things against a
+running copy, so `DB_NAME=… npx playwright test specs/security-hardening.spec.js`
+answers most of this list in half a minute — against staging, at least. Three of
+them (https, HSTS, `Permissions-Policy`) only exist on a real server and have to
+be checked with the curl lines below.
+
+### 1. Every form carries a CSRF token
+
+`Config\Security` is on `session` protection, and two filters in
+`Config\Filters` do the work: `csrf` refuses any POST, PUT, PATCH or DELETE
+without a valid token, and `csrftoken` (`App\Filters\CsrfTokenInjector`) puts
+one into every `<form method="post">` on the way out, adds a
+`<meta name="csrf-token">`, and hands it to jQuery so the ajax calls send it as
+a header.
+
+Injected rather than written into fifty views, so a form added later cannot be
+forgotten. **The two filters are one feature** — `csrf` without `csrftoken`
+locks every form on the site, and the build refuses to produce a bundle that
+has one and not the other.
+
+*Check it:* view source on the sign-in page. There is a
+`<input type="hidden" name="csrf_token" ...>` immediately after the `<form>`
+tag. Then sign in, edit a store, change a dropdown that loads cities — all
+three still work.
+
+*If a form starts failing:* the symptom is being bounced back to the same page
+with nothing saved, and `writable/logs/` naming `SecurityException`. The usual
+cause is a page left open past the session expiry — reload and resubmit.
+
+### 2. Nothing in `uploads/` can be executed
+
+`uploads/.htaccess` refuses any request for a `.php`, `.phar`, `.cgi`, `.pl`,
+`.sh` or dotfile in there, strips the handlers that would run one, and turns
+off directory listing. This is the file that decides whether one bad upload is
+a nuisance or a shell.
+
+`fileupload()` was also tightened: the extension must match what the bytes
+actually are (an image has to load as an image), and the stored name is built
+from scratch — `time()_<random>_<cleaned name>.<checked extension>` — rather
+than from what the browser sent, which could contain `../`.
+
+*Check it:* put a text file called `test.php` into `uploads/` with the file
+manager and open `https://pickashift.ca/uploads/test.php`. It must give **403**,
+not a blank page and not the file. Delete it afterwards.
+
+### 3. `writable/` is closed twice
+
+The root `.htaccess` refuses the folder, and the bundle drops a second
+`.htaccess` inside it. It holds live sessions — a readable session file is a
+signed-in account.
+
+*Check it:* `https://pickashift.ca/writable/logs/` → 403.
+
+### 4. The session cookie is https-only, and the id changes at sign-in
+
+`cookie.secure`, `cookie.httponly` and `cookie.samesite = Lax` are set in the
+production `.env`. Both sign-in paths now call `sess_regenerate(true)` the
+moment the password is accepted, so the signed-in session never keeps the id
+the browser arrived with.
+
+*Check it:* sign in, then in devtools → Application → Cookies, `ci_session`
+shows Secure ✓ and HttpOnly ✓.
+
+### 5. Eight wrong passwords locks the account for fifteen minutes
+
+Per account, not per address — an attacker works one list against one address,
+while a real pharmacy signs in from a dozen places. The counter lives in
+`users.u_login_attempt` / `u_login_attempt_dt`, columns that have been on the
+table since the CI3 site and were never read until now. A correct password
+clears it; the lock lifts by itself.
+
+Both numbers are in `app/Config/AppSettings.php` (`loginMaxAttempts`,
+`loginLockoutMinutes`); either set to 0 switches it off.
+
+*If a real user is locked out:* wait it out, or clear
+`u_login_attempt` for that row in phpMyAdmin.
+
+### 6. Security headers on every response
+
+`Strict-Transport-Security` (one year, https only), `X-Content-Type-Options`,
+`X-Frame-Options`, `Referrer-Policy` and `Permissions-Policy`, set in
+`.htaccess` so they cover the assets Apache serves without PHP, and again by
+the `secureheaders` filter so they cover the pages on a host where
+`mod_headers` is missing. `X-Powered-By` is unset — it announces the exact PHP
+version.
+
+*Check it:* `curl -sI https://pickashift.ca/ | grep -i strict` returns a line.
+
+### 7. The cron URLs take a key
+
+`/cron/remind_shifts` sends e-mail to every applicant booked for tomorrow, and
+it was open to anyone who typed it. It now wants `?key=` matching `cron.key` in
+`.env`, and returns a plain 404 without it.
+
+The build generates that key and prints it — a different one in every bundle —
+so there is nothing to fill in, only something to copy into the cron entry:
+
+```
+curl -s "https://pickashift.ca/cron/remind_shifts?key=<the key the build printed>"
+```
+
+**If the cron line is left on the old keyless URL the reminders stop,
+silently.** The command-line twins (`php spark shifts:remind`, `jobs:expire`)
+need no key and are unaffected.
+
+### 8. Names and addresses are escaped where they are shown
+
+An account's own fields — first and last name, company, e-mail, phone, licence
+number, address, store name and number, shift title and time, the note on a
+booking — are printed through `esc()` now, on roughly 150 lines across the
+admin screens and the two portals.
+
+The attack this closes is not against the person who types it. It is: register
+with `<script>…</script>` as your first name, wait for an administrator to open
+Manage Employers, and the script runs inside *their* session, which can approve
+accounts and read every booking. Nothing before this release stopped that.
+
+**What is deliberately not escaped** is the rich text — a shift's description,
+a testimonial, the resource pages. Those are written in the back office and are
+meant to contain markup; escaping them would print the tags on screen. Treat
+the editors that write them as trusted, because they are.
+
+*Check it:* register a test account with `<b>Bold</b>` as the first name and
+open it in Manage Employers. The list must show the tags as text, not a bold
+name. Delete the account afterwards.
+
+### 9. Every screen behind a login needs one, and keeps needing it
+
+Nothing in either portal — Post New Shift, All Shifts, My Stores, Edit Profile,
+Change Password, Applied Shifts, and the ajax endpoints the forms call — opens
+without a session, and an applicant typing an employer's address gets the login
+page rather than the screen. That was already true; what is new is that
+`tests/e2e/specs/portal-requires-login.spec.js` **reads the list of URLs out of
+the controllers** instead of having one written down, so a method added later is
+checked the day it is written. Auto-routing gives every public method a URL, and
+the `setup()` line at the top of each one is the only lock on it.
+
+**One thing that was not true before:** deactivating an account in the back
+office now takes effect on that person's next page, not whenever their session
+happens to end. It read the account row on every page already and never looked
+at `u_status`, so somebody switched off kept working normally in the tab they
+had open — for up to the two hours a session lasts. Applies to administrators
+too.
+
+*Check it:* sign in as a test employer in one browser, deactivate that account
+in the back office from another, then click anything in the first. It must land
+on the login page saying the account is no longer active.
+
+### 10. Not in the bundle at all
+
+`.git/`, `plan/`, `docs/`, `tests/`, the CI3 backup, `deploy/` and your local
+`.env` are excluded by the build's whitelist, and it fails rather than ships if
+any of them appear. The root `.htaccess` also refuses `.sql`, `.zip`, `.bak`,
+`.log`, `.md` and every dotfile except `.well-known/`, which is what keeps
+AutoSSL renewing.
+
+`deploy/migrate.php` and `deploy/diagnose.php` are the exception you upload by
+hand. **Delete both the moment they have done their job** — their keys are in
+the repository, so they are protection against a passer-by and nothing more.
+
+### Still worth knowing
+
+- **Auto-routing is on**, so every public controller method has a URL whether or
+  not `Routes.php` names one. Access control is the `setup()` call at the top of
+  each method, and it is there in all of them today. A new public method with no
+  `setup()` is a page with no lock — that is the review to do on any controller
+  change.
+- **`/front/email_check` and `/sadmin/email_check`** answer whether an address is
+  registered. Registration has to tell you that anyway, so it is not a leak so
+  much as a list somebody could build slowly.
+- **The old MD5 password hashes** are re-hashed to bcrypt on each user's next
+  successful sign-in. Accounts that never sign in again keep theirs; a database
+  dump is worth less over time, not immediately.
 
 ---
 
@@ -211,6 +524,15 @@ through untouched on every save, because a form changes only what it displayed.
 Administrators are recipients of none of these, so their page says so instead of
 showing six switches that do nothing.
 
+**Nothing at all for the latest round of screen changes**
+
+The Store and Location columns on the employer's All Shifts, the applicant's
+details spelled out in Assigned To, the booking note being kept from a manager,
+the phone layout of both portal lists, the Google Maps links on the shift page
+and in the applicant's own list - none of it is a column. Every one of them
+reads `post_job`, `store` and `stu_saved_applied_jobs` as they already are.
+Upload the files; there is nothing to run behind them.
+
 **Two data changes, no schema**
 
 `MakeEmployersMultiStore` sets `u_emp_role = 1` on every `u_usertype = 1` row.
@@ -304,6 +626,7 @@ runs two data statements, and two more repair data rather than change the schema
 | `BackfillManagerStoreSnapshot` | Nothing breaks, but any Manager added from the back office before this release stays nameless: a blank row on the employer list, a blank entry in the employer dropdown on both shift forms, and no address in their booking e-mails. Data only — no schema change. |
 | `AddShiftEmailRecipients` | Saving a shift from the back office fails on an unknown column — both shift forms post `p_email_to`. Add Shift and Edit Shift are the whole of the back office's shift handling, so skipping this one stops the administrator posting shifts at all. |
 | `AddTestimonialTable` | Creates the `testimonial` master. Without it the new Testimonials screen in the back office 500s, and so does **the public home page**, which reads the table to draw its carousel. That second one is the whole site, not one screen — check it first if the front page is blank after deploying. |
+| `AddUserAgreementDone` | Saving from any of the four back-office user forms — applicant add/edit, employer add/edit — fails on an unknown column: all four post `u_agreement_done` for the Agreement Done tick box. Those four are how the office creates and corrects accounts, so skipping it stops both. |
 
 ### Checking which have run
 
@@ -325,11 +648,11 @@ the exact SQL for all seventeen is in `deploy/migrate.php` itself — read the
 
 ### The phpMyAdmin route, for a database that is only a few releases behind
 
-`deploy/release-2026-08-19.sql` is that SQL, written out and ready to paste. It
-carries the **last four** migrations — `AddUserEmailBlocked`,
-`BackfillManagerStoreSnapshot`, `AddTestimonialTable` and
-`AddShiftEmailRecipients` — with the `migrations` rows that go with them, so
-`spark migrate` afterwards sees them as done.
+`deploy/release-2026-08-20.sql` is that SQL, written out and ready to paste. It
+carries the **last five** migrations — `AddUserEmailBlocked`,
+`BackfillManagerStoreSnapshot`, `AddTestimonialTable`,
+`AddShiftEmailRecipients` and `AddUserAgreementDone` — with the `migrations`
+rows that go with them, so `spark migrate` afterwards sees them as done.
 
 Use it only on a database that is already at `2026-08-14-160000` or later; the
 file's first query prints where the database actually is, so run that on its own
@@ -342,10 +665,15 @@ that is not naturally repeatable (`p_email_to`, which sets existing shifts to
 `owner`) only runs on the pass that adds the column, so a second run cannot
 rewrite a shift somebody deliberately saved as "tell neither side".
 
-`release-2026-08-19.sql` replaces `release-2026-08-18.sql`, which carried only
-two of the four and left `users.u_email_blocked` out — the one column on the
-*sending* path, so a database updated with that file alone stops mailing rather
-than breaking a screen. Run the 08-19 file whether or not the 08-18 one was run.
+`release-2026-08-20.sql` replaces `release-2026-08-19.sql`, which is the same
+file without the last section — so a database updated with that one is only
+missing `users.u_agreement_done`. Run the 08-20 file whether or not either
+earlier one was run; it is the 08-19 file with one guarded section added.
+
+Both replace `release-2026-08-18.sql`, which carried only two of the five and
+left `users.u_email_blocked` out — the one column on the *sending* path, so a
+database updated with that file alone stops mailing rather than breaking a
+screen.
 
 ---
 
@@ -401,7 +729,15 @@ Templates it knows: `welcome`, `account-approved`, `reset-password`,
 
 ## After deploying, verify
 
+**Start with the six checks in "What is locked down"** — the padlock, a hidden
+`csrf_token` field in the sign-in page's source, a 403 on `/uploads/<something>.php`,
+a 403 on `/.env`, `Secure` on the session cookie, and a `Strict-Transport-Security`
+header. Each is one look, and each one fails silently if it fails at all.
+
 ```
+curl -sI https://pickashift.ca/ | grep -iE 'strict|x-frame|x-content'
+curl -s -o /dev/null -w '%{http_code}\n' https://pickashift.ca/.env      # 403
+curl -s -o /dev/null -w '%{http_code}\n' https://pickashift.ca/writable/ # 403
 php spark email:test you@gmail.com      # SMTP works and DKIM signs
 ```
 
@@ -611,6 +947,48 @@ to run for them:
   out in three numbered sections and works on a phone; the side menu collapses
   behind a Menu button below 768px. Nothing to migrate, but it is the most
   visible change in the release, so look at it on a phone as well as a desktop.
+
+This batch - **no migration for any of it**, so uploading the files is the whole
+of it:
+
+- **All Shifts, on the employer's side, reads as a list of shifts again.** City
+  and province are one **Location** column; a **Store** column names the branch
+  each shift was raised for, which is the point of it for an owner with more
+  than one; and the applicant booked on a shift is written into **Assigned To** -
+  name, licence number, licence province and what was requested - where a View
+  button used to open a panel for the same four lines. Check an owner with
+  several branches: every row must name one.
+- **The note on a booking is the owner's.** Open a shift's details panel as a
+  **manager**: there must be no Message box, and the note must not be in the
+  page source either - it usually states what the shift was agreed at, which is
+  the group's business for the same reason the rate is. As the owner it is there
+  exactly as before.
+- **Both portal lists work on a phone.** All Shifts and My Stores fold the
+  columns that do not fit into a panel under each row, and the search box takes
+  its own line instead of hanging off the right of the screen. My Stores had no
+  fold at all before - nine columns of address and contact detail simply ran off
+  the side. At phone width, tap the **+** on a store row: its number, address,
+  city, province, phone, manager and status must all be in the panel.
+- **A Google Maps link on the shift page for anyone signed in.** It searches the
+  town the page shows them. The street address and the store's pasted pin still
+  wait for a confirmed booking, where the link reads **Get directions** as it
+  did. Signed out there is no link at all - check the page source at that tier,
+  not only the screen.
+- **The applicant's own Applied Shifts names the branch and how to reach it.**
+  Open a booked row's **Employer/Shift Details**: Store Name, Store No. and
+  Store Address now come from the store the shift is at, not from the employer's
+  login row - for a multi-store owner that was their head office, the same
+  mistake the booking e-mail was fixed for - and a **Get directions on Google
+  Maps** link sits under the address. Check it against a multi-store owner
+  specifically; a single-store employer looks the same either way.
+- **The support number sits under the side menu, on all three kinds of account.**
+  Sign in as an owner, as one of their managers and as a pharmacist: under
+  Logout each must show *Need help? +1 (905) 304-7303*, and clicking it must
+  open WhatsApp with a country code in front of the digits
+  (`web.whatsapp.com/send?phone=1905...`) - without it the chat opens on nobody.
+  Check it on a phone too: it sits outside the collapsing menu, so it is there
+  with the menu shut. The number is `supportPhone` in
+  `app/Config/AppSettings.php` - one edit changes both sides.
 
 **Existing phone numbers are not rewritten by deploying.** Nothing runs over the
 `users` or `store` tables, so a number already stored as `+1 905-304-7303` stays

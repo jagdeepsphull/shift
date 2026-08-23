@@ -168,7 +168,7 @@
 											<div class="col-sm-6">
 												<div class="form-group">
 													<label id="compnamelbl">Store Name</label>
-													<input type="text" class="form-control" placeholder="Enter Your Store Name" name="u_comp_name" id="u_comp_name"  value="<?php echo $u_comp_name; ?>">
+													<input type="text" class="form-control" placeholder="Enter Your Store Name" name="u_comp_name" id="u_comp_name"  value="<?php echo esc($u_comp_name); ?>">
 												</div>
 											</div>
 										</div>
@@ -190,7 +190,7 @@
 												<div class="form-group">
 													<label>First Name</label>
 													<input type="text"     onblur="if (this.value == '') {this.value = '';}"
-    onfocus="if (this.value == '') {this.value = '';}"   class="form-control" placeholder="Enter First Name" id="u_fname" name="u_fname" value="<?php echo $u_fname; ?>">
+    onfocus="if (this.value == '') {this.value = '';}"   class="form-control" placeholder="Enter First Name" id="u_fname" name="u_fname" value="<?php echo esc($u_fname); ?>">
 												</div>
 											</div>
 										
@@ -198,7 +198,7 @@
 												<div class="form-group">
 													<label>Last Name</label>
 													<input type="text"     onblur="if (this.value == '') {this.value = '';}"
-    onfocus="if (this.value == '') {this.value = '';}"   class="form-control" placeholder="Enter Last Name" id="u_lname" name="u_lname" value="<?php echo $u_lname; ?>">
+    onfocus="if (this.value == '') {this.value = '';}"   class="form-control" placeholder="Enter Last Name" id="u_lname" name="u_lname" value="<?php echo esc($u_lname); ?>">
 												</div>
 											</div>
 										</div>
@@ -226,7 +226,7 @@
 											<div class="col-sm-6">
 												<div class="form-group">
 													<label id="lireg">Licence No.</label> 
-													<input  type="text" class="form-control" placeholder="Enter Licence No." id="u_licence_no" name="u_licence_no" value="<?php echo $u_licence_no; ?>">
+													<input  type="text" class="form-control" placeholder="Enter Licence No." id="u_licence_no" name="u_licence_no" value="<?php echo esc($u_licence_no); ?>">
 												</div>
 											</div>
 										</div>
@@ -235,7 +235,7 @@
 											<div class="col-sm-6">
 												<div class="form-group">
 													<label>Email (As your User ID)</label>
-													<input  type="email" class="form-control" placeholder="Enter Email ID" id="u_email" name="u_email" value="<?php echo $u_email; ?>">
+													<input  type="email" class="form-control" placeholder="Enter Email ID" id="u_email" name="u_email" value="<?php echo esc($u_email); ?>">
 												</div>
 											</div>
 										
@@ -243,7 +243,7 @@
 												<div class="form-group">
 													<label>Mobile No.</label>
 													<div class="input-with-icon">
-														<input  type="text" class="form-control" placeholder="Enter Mobile No." id="u_phone" name="u_phone" value="<?php echo $u_phone; ?>" maxlength="<?= PHONE_LENGTH ?>" inputmode="numeric" pattern="[0-9]{<?= PHONE_LENGTH ?>}" data-phone-input>
+														<input  type="text" class="form-control" placeholder="Enter Mobile No." id="u_phone" name="u_phone" value="<?php echo esc($u_phone); ?>" maxlength="<?= PHONE_LENGTH ?>" inputmode="numeric" pattern="[0-9]{<?= PHONE_LENGTH ?>}" data-phone-input>
 													</div>
 												</div>
 											</div>
@@ -255,7 +255,7 @@
 												<!-- text input -->
 												<div class="form-group">
 													<label>Address</label>
-													<textarea required class="form-control" placeholder="Enter Address" name="u_address1"><?php echo $u_address1; ?></textarea>
+													<textarea required class="form-control" placeholder="Enter Address" name="u_address1"><?php echo esc($u_address1); ?></textarea>
 												</div>
 											</div>
 											
@@ -288,7 +288,7 @@
 												<!-- text input -->
 												<div class="form-group">
 													<label>Postal Code</label><span class="text-danger font-weight-bold ml-1" style="font-size:12px;">(e.g. M5A 1A1)</span>
-													<input required class="form-control" placeholder="Enter Postal Code" name="u_pincode" value="<?php echo $u_pincode; ?>" >
+													<input required class="form-control" placeholder="Enter Postal Code" name="u_pincode" value="<?php echo esc($u_pincode); ?>" >
 													
 												</div>
 											</div>

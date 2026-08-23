@@ -192,6 +192,68 @@ define('PORTAL_SIDEBAR_STYLES', true);
 .ps-side .ps-menu-out a:hover { background: rgba(249, 96, 11, .09); color: var(--ps-warm); }
 .ps-side .ps-menu-out a:hover i { color: var(--ps-warm); }
 
+/* ------------------------------------------------------------- support --- */
+
+/* The card used to end on Logout, leaving the corner under it empty. The site's
+   own number sits there instead - outside the menu panel, so a phone with the
+   menu shut still shows it. Markup is partials/portal_support.php. */
+.ps-side .ps-support {
+    border-top: 1px solid var(--ps-line);
+    background: var(--ps-grad-soft);
+    padding: 12px;
+}
+
+.ps-side .ps-support-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: var(--ps-radius-sm);
+    color: var(--ps-ink);
+    transition: background .18s ease;
+}
+
+.ps-side .ps-support-link:hover,
+.ps-side .ps-support-link:focus {
+    background: rgba(255, 255, 255, .75);
+    color: var(--ps-ink);
+    text-decoration: none;
+}
+
+/* WhatsApp's own green, because this is WhatsApp and not one more menu row. */
+.ps-side .ps-support-mark {
+    flex: 0 0 34px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: #25d366;
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ps-side .ps-support-mark svg { width: 20px; height: 20px; display: block; }
+
+.ps-side .ps-support-text { min-width: 0; line-height: 1.35; }
+
+.ps-side .ps-support-text strong {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ps-muted);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+
+.ps-side .ps-support-text span {
+    display: block;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ps-ink);
+    overflow-wrap: anywhere;
+}
+
 /* -------------------------------------------------------- mobile toggle --- */
 
 /* On a phone this column stacks above the content, so the whole menu sat

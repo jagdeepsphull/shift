@@ -2,10 +2,6 @@
     <!-- Contact Section Start -->
     <section id="contact" class="section-padding  section-gap">    
       <div class="container">
-        <div class="section-header text-center">          
-          <h2 class="section-title wow fadeInDown" data-wow-delay="0.3s">Contact Us</h2>
-          <div class="shape wow fadeInDown" data-wow-delay="0.3s"></div>
-        </div>
         <div class="row contact-form-area wow fadeInUp" data-wow-delay="0.3s">   
           <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12 align-items-right">
               <h3 class="footer-titel">Contact:</h3>

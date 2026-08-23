@@ -31,6 +31,12 @@ class Sadmin extends BaseController
         } else {
             $this->data['userdet'] = $this->custom->get_where('users', ['u_id' => $this->session->userdata('adminUserId')]);
 
+            // An administrator account that has been switched off, or removed,
+            // stops working on the next page rather than at the end of its
+            // session. Same rule as the two portals - see
+            // BaseController::stopIfAccountClosed().
+            $this->stopIfAccountClosed($this->data['userdet'], 'sadmin/login');
+
             $menu = $this->custom->query('select * from menu where m_status=1 order by m_order asc ');
 
             $menuarr = [];
@@ -150,12 +156,30 @@ class Sadmin extends BaseController
                         ['u_status' => 1, 'u_usertype' => 0]
                     );
 
-                    if ($checkLogin && $this->custom->passwordMatches((string) $this->input->post('password'), $checkLogin)) {
+                    // The back office is the account worth guessing at, so it
+                    // locks the same way the front one does. See
+                    // CustomModel::loginLockRemaining().
+                    $lockedFor = $checkLogin ? $this->custom->loginLockRemaining($checkLogin) : 0;
+
+                    if ($lockedFor > 0) {
+                        $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">Too many failed sign-in attempts. Try again in ' . (int) ceil($lockedFor / 60) . ' minute(s).</div>');
+                    } elseif ($checkLogin && $this->custom->passwordMatches((string) $this->input->post('password'), $checkLogin)) {
+                        $this->custom->clearLoginAttempts($checkLogin['u_id']);
+
+                        // A new session id for the administrator's session, for
+                        // the reason given in Front::login(): the id the browser
+                        // arrived with may not be one it chose for itself.
+                        $this->session->sess_regenerate(true);
+
                         $this->session->set_userdata('isAdminUserLoggedIn', true);
                         $this->session->set_userdata('adminUserId', $checkLogin['u_id']);
 
                         ci_redirect('sadmin/dashboard');
                     } else {
+                        if ($checkLogin) {
+                            $this->custom->recordFailedLogin($checkLogin['u_id']);
+                        }
+
                         $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">Wrong Username or password, please try again.</div>');
                     }
                 }
@@ -1792,9 +1816,21 @@ class Sadmin extends BaseController
                     if ($picksStore) {
                         $this->form_validation->set_rules('u_store_id', 'Store', 'required');
                     } else {
-                        // The account's own name - a store for one location, a
-                        // group for a chain. A manager has neither.
-                        $this->form_validation->set_rules('u_comp_name', 'Employer Name', 'required');
+                        // The account's own name - a group for an owner, a
+                        // store for one location. A manager has neither.
+                        //
+                        // It has to be theirs alone: the employer list, the
+                        // employer dropdown on both shift forms and the booking
+                        // e-mails all show an employer by this column, so two
+                        // accounts under one name is unreadable on every one of
+                        // them. Registration refuses a taken name from the same
+                        // helper, so the two forms cannot disagree.
+                        $compNameLabel = $shape['role'] === 1 ? 'Corporate Group Name' : 'Store Name';
+
+                        $this->form_validation->set_rules('u_comp_name', $compNameLabel, [
+                            'required',
+                            employerNameRule($compNameLabel),
+                        ]);
                     }
 
                     $rowData = cleanArray($this->input->post());
@@ -1810,6 +1846,10 @@ class Sadmin extends BaseController
                     $rowData['created']    = date('Y-m-d H:i:s');
                     $rowData['modified']   = date('Y-m-d H:i:s');
                     $rowData['u_usertype'] = 1;
+                    // A clear tick box posts nothing at all, so the answer is
+                    // taken from whether the field arrived rather than from its
+                    // value - the same way the applicant form reads it.
+                    $rowData['u_agreement_done'] = $this->input->post('u_agreement_done') ? 1 : 0;
 
                     // The same three-way choice registration offers, saved into
                     // the same two columns. Without it every employer added here
@@ -1935,7 +1975,23 @@ class Sadmin extends BaseController
                     if ($picksStore) {
                         $this->form_validation->set_rules('u_store_id', 'Store', 'required');
                     } else {
-                        $this->form_validation->set_rules('u_comp_name', 'Employer Name', 'required');
+                        // The same name rule the add form applies, and for the
+                        // same reason - with two differences. This account is
+                        // left out of the search, so re-saving it is not read as
+                        // a duplicate of itself; and a name it already holds is
+                        // left alone, because accounts that shared one before
+                        // the rule existed would otherwise become uneditable
+                        // rather than unique. Changing the name is checked.
+                        $compNameLabel = $shape['role'] === 1 ? 'Corporate Group Name' : 'Store Name';
+                        $postedName    = trim((string) $this->input->post('u_comp_name'));
+                        $currentName   = trim((string) ($employer_status['u_comp_name'] ?? ''));
+                        $compNameRules = ['required'];
+
+                        if (strcasecmp($postedName, $currentName) !== 0) {
+                            $compNameRules[] = employerNameRule($compNameLabel, (int) $id);
+                        }
+
+                        $this->form_validation->set_rules('u_comp_name', $compNameLabel, $compNameRules);
                     }
 
                     $rowData = cleanArray($this->input->post());
@@ -1946,6 +2002,10 @@ class Sadmin extends BaseController
                     $rowData['u_userid']  = $rowData['u_email'] ?? '';
                     $rowData['u_website'] = safeUrl($this->input->post('u_website'));
                     $rowData['modified']  = date('Y-m-d H:i:s');
+                    // Read from whether the box arrived, not its value: clearing
+                    // it posts nothing, so leaving this out would make the tick
+                    // impossible to undo.
+                    $rowData['u_agreement_done'] = $this->input->post('u_agreement_done') ? 1 : 0;
 
                     // Changing this dropdown is how an employer becomes a
                     // multi-store owner - the 62 accounts that predate the
@@ -2491,6 +2551,11 @@ class Sadmin extends BaseController
                     $rowData['created']    = date('Y-m-d H:i:s');
                     $rowData['modified']   = date('Y-m-d H:i:s');
                     $rowData['u_usertype'] = 2;
+                    // A clear tick box posts nothing at all, so the answer is
+                    // taken from whether the field arrived rather than from its
+                    // value - otherwise "not done" would be indistinguishable
+                    // from a field the form never had.
+                    $rowData['u_agreement_done'] = $this->input->post('u_agreement_done') ? 1 : 0;
                     unset($rowData['savedata'], $rowData['u_password']);
 
                     if (insertQry('users', $rowData)) {
@@ -2527,6 +2592,10 @@ class Sadmin extends BaseController
                     // Keep the login id on the address, the way the add form does.
                     $rowData['u_userid'] = $rowData['u_email'] ?? '';
                     $rowData['modified'] = date('Y-m-d H:i:s');
+                    // Read from whether the box arrived, not its value: clearing
+                    // it posts nothing, so leaving this out would make the tick
+                    // impossible to undo.
+                    $rowData['u_agreement_done'] = $this->input->post('u_agreement_done') ? 1 : 0;
                     unset($rowData['savedata']);
 
                     $applicant_status = $this->custom->get_where_row('users', ['u_id' => $id]);

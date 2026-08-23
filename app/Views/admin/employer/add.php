@@ -108,7 +108,7 @@
                                             <label>First Name</label>
                                             <input  required
     onblur="if (this.value == '') {this.value = '';}"
-    onfocus="if (this.value == '') {this.value = '';}" type="text" class="form-control" placeholder="Enter First Name" name="u_fname" value="<?php echo $u_fname; ?>">
+    onfocus="if (this.value == '') {this.value = '';}" type="text" class="form-control" placeholder="Enter First Name" name="u_fname" value="<?php echo esc($u_fname); ?>">
                                         </div>
                                     </div>
                                     <div class="col-sm-6">
@@ -117,7 +117,7 @@
                                             <label>Last Name</label>
                                             <input  required
     onblur="if (this.value == '') {this.value = '';}"
-    onfocus="if (this.value == '') {this.value = '';}" type="text" class="form-control" placeholder="Enter Last Name" name="u_lname" value="<?php echo $u_lname; ?>">
+    onfocus="if (this.value == '') {this.value = '';}" type="text" class="form-control" placeholder="Enter Last Name" name="u_lname" value="<?php echo esc($u_lname); ?>">
                                         </div>
                                     </div>
                                 </div>
@@ -133,7 +133,7 @@
                                             <?php /* "Store Name" for a single location, "Corporate Group
                                                Name" for a multi-store owner - the same column either way. */ ?>
                                             <label id="compnamelbl">Store Name</label>
-                                            <input  required type="text" class="form-control" placeholder="Enter <?php echo $pageinfo['title']; ?> Name" name="u_comp_name" value="<?php echo $u_comp_name; ?>">
+                                            <input  required type="text" class="form-control" placeholder="Enter <?php echo $pageinfo['title']; ?> Name" name="u_comp_name" value="<?php echo esc($u_comp_name); ?>">
                                         </div>
                                     </div>
 									<?php /* Licence and address describe one location, so a
@@ -158,7 +158,7 @@
                                         <!-- text input -->
                                         <div class="form-group">
                                             <label>Store No.</label>
-                                            <input  required type="text" class="form-control" placeholder="Enter Store No." name="u_licence_no" value="<?php echo $u_licence_no; ?>">
+                                            <input  required type="text" class="form-control" placeholder="Enter Store No." name="u_licence_no" value="<?php echo esc($u_licence_no); ?>">
                                         </div>
                                     </div>
                                 </div>
@@ -168,7 +168,7 @@
                                     <div class="col-sm-3">
                                         <div class="form-group">
                                             <label>Email Id (As their userid)</label>
-                                            <input  required type="email" class="form-control" placeholder="Enter Email Id" name="u_email" value="<?php echo $u_email; ?>">
+                                            <input  required type="email" class="form-control" placeholder="Enter Email Id" name="u_email" value="<?php echo esc($u_email); ?>">
                                         </div>
                                     </div>
 									<div class="col-sm-3">										
@@ -181,7 +181,7 @@
                                         <!-- text input -->
                                         <div class="form-group">
                                             <label>Mobile No.</label>
-                                            <input  required type="text" class="form-control" placeholder="Enter <?php echo $pageinfo['title']; ?> Mobile No." name="u_phone" value="<?php echo $u_phone; ?>" maxlength="<?= PHONE_LENGTH ?>" inputmode="numeric" pattern="[0-9]{<?= PHONE_LENGTH ?>}" data-phone-input>
+                                            <input  required type="text" class="form-control" placeholder="Enter <?php echo $pageinfo['title']; ?> Mobile No." name="u_phone" value="<?php echo esc($u_phone); ?>" maxlength="<?= PHONE_LENGTH ?>" inputmode="numeric" pattern="[0-9]{<?= PHONE_LENGTH ?>}" data-phone-input>
                                         </div>
                                     </div>
 									<div class="col-sm-3">
@@ -202,7 +202,7 @@
                                         <!-- text input -->
                                         <div class="form-group">
                                             <label>Address</label>
-                                            <textarea required class="form-control" placeholder="Enter Address" name="u_address1"><?php echo $u_address1; ?></textarea>
+                                            <textarea required class="form-control" placeholder="Enter Address" name="u_address1"><?php echo esc($u_address1); ?></textarea>
                                         </div>
                                     </div>
                                     <div class="col-sm-3">
@@ -232,7 +232,7 @@
                                         <!-- text input -->
                                         <div class="form-group">
                                             <label>Zipcode</label>
-											<input required class="form-control" placeholder="Enter Zipcode" name="u_pincode" value="<?php echo $u_pincode; ?>" >
+											<input required class="form-control" placeholder="Enter Zipcode" name="u_pincode" value="<?php echo esc($u_pincode); ?>" >
                                         </div>
                                     </div>
                                 </div>
@@ -254,7 +254,19 @@
                                             </select>
                                         </div>
                                     </div>
-                                   
+                                    <?php /* Back-office fact: whether the signed agreement is on
+                                       file. Asked of every employer kind - owner, group and
+                                       manager alike - so it sits outside the kind-specific rows. */ ?>
+                                    <div class="col-sm-3">
+                                        <div class="form-group">
+                                            <label class="d-block">Agreement</label>
+                                            <div class="custom-control custom-checkbox mt-2">
+                                                <input type="checkbox" class="custom-control-input" id="u_agreement_done" name="u_agreement_done" value="1" <?php echo ((int) ($u_agreement_done ?? 0) === 1)?"checked":""; ?>>
+                                                <label class="custom-control-label" for="u_agreement_done">Agreement Done</label>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                 </div>
                             </div>
                             <!-- /.card-body -->

@@ -51,15 +51,38 @@
 									// pr($employer);
 									// pr($jobs);
 
+									// The branch the shift is at, which for a multi-store owner is
+									// not the address on their login - that is their head office,
+									// and it is where this screen used to send people. A shift from
+									// before the stores existed falls back to the login columns,
+									// which is where its address has always come from.
+									$store = shiftStore($jobs);
+
 									// Joined with `, ` between the parts that are actually
 									// filled: a store with no city or postcode used to read
 									// "12 Fixture Lane, , ,".
-									$storeAddress = implode(', ', array_filter([
-										trim((string) $employer->u_address1),
-										trim((string) getCityName($employer->u_city)),
-										trim((string) getProvinceName($employer->u_provice)),
-										trim((string) $employer->u_pincode),
-									], static fn ($part) => $part !== ''));
+									$storeAddress = $store ? implode(', ', array_filter([
+										trim((string) $store->s_address),
+										trim((string) getCityName($store->s_city)),
+										trim((string) getProvinceName($store->s_province)),
+										trim((string) $store->s_pincode),
+									], static fn ($part) => $part !== '')) : '';
+
+									// Only for a booking: this is the one screen where the
+									// applicant has been told which building to turn up at, so
+									// it is the one that owes them a way to find it.
+									$storeMap = ($jobs->sj_is_approved == 1 && $store) ? storeMapLink($store) : '';
+
+									// The branch's own name and number where there is one, so the
+									// two boxes labelled Store agree with the address under them.
+									// A pre-store shift falls back to the login's company name and
+									// licence, which is what they have always read.
+									$storeName   = ($store && trim((string) $store->s_name) !== '')
+										? $store->s_name
+										: (string) $employer->u_comp_name;
+									$storeNumber = ($store && trim((string) $store->s_number) !== '')
+										? $store->s_number
+										: (string) $employer->u_licence_no;
 
 									$storeLocation = implode(', ', array_filter([
 										trim((string) getCityName($employer->u_city)),
@@ -68,13 +91,13 @@
 								?>
                                     <tr>
                                         <td class="d-none" ><?php echo $jobs->sj_id; ?></td>
-                                        <td><?php echo $jobs->p_job_title; ?></td>
+                                        <td><?php echo esc($jobs->p_job_title); ?></td>
                                         <td>
 											<?php //echo getPharmacyName($jobs->agency_id); ?>
 											<?php if($jobs->sj_is_approved == 1){ ?>
-												<button class="btn ps-chip employer-btn" data-cname="<?php echo $employer->u_comp_name; ?>" data-licen="<?php echo $employer->u_licence_no; ?>" data-address="<?php echo esc($storeAddress, 'attr'); ?>" data-shift="<?php echo $jobs->p_job_title; ?>" data-approved="<?php echo dateformat($jobs->modified); ?>" data-appremarks="<?php echo $jobs->sj_admin_comment; ?>" data-shiftfor="<?php echo getShiftForName($jobs->p_shift_for);?>" data-shift_date="<?php echo dateformat($jobs->p_dates); ?>" data-shift_time="<?php echo $jobs->p_shift_time; ?>" data-shift_rate="<?php echo 'CAD$ '.$jobs->p_ac_hourly_rate.'/Hour'; ?>" data-sofskills="<?php echo getSoftwareSkills($jobs->p_skills); ?>" data-ofcser="<?php echo getStoreServices($jobs->p_services); ?>" >View Detail</button>
+												<button class="btn ps-chip employer-btn" data-cname="<?php echo esc($storeName, 'attr'); ?>" data-licen="<?php echo esc($storeNumber, 'attr'); ?>" data-address="<?php echo esc($storeAddress, 'attr'); ?>" data-map="<?php echo esc($storeMap, 'attr'); ?>" data-shift="<?php echo esc($jobs->p_job_title); ?>" data-approved="<?php echo dateformat($jobs->modified); ?>" data-appremarks="<?php echo esc($jobs->sj_admin_comment, 'attr') ?>" data-shiftfor="<?php echo getShiftForName($jobs->p_shift_for);?>" data-shift_date="<?php echo esc(dateformat($jobs->p_dates), 'attr') ?>" data-shift_time="<?php echo esc($jobs->p_shift_time, 'attr') ?>" data-shift_rate="<?php echo esc('CAD$ '.$jobs->p_ac_hourly_rate.'/Hour', 'attr') ?>" data-sofskills="<?php echo getSoftwareSkills($jobs->p_skills); ?>" data-ofcser="<?php echo getStoreServices($jobs->p_services); ?>" >View Detail</button>
 											<?php } else { ?>
-												<button class="btn ps-chip shift-btn" data-shiftfor="<?php echo getShiftForName($jobs->p_shift_for);?>" data-shift_date="<?php echo dateformat($jobs->p_dates); ?>" data-shift_time="<?php echo $jobs->p_shift_time; ?>"  data-shift_rate="<?php echo 'CAD$ '.$jobs->p_ac_hourly_rate.'/Hour'; ?>" data-sofskills="<?php echo getSoftwareSkills($jobs->p_skills); ?>" data-ofcser="<?php echo getStoreServices($jobs->p_services); ?>" data-address="<?php echo esc($storeLocation, 'attr'); ?>"  >View Detail</button>
+												<button class="btn ps-chip shift-btn" data-shiftfor="<?php echo getShiftForName($jobs->p_shift_for);?>" data-shift_date="<?php echo esc(dateformat($jobs->p_dates), 'attr') ?>" data-shift_time="<?php echo esc($jobs->p_shift_time, 'attr') ?>"  data-shift_rate="<?php echo esc('CAD$ '.$jobs->p_ac_hourly_rate.'/Hour', 'attr') ?>" data-sofskills="<?php echo getSoftwareSkills($jobs->p_skills); ?>" data-ofcser="<?php echo getStoreServices($jobs->p_services); ?>" data-address="<?php echo esc($storeLocation, 'attr'); ?>"  >View Detail</button>
 											
 											<?php } ?>
 											
@@ -149,6 +172,13 @@
 								<div class="form-group">
 									<label>Store Address:</label>
 									<input id="modalAddress" class="form-control" readonly>
+									<?php /* The address as text finds nothing on a phone; this is
+									   the same pin the booking e-mail and the shift page carry.
+									   Hidden by the footer script on a shift whose store has no
+									   address to search for. */ ?>
+									<a id="modalMapLink" class="ps-map-link" href="#" target="_blank" rel="noopener noreferrer">
+										<i class="lni lni-map-marker" aria-hidden="true"></i> Get directions on Google Maps
+									</a>
 								</div>
 							</div>
 						</div>

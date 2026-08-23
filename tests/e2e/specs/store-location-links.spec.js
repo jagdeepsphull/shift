@@ -161,6 +161,10 @@ async function openShiftBooked(page, shiftId) {
 /**
  * Nothing that names or locates the branch is on the page.
  *
+ * A map link is not in itself a leak - a signed-in reader gets one for the town
+ * the page does show them - so what is checked is where it points: never the
+ * pasted pin, and never the branch's own address.
+ *
  * @param {import('@playwright/test').Page} page
  */
 async function expectPharmacyHidden(page) {
@@ -170,7 +174,7 @@ async function expectPharmacyHidden(page) {
   await expect(body).not.toContainText(LABEL);
   await expect(body).not.toContainText('E2E Maplink Branch');
   await expect(body).not.toContainText(BRANCH_PHONE);
-  await expect(page.locator('a[href*="google.com/maps"], a[href*="maps.app.goo.gl"]')).toHaveCount(0);
+  await expect(page.locator(`a[href*="maps.app.goo.gl"], a[href*="${encodeURIComponent(BRANCH_ADDRESS)}"]`)).toHaveCount(0);
   await expect(page.locator('a[href="https://branch.example.com"]')).toHaveCount(0);
   await expect(page.locator('a[href="https://chain.example.com"]')).toHaveCount(0);
 }
@@ -186,6 +190,9 @@ test('a signed-out visitor gets neither the pharmacy nor the rate', async ({ pag
   // The rate waits for an account.
   await expect(body).not.toContainText(`CAD$ ${RATE}`);
   await expect(body).toContainText(/to be disclosed/i);
+
+  // No account, no map: the link is one of the things signing in is for.
+  await expect(page.locator('a[href*="google.com/maps"]')).toHaveCount(0);
 
   // The public outline stays: the town, the date and the way in.
   await expect(body).toContainText(CITY_NAME);
@@ -208,6 +215,13 @@ test('signing in reveals the rate but still not the pharmacy', async ({ page }) 
   await expect(body).toContainText(`CAD$ ${RATE}/hour`);
   await expect(body).toContainText(CITY_NAME);
   await expect(body).toContainText(/once your booking .* is confirmed/i);
+
+  // The town it does show is a place they can open, on a search for that town
+  // and nothing narrower.
+  const map = page.locator('a[href*="google.com/maps"]');
+
+  await expect(map).toHaveText(/view on google maps/i);
+  await expect(map).toHaveAttribute('href', new RegExp(encodeURIComponent(CITY_NAME)));
 });
 
 test('a confirmed booking shows the branch name, address, phone and pasted pin', async ({
@@ -252,6 +266,29 @@ test("a store with no site of its own falls back to the employer's", async ({ pa
   await openShiftBooked(page, ids.plainShift);
 
   await expect(page.locator('a[href="https://chain.example.com"]')).toBeVisible();
+});
+
+test("the applicant's own list carries the branch and its pin", async ({ page }) => {
+  // The page somebody actually opens on the morning of the shift. It built its
+  // address from the employer's login row, which for a multi-store owner is the
+  // head office - the same mistake the booking e-mail used to make.
+  await loginAsFrontUser(page, { user: APPLICANT, pass: PASSWORD });
+  await page.goto('applicant/applied_jobs');
+  await settle(page);
+
+  await page
+    .locator('#joblist tbody tr', { hasText: 'E2E-MAPLINK-PIN' })
+    .locator('.employer-btn')
+    .click();
+
+  await expect(page.locator('#modalAddress')).toHaveValue(new RegExp(BRANCH_ADDRESS));
+  await expect(page.locator('#modalAddress')).not.toHaveValue(new RegExp(HEAD_OFFICE));
+  await expect(page.locator('#modalName')).toHaveValue('E2E Maplink Branch');
+
+  const map = page.locator('#modalMapLink');
+
+  await expect(map).toBeVisible();
+  await expect(map).toHaveAttribute('href', MAP_URL);
 });
 
 test('the booking e-mail names the branch, not the head office', async () => {

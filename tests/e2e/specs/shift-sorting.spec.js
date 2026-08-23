@@ -125,8 +125,8 @@ test('agency shift list is soonest first and sorts its date column chronological
 
   // The list is a DataTable, which hides the internal Job id column and takes
   // its cells out of the DOM - so Shift ID is the first cell of a row and the
-  // date is the fourth, one to the left of where the markup puts them. The
-  // back-office specs read their shifted columns the same way.
+  // date is the fourth, the store and the merged city/province column sitting
+  // between them. The back-office specs read their shifted columns the same way.
   expect(await seededOrder(page, '#joblist tbody tr td:nth-child(1)')).toEqual(EXPECTED);
 
   const dates = await page

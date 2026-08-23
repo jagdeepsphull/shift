@@ -8,8 +8,17 @@ Options -Indexes +FollowSymlinks
 
     # Block direct access to the framework/application internals.
     # `plan/` holds internal assessment documents - not for public eyes.
-    RewriteRule ^(app|vendor|writable|tests|builds|plan|_backup_ci3_[0-9]+)/ - [F,L]
+    RewriteRule ^(app|vendor|writable|tests|builds|plan|docs|deploy|_backup_ci3_[0-9]+)/ - [F,L]
     RewriteRule ^(spark|env|\.env|composer\.(json|lock)|preload\.php|phpunit\.dist\.xml)$ - [F,L]
+
+    # Anything left over from a deploy or an edit: a database dump, an editor's
+    # backup, the release notes. None of it is meant to be read by a visitor,
+    # and a .sql sitting in the root is the whole database to whoever finds it.
+    RewriteRule \.(sql|sql\.gz|zip|tar|tar\.gz|gz|bak|old|orig|save|swp|log|ini|md|yml|yaml|dist|lock)$ - [F,L]
+
+    # Dotfiles. `.git/` first of all: it is the entire source history, and it is
+    # readable file by file even with directory listing off.
+    RewriteRule (^|/)\.(?!well-known/) - [F,L]
 
     # Redirect Trailing Slashes If Not A Folder...
     RewriteCond %{REQUEST_FILENAME} !-d
@@ -34,14 +43,76 @@ Options -Indexes +FollowSymlinks
 ServerSignature Off
 
 # Begin EnforceSSL
+# Named no hostname any more. It used to list reliefshifts.com and
+# reliefstars.com, which meant a third domain pointed at the same folder -
+# pickashift.ca - was served over plain http and nothing said so.
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteCond %{HTTP_HOST} ^(www\.)?reliefstars\.com$ [OR]
-    RewriteCond %{HTTP_HOST} ^(www\.)?reliefshifts\.com$
+
+    # Development machines are exempt. The rule this replaced named the two live
+    # hostnames, which exempted localhost by accident; naming no hostname at all
+    # would have sent the WAMP copy - and the test suite that drives it - to an
+    # https URL that has no certificate and no site behind it.
+    RewriteCond %{HTTP_HOST} !^localhost [NC]
+    RewriteCond %{HTTP_HOST} !^127\.0\.0\.1
+    RewriteCond %{HTTP_HOST} !^\[?::1\]?
+    RewriteCond %{HTTP_HOST} !\.(local|test|localhost)$ [NC]
+
+    # %{HTTPS} is off behind a proxy or a load balancer even when the visitor is
+    # on https, so the forwarded header is checked too. Requiring both to say
+    # "not secure" stops the redirect loop that testing only one of them causes.
     RewriteCond %{HTTPS} !=on
+    RewriteCond %{HTTP:X-Forwarded-Proto} !=https
     RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+    # www to the bare domain, whatever the domain is.
+    #
+    # Not cosmetic: `app.baseURL` names one host, so every link and every form
+    # action on a page fetched as www points at the bare domain. The session
+    # cookie and the CSRF token belong to the host that set them, so a visitor
+    # who arrives at www and submits a form is posting from one host to another
+    # - no session, and a token that does not match. Sending them to the one
+    # host up front is what stops that.
+    RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+    RewriteRule ^(.*)$ https://%1%{REQUEST_URI} [L,R=301]
 </IfModule>
 # End EnforceSSL
+
+# --------------------------------------------------------------- headers ---
+# Set here as well as by the application's `secureheaders` filter, because
+# Apache serves the assets, the uploads and any error page without PHP ever
+# running - and those are responses too.
+
+<IfModule mod_headers.c>
+    # Come back over https for the next year, without asking. Only meaningful
+    # over https, hence the condition: sending it over http is ignored by
+    # browsers and would pin a certificate the site may not have yet.
+    #
+    # No `includeSubDomains`: the account's webmail and cpanel subdomains are
+    # not this site's to promise for.
+    Header always set Strict-Transport-Security "max-age=31536000" "expr=%{HTTPS} == 'on'"
+
+    # A .txt that is really a script does not get to be a script.
+    Header always set X-Content-Type-Options "nosniff"
+
+    # No framing the site into somebody else's page - clickjacking a booking or
+    # an approval button.
+    Header always set X-Frame-Options "SAMEORIGIN"
+
+    # A URL like /employer/edit_job/1841 should not travel to whatever site the
+    # user clicks through to next.
+    Header always set Referrer-Policy "same-origin"
+
+    # Hardware nothing on the site asks for.
+    Header always set Permissions-Policy "geolocation=(), camera=(), microphone=(), payment=(), usb=()"
+
+    # PHP announces its exact version by default, which is a shopping list.
+    Header always unset X-Powered-By
+    Header always unset X-Turbo-Charged-By
+</IfModule>
+
+# The uploads folder carries its own .htaccess as well - see uploads/.htaccess.
+# That one is the important half: it stops anything in there being run.
 
 # ---------------------------------------------------------------- assets ---
 # Compression and browser caching. Neither was set, and between them they were

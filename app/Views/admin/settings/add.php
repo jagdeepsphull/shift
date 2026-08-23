@@ -49,7 +49,7 @@
                                                     <?php if($agencies){?>
                                                     <?php foreach($agencies as $agency){?>
                                                     <option value="<?php echo $agency->u_id;?>">
-                                                        <?php echo $agency->u_userid;?></option>
+                                                        <?php echo esc($agency->u_userid);?></option>
                                                     <?php } ?>
                                                     <?php } ?>
                                                 </select>
@@ -60,7 +60,7 @@
                                         <div class="form-group">
                                             <label>Company Name</label> <span>Job offers by</span>
                                             <input type="text" class="form-control" name="p_company_name"
-                                                placeholder="Enter Company Name" value="<?php echo $p_company_name;?>">
+                                                placeholder="Enter Company Name" value="<?php echo esc($p_company_name);?>">
                                         </div>
                                     </div>
                                     <div class="col-sm-4">
@@ -120,7 +120,7 @@
                                             <!-- text input -->
                                             <div class="form-group">
                                                 <label>Job Title</label>
-                                                <input type="text" class="form-control" name="p_job_title"  placeholder="Enter Job Title" value="<?php echo $p_job_title; ?>">
+                                                <input type="text" class="form-control" name="p_job_title"  placeholder="Enter Job Title" value="<?php echo esc($p_job_title); ?>">
                                             </div>
                                         </div>
                                         <div class="col-sm-6">

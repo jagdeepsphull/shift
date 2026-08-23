@@ -244,6 +244,34 @@ class AppSettings extends BaseConfig
      */
     public string $phoneCountryCode = '1';
 
+    /**
+     * The number the site itself answers on, shown under the side menu behind
+     * every login and linked into WhatsApp.
+     *
+     * Written the way it is printed - the link normalises it through
+     * `whatsappNumber()` - and kept here rather than in the two sidebars so
+     * changing it is one edit and not a hunt through the views. The same
+     * number is on the Contact page.
+     */
+    public string $supportPhone = '+1 (905) 304-7303';
+
+    /**
+     * How many wrong passwords in a row an account takes before it stops
+     * answering them, and for how long.
+     *
+     * Eight is generous for somebody who has forgotten which of their two
+     * passwords they used here, and short work of a list of ten thousand. The
+     * lock is per account and lifts by itself; Manage Employers can also clear
+     * it by saving the row, which resets the counter.
+     *
+     * Set either to 0 to switch the lock off entirely.
+     *
+     * @see \App\Models\CustomModel::loginLockRemaining()
+     */
+    public int $loginMaxAttempts = 8;
+
+    public int $loginLockoutMinutes = 15;
+
     public array $status = [
         0 => 'Deactive',
         1 => 'Active',

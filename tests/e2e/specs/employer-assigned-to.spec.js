@@ -20,6 +20,12 @@ const UNBOOKED = SHIFTS[0].title;
 
 const MESSAGE = 'Agreed on the phone, $65/hr.';
 
+/** The applicant's licence, as the fixture writes it. */
+const LICENCE = 'E2E-LIC';
+
+/** Filled in by the fixture: the licence province the applicant is given. */
+let licenceProvince = '';
+
 const rowOf = (page, title) => page.locator('#joblist tbody tr', { hasText: title });
 
 /**
@@ -53,7 +59,13 @@ const book = (title, status, comment) => {
 };
 
 test.beforeEach(async ({ page }) => {
-  seedShiftFixture();
+  const { applicantId } = seedShiftFixture();
+
+  // The fixture leaves the licence province unset, and the cell under test
+  // only prints the lines it has. Give the applicant a real one.
+  const provinceId = scalar('SELECT p_id FROM province WHERE p_status = 1 LIMIT 1;');
+  licenceProvince = scalar(`SELECT p_name FROM province WHERE p_id = ${provinceId};`);
+  query(`UPDATE users SET u_l_provice = ${provinceId} WHERE u_id = ${applicantId};`);
 
   book(PLACED, 6, MESSAGE);
   book(APPLIED, 1, '');
@@ -77,7 +89,6 @@ test('a shift nobody is on says so', async ({ page }) => {
   const cell = rowOf(page, UNBOOKED).locator('td').nth(5);
 
   await expect(cell).toHaveText('-');
-  await expect(cell.locator('.applicant-btn')).toHaveCount(0);
 });
 
 test('the shift details carry the booking and its message', async ({ page }) => {
@@ -88,17 +99,20 @@ test('the shift details carry the booking and its message', async ({ page }) => 
   await expect(page.locator('#modalMessage')).toHaveValue(MESSAGE);
 });
 
-test('the applicant details carry it too, and nothing is shown for an unbooked shift', async ({ page }) => {
-  await rowOf(page, PLACED).locator('.applicant-btn').click();
+test('the applicant details are spelled out in the cell, not behind a button', async ({ page }) => {
+  const cell = rowOf(page, PLACED).locator('td').nth(5);
 
-  await expect(page.locator('#applicantModal')).toBeVisible();
-  await expect(page.locator('#modalName')).toHaveValue('Pharmacist E2E');
-  await expect(page.locator('#modalApplicantMessage')).toHaveValue(MESSAGE);
+  // Everything the old View button opened, now read straight off the row.
+  await expect(cell).toContainText('Pharmacist E2E');
+  await expect(cell).toContainText(`Licence No.: ${LICENCE}`);
+  await expect(cell).toContainText(`Licence Province: ${licenceProvince}`);
+  await expect(cell).toContainText('Shift Requested For:');
+  await expect(cell.locator('.applicant-btn')).toHaveCount(0);
+});
 
-  await page.locator('#applicantModal .btn[data-dismiss="modal"]').click();
-  await expect(page.locator('#applicantModal')).toBeHidden();
-
+test('an unbooked shift is shown as unbooked in the shift details', async ({ page }) => {
   await rowOf(page, UNBOOKED).locator('.view-btn').click();
+
   await expect(page.locator('#viewModal')).toBeVisible();
   await expect(page.locator('#modalAssignedGroup')).toBeHidden();
   await expect(page.locator('#modalMessageGroup')).toBeHidden();

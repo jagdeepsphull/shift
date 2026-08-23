@@ -18,6 +18,7 @@ const { test, expect } = require('@playwright/test');
 const { settle, expectNoServerError } = require('../helpers/admin');
 const { loginAsFrontUser } = require('../helpers/front');
 const { query, scalar, count } = require('../helpers/db');
+const { csrfHeaders } = require('../helpers/csrf');
 
 const PASSWORD = 'E2eTest@12345';
 const PREFIX = 'e2e.access.';
@@ -394,9 +395,12 @@ test('the shortlist endpoint refuses a shift that is not the caller\'s', async (
 
   const before = count('stu_saved_applied_jobs', `p_id = ${shift.byManager}`);
 
-  // Same session, straight to the endpoint - which is all the page does.
+  // Same session, straight to the endpoint - which is all the page does. The
+  // token goes with it for the same reason: the page sends one, and this is
+  // asking who may call the endpoint, not whether CSRF works.
   const res = await page.request.post('employer/ajax_shortlist', {
     form: { uid: applicant, jobid: String(shift.byManager) },
+    headers: await csrfHeaders(page),
   });
 
   expect((await res.text()).trim(), 'refused').toBe('0');

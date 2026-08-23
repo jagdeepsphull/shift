@@ -9,7 +9,7 @@
  *   https://reliefshifts.com/staging/migrate.php?key=b7f4c1e93a2d6058
  *
  * `php spark migrate` is the right way to do this and needs a command line.
- * This does the same fifteen migrations over mysqli, reading credentials from the
+ * This does the same eighteen migrations over mysqli, reading credentials from the
  * .env beside it, and writes the same rows into `migrations` that spark would -
  * so a later `spark migrate` sees them as done rather than re-running them into
  * a "duplicate column" error.
@@ -848,6 +848,30 @@ $migrations = [
             $notes[] = $pending > 0
                 ? "pointed {$pending} existing shift(s) at the store's owner, as before"
                 : 'every shift already names who to e-mail';
+
+            return $notes;
+        },
+    ],
+    [
+        'version' => '2026-08-20-090000',
+        'class'   => 'App\Database\Migrations\AddUserAgreementDone',
+        'label'   => 'AddUserAgreementDone',
+        'apply'   => static function (mysqli $db): array {
+            $notes = [];
+
+            // Whether the signed agreement is on file, ticked on the applicant
+            // and employer forms in the back office. Nobody is asked at
+            // registration, so 0 is the right answer for every row that exists
+            // - no backfill goes with this one.
+            if (! columnExists($db, 'users', 'u_agreement_done')) {
+                run($db, "ALTER TABLE `users`
+                          ADD COLUMN `u_agreement_done` TINYINT(1) NOT NULL DEFAULT 0
+                          COMMENT '1 when the signed agreement is on file. Ticked in the back office only.'
+                          AFTER `u_status`");
+                $notes[] = 'added users.u_agreement_done';
+            } else {
+                $notes[] = 'users.u_agreement_done already there';
+            }
 
             return $notes;
         },

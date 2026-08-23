@@ -8,11 +8,11 @@
 --   2026-08-17-090000  testimonial                new table
 --   2026-08-18-100000  post_job.p_email_to        column
 --
--- This SUPERSEDES `release-2026-08-19.sql`'s predecessor, release-2026-08-18.sql:
--- that file carried the last two of the four and not the first two, so a
--- database updated with it alone is missing `users.u_email_blocked` and the
--- Manage Email screen has nowhere to store an opt-out. Run this one instead.
--- Running it after that one is fine - see "safe to run twice" below.
+-- This SUPERSEDES `release-2026-08-18.sql`, which carried the last two of the
+-- four and not the first two - so a database updated with that file alone is
+-- missing `users.u_email_blocked`, and the Manage Email screen has nowhere to
+-- store an opt-out. Run this one instead. Running it after that one is fine;
+-- see "safe to run twice" below.
 --
 -- The 2026-08-19 release itself - the pharmacist's screens on the site theme,
 -- the hourly rate hidden from managers, the read-only shift panel - is code
@@ -288,6 +288,11 @@ SELECT `version`, `class`
 --                                 allows NULL and always has.
 --   The read-only shift panel   -> markup only.
 --   DataTables stylesheets on the signed-in pages -> assets only.
+--   Resources and Contact name themselves -> both set a page title in the
+--                                 controller, which fills the banner heading
+--                                 and the browser tab; the duplicate heading in
+--                                 each page body, and the breadcrumb that read
+--                                 "Home / " followed by nothing, are gone.
 --
 -- The `testimonial` table arrives EMPTY, so the home page carousel has nothing
 -- to show until testimonials are added in the back office.

@@ -19,7 +19,9 @@
       <?php if (! empty($pageLead)) { ?>
         <p><?php echo esc($pageLead); ?></p>
       <?php } ?>
-      <nav class="wz-crumbs" aria-label="Breadcrumb">
-        <a href="<?php echo base_url(); ?>">Home</a> <span aria-hidden="true">/</span> <?php echo esc($pageTitle); ?>
-      </nav>
+      <?php /* The breadcrumb is gone. It read "Home / " followed by the page
+         name, and on every page that sets no `pageTitle` - which is most of
+         them - by nothing at all. Without the link back it can only repeat the
+         heading directly above it, which is the same duplicate the body
+         headings were. The navbar carries Home. */ ?>
     </header>

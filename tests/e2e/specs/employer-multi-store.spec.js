@@ -500,6 +500,43 @@ test('an owner sees who manages each of their stores', async ({ page }) => {
   }
 });
 
+test.describe('the store list on a phone', () => {
+  // Nine columns of address and contact detail do not fit a phone. They used
+  // to run off the side of the screen inside a scrolling box, with no sign
+  // that anything was there; now all but the store and its Edit button fold
+  // into the panel the row opens.
+  test.use({ viewport: { width: 360, height: 780 } });
+
+  test('folds its columns away rather than running off the screen', async ({ page }) => {
+    await loginAsAgency(page);
+    await page.goto(STORE_LIST_URL);
+    await settle(page);
+
+    const spilling = await page.evaluate(() => {
+      const edge = document.documentElement.clientWidth;
+
+      return [...document.querySelectorAll('body *')]
+        .filter((el) => el.getBoundingClientRect().right > edge + 1)
+        .map((el) => `${el.tagName}.${el.className}`)
+        .slice(0, 5);
+    });
+
+    expect(spilling, 'elements past the right edge of the screen').toEqual([]);
+
+    const row = page.locator('#storelist tbody tr', { hasText: stores[0].name });
+
+    await row.locator('td.dtr-control').click();
+
+    const panel = page.locator('#storelist tbody tr.child');
+
+    await expect(panel).toContainText('Store Number');
+    await expect(panel).toContainText(stores[0].number);
+    await expect(panel).toContainText(stores[0].address);
+    await expect(panel).toContainText(stores[0].phone);
+    await expectNoServerError(page);
+  });
+});
+
 test('a shift can be posted against a chosen store', async ({ page }) => {
   const chosen = stores[1]; // deliberately not the first, so a default passes nothing
 
@@ -535,6 +572,16 @@ test('a shift can be posted against a chosen store', async ({ page }) => {
     ) || 0,
   );
   expect(stored, 'the shift records the store it was posted against').toBe(chosen.id);
+
+  // And says so on the list. An owner with several branches has otherwise
+  // nothing on the row to tell them which of them the shift is for.
+  await page.goto('employer/all_jobs');
+  await settle(page);
+
+  const listed = page.locator('#joblist tbody tr', { hasText: chosen.name });
+
+  await expect(listed, 'the list names the branch the shift is for').toHaveCount(1);
+  await expect(listed).toContainText('14 Sep 2027');
 });
 
 test('editing a shift keeps its store and can move it to another one', async ({ page }) => {

@@ -113,6 +113,7 @@
                 const cname = $(this).data('cname');
                 const licen = $(this).data('licen');
                 const address = $(this).data('address');
+                const map = $(this).data('map');
                 const approved = $(this).data('approved');
                 const appremarks = $(this).data('appremarks');
                 const shiftfor = $(this).data('shiftfor');
@@ -126,6 +127,11 @@
                 $('#modalName').val(cname);
                 $('#modalLicen').val(licen);
                 $('#modalAddress').val(address);
+
+                // A store with no address has nothing to search for, so the
+                // link is dropped rather than pointing at an empty map.
+                $('#modalMapLink').attr('href', map || '#').toggle(Boolean(map));
+
                 $('#modalApproved').val(approved);
                 $('#modalAppRemarks').val(appremarks);
                 $('#modalShiftFor').val(shiftfor);
@@ -241,7 +247,7 @@
 			  "searching": true,
 			  "ordering": true,
 			  "info": true,
-			  "autoWidth": true,
+			  "autoWidth": false,
 			  "responsive": true,
 			});
 			

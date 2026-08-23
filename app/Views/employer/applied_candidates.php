@@ -4,7 +4,7 @@
         <div class="dashboard-caption">
 
             <div class="dashboard-caption-header">
-                <h4><i class="ti-briefcase"></i>Applied Candidates for <?php echo $job[0]->p_job_title; ?></h4>
+                <h4><i class="ti-briefcase"></i>Applied Candidates for <?php echo esc($job[0]->p_job_title); ?></h4>
             </div>
 
             <div class="dashboard-caption-wrap">
@@ -34,10 +34,10 @@
 														
 														?>
                             <tr>
-                                <td><?php echo $jobuser->u_fname.' '.$jobuser->u_lname;?>
+                                <td><?php echo esc($jobuser->u_fname . ' ' . $jobuser->u_lname);?>
                                 </td>
-                                <td><?php echo $jobuser->u_phone;?></td>
-                                <td><?php echo $jobuser->u_email;?></td>
+                                <td><?php echo esc($jobuser->u_phone);?></td>
+                                <td><?php echo esc($jobuser->u_email);?></td>
                                 <td data-order="<?php echo esc($jobuser->sj_applied_date, 'attr');?>"><?php echo dateFormat($jobuser->sj_applied_date);?></td>
                                 <td><?php echo $appliedstatus[$jobuser->sj_status];?></td>
                                 <td>

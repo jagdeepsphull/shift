@@ -60,9 +60,9 @@
 						  ?>
 						  <tr>
 							<td><?php echo $record->sj_id;?></td>
-							<td><?php echo $record->p_job_title;?></td>
-							<td><?php echo $record->u_comp_name;?></td>
-							<td><?php echo trim($record->applicant_fname.' '.$record->applicant_lname);?></td>
+							<td><?php echo esc($record->p_job_title);?></td>
+							<td><?php echo esc($record->u_comp_name);?></td>
+							<td><?php echo esc(trim($record->applicant_fname.' '.$record->applicant_lname));?></td>
 							<td>
 								<?php if(trim((string) $record->sj_applied_desc) !== '') {?>
 									<button type="button" class="btn btn-info popover-btn mb-2" data-toggle="popover" data-content="<?php echo esc($record->sj_applied_desc, 'attr');?>">Applicant Message</button>

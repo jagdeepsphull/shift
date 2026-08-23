@@ -1,2 +1,18 @@
+# Everything behind a login, kept out of search results.
+#
+# `/admin/` was the only line here and there is no such path - the back office
+# is `/sadmin/`, so the rule matched nothing and the portals were crawlable.
+#
+# This is a request, not a lock: a crawler that ignores it still meets the
+# session check on every one of these. What it prevents is a shift page or a
+# store list turning up in a search result.
+
 User-agent: *
-Disallow: /admin/
+Disallow: /sadmin/
+Disallow: /employer/
+Disallow: /applicant/
+Disallow: /cron/
+Disallow: /uploads/
+Disallow: /front/login
+Disallow: /front/forgot
+Disallow: /front/resetpassword

@@ -26,7 +26,7 @@
 	                            <div class="form-group">
 	                                <div class="form-group">
 										<label>Shift Title</label>
-										<input type="text" required class="form-control" name="p_job_title"  placeholder="Enter Shift Title" value="<?php echo $p_job_title; ?>">
+										<input type="text" required class="form-control" name="p_job_title"  placeholder="Enter Shift Title" value="<?php echo esc($p_job_title); ?>">
 									</div>
 	                            </div>
 	                        </div> */ ?>
@@ -63,25 +63,31 @@
 									</select>
 								</div>
 	                        </div>
-	                        <div class="col-lg-4 col-md-4 col-sm-2">
-	                            <div class="form-group">
-									<label>Hourly Rate</label>
-									<input type="number" required min="10" max="200" class="form-control" name="p_hourly_rate"  placeholder="Enter Hourly Rate" value="<?php echo $p_hourly_rate; ?>">
-									
-								  
+							<?php /* What the shift pays is the group's decision, not the
+							   branch's, so a manager does not see it here - and leaving the
+							   field out means their save carries no rate to write over the
+							   one the group set. Left out rather than hidden: it is
+							   `required`, and a required control the browser cannot show
+							   blocks the submit silently. See Employer::setup(). */ ?>
+							<?php if ($can_set_rate) { ?>
+								<div class="col-lg-4 col-md-4 col-sm-2">
+									<div class="form-group">
+										<label>Hourly Rate</label>
+										<input type="number" required min="10" max="200" class="form-control" name="p_hourly_rate"  placeholder="Enter Hourly Rate" value="<?php echo esc($p_hourly_rate); ?>">
+									</div>
 								</div>
-	                        </div>
+							<?php } ?>
 	                        <div class="col-lg-4 col-md-4 col-sm-2">
 	                            <div class="form-group">
 									<label>Select Date</label>
-									<input type="text" required class="form-control date" name="p_dates" placeholder="Pick date" value="<?php echo $p_dates; ?>">
+									<input type="text" required class="form-control date" name="p_dates" placeholder="Pick date" value="<?php echo esc($p_dates); ?>">
 								</div>
 	                        </div>
 
 	                        <div class="col-lg-4 col-md-4 col-sm-2">
 	                            <div class="form-group">
 									<label>Shift Time</label>
-									<input required type="text" class="form-control timePicker" name="p_shift_time" placeholder="Shift Time" value="<?php echo $p_shift_time; ?>">
+									<input required type="text" class="form-control timePicker" name="p_shift_time" placeholder="Shift Time" value="<?php echo esc($p_shift_time); ?>">
 								</div>
 	                        </div>
 						</div>
@@ -95,7 +101,7 @@
 
 	                        <div class="col-lg-4 col-md-4 col-sm-2">
 	                            <div class="form-group">
-									<?= view('partials/checkbox_grid', ['name' => 'p_services', 'label' => 'Details', 'items' => $store_service, 'idKey' => 'st_id', 'labelKey' => 'st_service_name', 'selected' => $p_services, 'required' => true,]) ?>
+									<?= view('partials/checkbox_grid', ['name' => 'p_services', 'label' => 'Details', 'items' => $store_service, 'idKey' => 'st_id', 'labelKey' => 'st_service_name', 'selected' => $p_services, 'required' => false,]) ?>
 								</div>
 	                        </div>
 

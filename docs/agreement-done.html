@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PickAShift — Agreement Done column</title>
+<style>
+:root{
+  --bg:#f7f7f9; --surface:#ffffff; --surface-2:#f1f2f5; --border:#dcdee5;
+  --text:#1c1e26; --text-2:#5a5f6e; --text-3:#868c9b;
+  --accent:#4a4fa8; --accent-soft:#ecedf8; --accent-line:#c9cbe9;
+  --ok:#2f6d4f; --ok-bg:#e9f3ed; --ok-line:#8fc0a7;
+  --warn:#8a5a12; --warn-bg:#fbf1e0; --warn-line:#cfa055;
+  --mut-bg:#eef0f3; --mut-fg:#4a5261; --mut-line:#9aa2b1;
+  --radius:8px;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root[data-theme="auto"]{
+    --bg:#14161c; --surface:#1b1e26; --surface-2:#22262f; --border:#333846;
+    --text:#e8eaf0; --text-2:#a8aebd; --text-3:#7c8494;
+    --accent:#9aa0ee; --accent-soft:#23263a; --accent-line:#454a78;
+    --ok:#7fc4a1; --ok-bg:#1c2a23; --ok-line:#3f6b53;
+    --warn:#e5bd76; --warn-bg:#33280f; --warn-line:#8a6c2c;
+    --mut-bg:#252932; --mut-fg:#b3bacb; --mut-line:#5c6577;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#14161c; --surface:#1b1e26; --surface-2:#22262f; --border:#333846;
+  --text:#e8eaf0; --text-2:#a8aebd; --text-3:#7c8494;
+  --accent:#9aa0ee; --accent-soft:#23263a; --accent-line:#454a78;
+  --ok:#7fc4a1; --ok-bg:#1c2a23; --ok-line:#3f6b53;
+  --warn:#e5bd76; --warn-bg:#33280f; --warn-line:#8a6c2c;
+  --mut-bg:#252932; --mut-fg:#b3bacb; --mut-line:#5c6577;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:64px}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 var(--sans);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1040px;margin:0 auto;padding:0 20px}
+h1,h2,h3{line-height:1.25;margin:0}
+h1{font-size:28px;font-weight:650;letter-spacing:-.01em}
+h2{font-size:20px;font-weight:650;letter-spacing:-.01em}
+h3{font-size:15.5px;font-weight:600}
+p{margin:.6em 0}
+a{color:var(--accent)}
+code,.mono{font-family:var(--mono);font-size:.86em}
+
+.masthead{background:var(--surface);border-bottom:1px solid var(--border);padding:34px 0 26px}
+.masthead .sub{color:var(--text-2);margin-top:6px;max-width:76ch}
+.meta-row{display:flex;flex-wrap:wrap;gap:8px 22px;margin-top:16px;color:var(--text-3);font-size:13px}
+.meta-row b{color:var(--text-2);font-weight:600}
+
+.bar{position:sticky;top:0;z-index:40;background:var(--surface);border-bottom:1px solid var(--border)}
+.bar-in{display:flex;align-items:center;gap:10px;height:48px}
+.bar nav{display:flex;gap:2px;overflow-x:auto;flex:1;scrollbar-width:none}
+.bar nav::-webkit-scrollbar{display:none}
+.bar nav a{color:var(--text-2);text-decoration:none;font-size:13px;padding:6px 9px;border-radius:6px;white-space:nowrap}
+.bar nav a:hover{background:var(--surface-2);color:var(--text)}
+.btn{font:inherit;font-size:13px;color:var(--text-2);background:var(--surface);border:1px solid var(--border);
+     border-radius:6px;padding:5px 11px;cursor:pointer;white-space:nowrap}
+.btn:hover{background:var(--surface-2);color:var(--text)}
+.btn:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+section{padding:36px 0;border-bottom:1px solid var(--border)}
+section > .wrap > h2{margin-bottom:4px}
+.lede{color:var(--text-2);max-width:78ch;margin-bottom:18px}
+
+.kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:20px}
+.kpi div{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
+.kpi .n{font-size:26px;font-weight:650;letter-spacing:-.02em;display:block;line-height:1.1}
+.kpi .l{color:var(--text-3);font-size:12.5px;margin-top:4px;display:block}
+
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:17px 20px;margin-top:14px}
+.panel h3{margin-bottom:5px}
+.panel .why{color:var(--text-2);font-size:14px}
+.panel.acc{border-left:3px solid var(--accent-line)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin-top:14px}
+
+.note{background:var(--surface-2);border-left:2px solid var(--accent-line);padding:9px 13px;border-radius:0 5px 5px 0;
+      font-size:13.5px;color:var(--text-2);margin-top:12px}
+.note b{color:var(--text);font-weight:600}
+.callout{background:var(--warn-bg);border:1px solid var(--warn-line);color:var(--warn);border-radius:5px;
+         padding:9px 13px;font-size:13.5px;margin-top:14px}
+.callout b{font-weight:650}
+.okbox{background:var(--ok-bg);border-left:2px solid var(--ok);padding:9px 13px;border-radius:0 5px 5px 0;
+       font-size:13.5px;margin-top:14px;color:var(--text-2)}
+.okbox b{color:var(--ok)}
+
+.pill{font-size:11.5px;font-weight:600;border-radius:20px;padding:2px 9px;white-space:nowrap;border:1px solid transparent;display:inline-block}
+.pill.ok{background:var(--ok-bg);color:var(--ok);border-color:var(--ok-line)}
+.pill.mut{background:var(--mut-bg);color:var(--mut-fg);border-color:var(--mut-line)}
+.pill.acc{background:var(--accent-soft);color:var(--accent);border-color:var(--accent-line)}
+.url{font-size:12px;font-family:var(--mono);background:var(--surface-2);color:var(--text-2);
+     border:1px solid var(--border);border-radius:5px;padding:2px 7px;display:inline-block}
+
+table{border-collapse:collapse;width:100%;font-size:13.5px;margin-top:12px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+th{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3);font-weight:600}
+tbody tr:hover{background:var(--surface-2)}
+.scroll{overflow-x:auto}
+.files{list-style:none;padding:0;margin:0}
+.files li{padding:6px 0;border-bottom:1px dashed var(--border);font-size:13.5px}
+.files li:last-child{border-bottom:0}
+.files .p{font-family:var(--mono);font-size:12.5px;color:var(--text);display:inline-block;margin-right:8px}
+.files .r{color:var(--text-3);font-size:12.5px;display:block;margin-top:2px}
+
+/* a small mock of the real listing row */
+.mock{margin-top:14px;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:var(--surface)}
+.mock .cap{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);
+           padding:9px 12px;border-bottom:1px solid var(--border);background:var(--surface-2)}
+.mock table{margin:0;font-size:13px}
+.mock th,.mock td{white-space:nowrap;border-bottom:1px solid var(--border)}
+.mock tbody tr:last-child td{border-bottom:0}
+.mock .new{background:var(--accent-soft)}
+.mock th.new{color:var(--accent)}
+.badge{font-size:11px;font-weight:600;border-radius:4px;padding:2px 7px;display:inline-block;color:#fff}
+.badge.g{background:#28a745}
+.badge.s{background:#6c757d}
+.badge.w{background:#ffc107;color:#1c1e26}
+
+ul.tight{margin:.5em 0;padding-left:19px}
+ul.tight li{margin:4px 0}
+ol.tight{margin:.5em 0;padding-left:19px}
+ol.tight li{margin:5px 0}
+
+footer{padding:26px 0 40px;color:var(--text-3);font-size:12.5px}
+
+@media (max-width:700px){ h1{font-size:23px} }
+@media print{
+  :root{--bg:#fff;--surface:#fff;--surface-2:#f4f4f6;--border:#c8c8d0;--text:#000;--text-2:#333;--text-3:#666}
+  .bar,.noprint{display:none !important}
+  section{padding:16px 0}
+  .panel,.kpi div,.mock{break-inside:avoid}
+  a{color:#000;text-decoration:none}
+}
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <h1>PickAShift — “Agreement Done” on the back-office listings</h1>
+    <p class="sub">
+      Whether the signed agreement is on file, shown as a column on the four screens the office reads down when
+      it is chasing paperwork: applicants, all employers, owners, and stores.
+    </p>
+    <div class="meta-row">
+      <span><b>System:</b> CodeIgniter 4 · MySQL · <span class="mono">c:\wamp64\www\pickashift</span></span>
+      <span><b>Branch:</b> <span class="mono">feature/portal-theme-testimonials-and-manager-rate</span></span>
+      <span><b>Date:</b> 20 August 2026</span>
+      <span><b>Status:</b> <span class="pill ok">Built &amp; tested</span></span>
+    </div>
+  </div>
+</header>
+
+<div class="bar noprint">
+  <div class="wrap bar-in">
+    <nav>
+      <a href="#what">What changed</a>
+      <a href="#screens">The four screens</a>
+      <a href="#decisions">Decisions</a>
+      <a href="#files">Files</a>
+      <a href="#tests">Tests</a>
+      <a href="#deploy">Deploying</a>
+    </nav>
+    <button class="btn" id="themebtn" type="button">Theme</button>
+    <button class="btn" onclick="window.print()" type="button">Print</button>
+  </div>
+</div>
+
+<!-- ========== 1. WHAT CHANGED ========== -->
+<section id="what">
+  <div class="wrap">
+    <h2>What changed</h2>
+    <p class="lede">
+      The tick box already existed on the four user forms — applicant add/edit and employer add/edit — and wrote
+      <code>users.u_agreement_done</code>. Until now that was the only place the answer could be seen: to find out
+      who had signed, somebody had to open records one at a time. This puts the same answer on the lists, so the
+      accounts still to chase can be spotted, sorted and searched from one screen.
+    </p>
+
+    <div class="kpi">
+      <div><span class="n">4</span><span class="l">Listings gaining the column</span></div>
+      <div><span class="n">0</span><span class="l">New database changes</span></div>
+      <div><span class="n">2</span><span class="l">New shared helpers</span></div>
+      <div><span class="n">3</span><span class="l">New end-to-end tests</span></div>
+    </div>
+
+    <div class="panel acc">
+      <h3>Where the answer comes from</h3>
+      <p class="why">
+        <code>users.u_agreement_done</code> — <span class="mono">TINYINT(1) NOT NULL DEFAULT 0</span>, added by the
+        migration <span class="mono">2026-08-20-090000_AddUserAgreementDone</span> that this release already carries.
+        It is a back-office fact: nothing on the public site writes it, and no account holder can set it.
+      </p>
+      <div class="note">
+        <b>A store has no agreement of its own.</b> A location is not a signatory — the employer who holds it is.
+        So the store list reports the owning account’s answer, and every branch of one chain shows the same word.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== 2. THE FOUR SCREENS ========== -->
+<section id="screens">
+  <div class="wrap">
+    <h2>The four screens</h2>
+    <p class="lede">
+      All four already ended <em>Status</em> then <em>Action</em>. The new column slots in just before Status, so
+      that pairing is left intact — the reason is in <a href="#decisions">Decisions</a> below.
+    </p>
+
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th>Screen</th><th>URL</th><th>Shows</th><th>Columns</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Manage Applicants</td>
+            <td><span class="url">/sadmin/applicant</span></td>
+            <td>The applicant’s own answer</td>
+            <td>9 → 10</td>
+          </tr>
+          <tr>
+            <td>All Employers</td>
+            <td><span class="url">/sadmin/employer</span></td>
+            <td>The employer’s own answer</td>
+            <td>8 → 9</td>
+          </tr>
+          <tr>
+            <td>Owners</td>
+            <td><span class="url">/sadmin/employer/owner</span></td>
+            <td>The employer’s own answer</td>
+            <td>8 → 9</td>
+          </tr>
+          <tr>
+            <td>Stores</td>
+            <td><span class="url">/sadmin/stores</span></td>
+            <td>The <em>owning employer’s</em> answer</td>
+            <td>9 → 10</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note">
+      <b>Owners and Managers share one view.</b> <span class="mono">/sadmin/employer/owner</span> is the same list
+      filtered by kind, so <span class="mono">/sadmin/employer/manager</span> gained the column at the same time
+      without a separate change.
+    </div>
+
+    <div class="mock">
+      <div class="cap">Manage Applicants — how a row now reads</div>
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th><th>Type</th><th>Licence No.</th><th>Email ID</th><th>Mobile No.</th>
+              <th class="new">Agreement Done</th><th>Status</th><th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Aisha Rahman</td><td>Pharmacist</td><td>ON-44182</td><td>a.rahman@example.com</td><td>4165550110</td>
+              <td class="new"><span class="badge g">Yes</span></td>
+              <td><span class="badge g">Active</span></td><td>✎ ⛔ 🗑</td>
+            </tr>
+            <tr>
+              <td>Daniel Okoye</td><td>Pharmacy Assistant</td><td>ON-51907</td><td>d.okoye@example.com</td><td>4165550188</td>
+              <td class="new"><span class="badge s">No</span></td>
+              <td><span class="badge w">Pending</span></td><td>✎ ✓ 🗑</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== 3. DECISIONS ========== -->
+<section id="decisions">
+  <div class="wrap">
+    <h2>Decisions worth knowing</h2>
+    <p class="lede">Four small choices that are not obvious from the diff, and the reason each one went the way it did.</p>
+
+    <div class="grid2">
+      <div class="panel">
+        <h3>1 · “Yes” and “No”, not a tick</h3>
+        <p class="why">
+          Every admin list carries Excel, PDF and print buttons, and the exporter takes the <em>text</em> of a cell.
+          A tick icon exports as an empty column. Spelling the answer out is the same reason the Status column says
+          <em>Active</em> rather than showing a green dot — and it gives the search box and the column sort something
+          to work with.
+        </p>
+      </div>
+
+      <div class="panel">
+        <h3>2 · Before Status, not after it</h3>
+        <p class="why">
+          The shared table script hands responsive priority to the <em>last two</em> columns, on the standing
+          assumption that every admin list ends Status → Action. A column slipped between them would have taken
+          Status off the screen on a narrow window. Putting it ahead of Status also leaves every screen’s default
+          sort column at the index it already used.
+        </p>
+      </div>
+
+      <div class="panel">
+        <h3>3 · One wording on all four</h3>
+        <p class="why">
+          The cell is rendered by a single helper, <span class="mono">agreementDoneBadge()</span>, rather than
+          hand-written into four views. The office reads down these lists looking for the same thing on each; four
+          wordings would make that four separate readings, and a later change of mind would mean four edits.
+        </p>
+      </div>
+
+      <div class="panel">
+        <h3>4 · Status is not asked about</h3>
+        <p class="why">
+          <span class="mono">userAgreementDone()</span> looks the owner up without requiring an approved account —
+          deliberately unlike <span class="mono">getPharmacyName()</span>, which does. A pending employer who has
+          already signed should say so, because that pair is usually exactly what the office is hunting for.
+        </p>
+      </div>
+    </div>
+
+    <div class="okbox">
+      <b>No extra queries per row.</b> The store list asks the owner’s answer through
+      <span class="mono">lookupRow()</span>, the request-scoped cache the province, city and employer name helpers
+      already use — so a page of thirty branches of one chain asks the database once, not thirty times.
+    </div>
+  </div>
+</section>
+
+<!-- ========== 4. FILES ========== -->
+<section id="files">
+  <div class="wrap">
+    <h2>Files touched</h2>
+    <p class="lede">View and helper work only. No controller, model, route or schema change.</p>
+
+    <ul class="files">
+      <li>
+        <span class="p">app/Helpers/common_helper.php</span> <span class="pill acc">new helpers</span>
+        <span class="r">
+          <b>agreementDoneBadge($done)</b> renders the cell — green <em>Yes</em> / grey <em>No</em>.
+          <b>userAgreementDone($uid)</b> reads the flag for one account, for the store list.
+        </span>
+      </li>
+      <li>
+        <span class="p">app/Views/admin/applicant/index.php</span>
+        <span class="r">Column added to <code>thead</code>, <code>tbody</code> and <code>tfoot</code>.</span>
+      </li>
+      <li>
+        <span class="p">app/Views/admin/employer/index.php</span>
+        <span class="r">Same — serves All Employers, Owners and Managers.</span>
+      </li>
+      <li>
+        <span class="p">app/Views/admin/stores/index.php</span>
+        <span class="r">Same, reading the owning employer’s answer rather than the store’s.</span>
+      </li>
+      <li>
+        <span class="p">app/Views/admin/footer.php</span>
+        <span class="r">Comment only: the shared table now spans up to ten columns, not nine.</span>
+      </li>
+      <li>
+        <span class="p">tests/e2e/specs/admin-agreement-done.spec.js</span> <span class="pill acc">3 new tests</span>
+        <span class="r">The existing spec, extended to cover the listings as well as the forms.</span>
+      </li>
+    </ul>
+  </div>
+</section>
+
+<!-- ========== 5. TESTS ========== -->
+<section id="tests">
+  <div class="wrap">
+    <h2>Tests</h2>
+    <p class="lede">
+      Run against the real app under WAMP, as the suite is designed to be:
+      <span class="mono">cd tests/e2e &amp;&amp; npx playwright test</span>.
+    </p>
+
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Spec</th><th>Covers</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="mono">admin-agreement-done.spec.js</span></td>
+            <td>The tick box on all four forms, plus the new column on all four listings</td>
+            <td><span class="pill ok">9 passed</span></td>
+          </tr>
+          <tr>
+            <td><span class="mono">admin-exports.spec.js</span></td>
+            <td>Excel / PDF / print exports and column visibility, unaffected by the extra column</td>
+            <td><span class="pill ok">passed</span></td>
+          </tr>
+          <tr>
+            <td><span class="mono">admin-fixes.spec.js</span></td>
+            <td>Listing paging, popovers and column reads</td>
+            <td><span class="pill ok">passed</span></td>
+          </tr>
+          <tr>
+            <td><span class="mono">admin-stores.spec.js</span></td>
+            <td>Store CRUD and scoping</td>
+            <td><span class="pill mut">1 pre-existing failure</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="panel">
+      <h3>How the new tests read the cell</h3>
+      <p class="why">
+        By the badge’s own words, not by column number: the four listings put it at different positions, and the
+        responsive plugin moves cells about besides. Nothing else in these rows says just <em>Yes</em> or
+        <em>No</em> — Status spells Active and Pending, the store Links say Map pin and Website. Each assertion
+        reads the stored value first, so the tests hold whichever way the earlier tests in the file left the
+        fixture.
+      </p>
+    </div>
+
+    <div class="callout">
+      <b>One unrelated failure.</b> <em>admin-stores.spec.js › “the store list is reachable from the sidebar and
+      shows every store”</em> fails — but it fails identically with this change stashed, so it is pre-existing and
+      not caused here. It looks like paging: the fixture store is not on the first page of the unscoped list. Left
+      alone as out of scope.
+    </div>
+  </div>
+</section>
+
+<!-- ========== 6. DEPLOYING ========== -->
+<section id="deploy">
+  <div class="wrap">
+    <h2>Deploying</h2>
+    <p class="lede">Nothing new to run. The column these screens read was already part of the 2026-08-20 release.</p>
+
+    <ol class="tight">
+      <li>Upload the five changed PHP files listed above.</li>
+      <li>
+        Make sure <span class="mono">users.u_agreement_done</span> exists — migration
+        <span class="mono">2026-08-20-090000_AddUserAgreementDone</span>, or section 9 of
+        <span class="mono">deploy/release-2026-08-20.sql</span>, which is written to be safe to re-run.
+      </li>
+      <li>
+        Without that column the four <em>forms</em> already fail on save, so in practice it is applied before these
+        listings are ever seen. The views fall back to <em>No</em> rather than erroring if it is somehow missing.
+      </li>
+    </ol>
+
+    <div class="callout">
+      <b>This page sits in the web root.</b> <span class="mono">agreement-done.html</span> is inside the folder
+      Apache serves, so on a live host it would be readable at
+      <span class="mono">/pickashift/agreement-done.html</span> by anyone with the link. Move it to
+      <span class="mono">plan/</span> alongside <span class="mono">change-requests.html</span>, or leave it out of
+      the upload, if that is not wanted.
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    PickAShift — Agreement Done column · 20 August 2026 · generated alongside the change itself.
+  </div>
+</footer>
+
+<script>
+(function(){
+  var root = document.documentElement;
+  try {
+    var saved = localStorage.getItem('pas-theme');
+    if (saved) root.setAttribute('data-theme', saved);
+  } catch(e){}
+
+  var tb = document.getElementById('themebtn');
+  if (tb) tb.addEventListener('click', function(){
+    var now = root.getAttribute('data-theme');
+    var next = now === 'dark' ? 'light' : (now === 'light' ? 'auto' : 'dark');
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('pas-theme', next); } catch(e){}
+  });
+})();
+</script>
+
+</body>
+</html>

@@ -29,7 +29,7 @@
                             <ul>
                                 <?php if($joblists){ ?>
                                 <?php foreach($joblists as $jobs){ ?>
-                                <li> <i class="dash-icon-box ti-layers"></i><h4><?php echo $jobs->p_job_title;?></h4><br/>
+                                <li> <i class="dash-icon-box ti-layers"></i><h4><?php echo esc($jobs->p_job_title);?></h4><br/>
 									<hr />
                                     <?php echo substr($jobs->p_jobinfo, 10, 200).'...';?>
                                     <a href="#" class="close-list-item"><i class="fa fa-close"></i></a>

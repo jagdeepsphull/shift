@@ -131,4 +131,46 @@ abstract class BaseController extends Controller
         return self::$instance;
     }
 
+    /**
+     * End the session if the account behind it is no longer one that may sign
+     * in, and send them to `$loginRoute`.
+     *
+     * The three `setup()` methods check that *a* session says somebody is
+     * logged in. They did not check that the account still exists and is still
+     * active, and the row is read on every page anyway - so deactivating an
+     * employer in the back office removed them from every list and left them
+     * working normally in the tab they already had open, for up to the two
+     * hours a session lasts. An administrator switching an account off means
+     * now, not eventually.
+     *
+     * The session is emptied rather than destroyed, so the message survives to
+     * be shown on the login page it lands on.
+     *
+     * @param mixed  $row        the `users` row read for this request: an array
+     *                           of objects, an object, or empty if it is gone
+     * @param string $loginRoute where to send them
+     */
+    protected function stopIfAccountClosed($row, string $loginRoute): void
+    {
+        $user = is_array($row) ? ($row[0] ?? null) : $row;
+
+        // A row that has been deleted outright, and one that has been switched
+        // off, are the same answer: not somebody who may be here.
+        $active = $user !== null && (int) ($user->u_status ?? 0) === 1;
+
+        if ($active) {
+            return;
+        }
+
+        foreach (['isUserLoggedIn', 'isAdminUserLoggedIn', 'userId', 'userType', 'adminUserId'] as $key) {
+            $this->session->unset_userdata($key);
+        }
+
+        $this->session->set_flashdata(
+            'error_msg',
+            '<div class="alert alert-danger">Your account is no longer active. Contact the administrator.</div>'
+        );
+
+        ci_redirect($loginRoute);
+    }
 }

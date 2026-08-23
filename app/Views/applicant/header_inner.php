@@ -36,11 +36,25 @@
     <link rel="stylesheet" href="<?php echo base_url('assets/front/plugins/select2-bootstrap4-theme/select2-bootstrap4.min.css') ; ?>">
 
 
+    <!-- datatables: the plugin's own JavaScript is loaded in the footer, its
+         stylesheet never was. Without it a sortable heading draws no arrow, and
+         on a phone the responsive extension's "+" control - the only way to
+         reach the columns it folds away - is invisible. -->
+    <link rel="stylesheet" href="<?php echo base_url('assets/front/plugins/datatables-bs4/css/dataTables.bootstrap4.min.css') ; ?>">
+    <link rel="stylesheet" href="<?php echo base_url('assets/front/plugins/datatables-responsive/css/responsive.bootstrap4.min.css') ; ?>">
+
     <!-- Responsive Style -->
     <link rel="stylesheet" href="<?php echo base_url('assets/front/assets/css/responsive.css') ; ?>">
 
+    <?php /* The home page's palette and type, applied to this area - see the
+       partial for why theme.css itself cannot simply be loaded here. It is the
+       same file the owner's screens load, so both sides of the login look like
+       one product. */ ?>
+    <?= view('partials/portal_theme') ?>
   </head>
-  <body>
+  <?php /* The class every rule in portal_theme.php hangs off, so the palette
+     reaches this area and nothing else. */ ?>
+  <body class="ps-portal">
 
     <!-- Header Area wrapper Starts -->
     <header id="header-wrap">	
@@ -115,65 +129,97 @@
     <!-- Header Area wrapper End -->
 
 
+        <?= view('partials/portal_sidebar_styles') ?>
+
         <!-- General Detail Start -->
         <section class="dashboard-wrap section-padding" style="margin-top: 82px;">
             <div class="container-fluid">
                 <div class="row">
 
                     <!-- Sidebar Wrap -->
+                    <?php
+                        /**
+                         * The pharmacist's side menu.
+                         *
+                         * Every icon here used to be a `ti-` class. Themify is not
+                         * loaded in this area - only line-icons is - so none of them
+                         * drew anything and the menu was a column of bare words. The
+                         * `lni-` equivalents below are all present in the font.
+                         *
+                         * The two lists it used to be - four links under a "Personal
+                         * Info" heading that labelled two of them - are one list, the
+                         * same shape as the owner's menu in employer/header_inner.php.
+                         *
+                         * Presentation is partials/portal_sidebar_styles.php.
+                         */
+                        $sideName  = trim($userinfo[0]->u_fname . ' ' . $userinfo[0]->u_lname);
+                        $sideRole  = trim((string) getShiftForName($userinfo[0]->u_usersubtype));
+                        $sidePhone = trim((string) $userinfo[0]->u_phone);
+                        $sideEmail = trim((string) $userinfo[0]->u_email);
+                        $sideLicen = trim((string) $userinfo[0]->u_licence_no);
+
+                        // The photo is optional and mostly absent: the column used to
+                        // point an <img> at uploads/profile/ whatever the column held,
+                        // so an account without one drew a broken image. Shown only
+                        // when the file is actually on disk.
+                        $sidePhoto = trim((string) $userinfo[0]->u_photo);
+                        $sidePhoto = ($sidePhoto !== '' && is_file(FCPATH . 'uploads/profile/' . $sidePhoto)) ? $sidePhoto : '';
+
+                        // Initials stand in for it, as they do on the owner's side.
+                        $sideInitials = trim(mb_substr((string) $userinfo[0]->u_fname, 0, 1) . mb_substr((string) $userinfo[0]->u_lname, 0, 1));
+
+                        if ($sideInitials === '') {
+                            $sideInitials = mb_substr($sideName !== '' ? $sideName : '-', 0, 1);
+                        }
+                    ?>
                     <div class="col-lg-3 col-md-4">
-                        <div class="side-dashboard">
+                        <div class="side-dashboard ps-side">
 
-                            <div class="dashboard-avatar">
-
-                                <div class="dashboard-avatar-thumb">
-                                    <img src="<?php echo base_url('uploads/profile/'.$userinfo[0]->u_photo);?>" class="img-avater" alt="" />
+                            <div class="ps-who">
+                                <?php if ($sidePhoto !== '') { ?>
+                                    <span class="ps-avatar"><img src="<?php echo base_url('uploads/profile/' . $sidePhoto); ?>" alt=""></span>
+                                <?php } else { ?>
+                                    <span class="ps-avatar"><?php echo esc($sideInitials); ?></span>
+                                <?php } ?>
+                                <div class="ps-who-text">
+                                    <h4 class="ps-name"><?php echo esc($sideName !== '' ? $sideName : 'Your account'); ?></h4>
+                                    <?php if ($sideRole !== '') { ?>
+                                        <span class="ps-company"><?php echo esc($sideRole . ($sideLicen !== '' ? ' (' . $sideLicen . ')' : '')); ?></span>
+                                    <?php } ?>
                                 </div>
-
-                                <div class="dashboard-avatar-text">
-                                    <h4><?php echo $userinfo[0]->u_fname.' '.$userinfo[0]->u_lname;?></h4>
-                                    <h6><?php echo getShiftForName($userinfo[0]->u_usersubtype); ?></h6>
-                                </div>
-
                             </div>
 
-                            <div class="dashboard-menu">
-                                <ul>
-                                    <li class="<?php echo $ajcls; ?>"><a href="<?php echo base_url('applicant/applied_jobs')?>"><i class="ti-hand-point-right"></i>Applied Shifts</a></li>
-                                    <?php /* <li class="<?php echo $dashcls; ?>"><a href="<?php echo base_url('applicant/dashboard')?>"><i class="ti-dashboard"></i>Dashboard</a></li>
-									<li class="<?php echo $ajcls; ?>"><a href="<?php echo base_url('applicant/job_preference')?>"><i class="ti-hand-point-right"></i>Job Preference</a></li>
-                                    <li class="<?php echo $sjcls; ?>"><a href="<?php echo base_url('applicant/saved_jobs')?>"><i class="ti-heart"></i>Saved Jobs</a></li>
-                                    <li class="<?php echo $alcls; ?>"><a href="<?php echo base_url('applicant/alert_jobs')?>"><i class="ti-bell"></i>Alert Jobs</a></li>
-                                    <li><a href="<?php echo base_url('applicant/dashboard')?>"><i class="ti-flag-alt-2"></i>Viewed Resume</a></li> */  ?>
+                            <?php if ($sidePhone !== '' || $sideEmail !== '') { ?>
+                                <div class="ps-contact">
+                                    <?php if ($sidePhone !== '') { ?>
+                                        <a href="tel:<?php echo esc($sidePhone, 'attr'); ?>"><i class="lni-phone-handset"></i><span><?php echo esc($sidePhone); ?></span></a>
+                                    <?php } ?>
+                                    <?php if ($sideEmail !== '') { ?>
+                                        <a href="mailto:<?php echo esc($sideEmail, 'attr'); ?>"><i class="lni-envelope"></i><span><?php echo esc($sideEmail); ?></span></a>
+                                    <?php } ?>
+                                </div>
+                            <?php } ?>
 
-                                </ul>
-                                <h4>Personal Info</h4>
+                            <?php /* Collapsed on a phone, where this column stacks above
+                               the page and would otherwise have to be scrolled past. */ ?>
+                            <button class="ps-menu-toggle" type="button" data-toggle="collapse"
+                                    data-target="#ps-menu-panel" aria-expanded="false" aria-controls="ps-menu-panel">
+                                <span><i class="lni-menu mr-2"></i>Menu</span>
+                                <i class="lni-chevron-down"></i>
+                            </button>
+
+                            <div class="dashboard-menu collapse ps-menu-panel" id="ps-menu-panel">
                                 <ul>
-                                    <li class="<?php echo $picls; ?>"><a
-                                            href="<?php echo base_url('applicant/personal_info')?>"><i
-                                                class="ti-id-badge"></i>Edit Profile</a></li>
-                                    <?php /*   <li class="<?php echo $wecls; ?>"><a
-                                            href="<?php echo base_url('applicant/work_experience')?>"><i
-                                                class="ti-id-badge"></i>Work Experience</a></li>
-                                    <li class="<?php echo $qacls; ?>"><a
-                                            href="<?php echo base_url('applicant/qualification')?>"><i
-                                                class="ti-id-badge"></i>Qualification</a></li>
-                                    <li class="<?php echo $crcls; ?>"><a
-                                            href="<?php echo base_url('applicant/certification')?>"><i
-                                                class="ti-id-badge"></i>Certification</a></li>
-                                    <li class="<?php echo $dccls; ?>"><a
-                                            href="<?php echo base_url('applicant/documents')?>"><i
-                                                class="ti-id-badge"></i>Documents</a></li>
-                                    <li class="<?php echo $trcls; ?>"><a
-                                            href="<?php echo base_url('applicant/tranings')?>"><i
-                                                class="ti-id-badge"></i>Tranings</a></li> */ ?>
-                                    <li class="<?php echo $lgcls; ?>"><a
-                                            href="<?php echo base_url('applicant/change_password')?>"><i
-                                                class="ti-power-off"></i>Change Password</a></li>
-                                    <li class="<?php echo $lgcls; ?>"><a
-                                            href="<?php echo base_url('applicant/logout')?>"><i
-                                                class="ti-power-off"></i>Logout</a></li>
+                                    <li class="<?php echo $ajcls; ?>"><a href="<?php echo base_url('applicant/applied_jobs'); ?>"><i class="lni-briefcase"></i>Applied Shifts</a></li>
+                                    <?php /* <li class="<?php echo $dashcls; ?>"><a href="<?php echo base_url('applicant/dashboard'); ?>"><i class="lni-dashboard"></i>Dashboard</a></li>
+                                    <li class="<?php echo $sjcls; ?>"><a href="<?php echo base_url('applicant/saved_jobs'); ?>"><i class="lni-heart"></i>Saved Jobs</a></li>
+                                    <li class="<?php echo $alcls; ?>"><a href="<?php echo base_url('applicant/alert_jobs'); ?>"><i class="lni-alarm"></i>Alert Jobs</a></li> */ ?>
+                                    <li class="<?php echo $picls; ?>"><a href="<?php echo base_url('applicant/personal_info'); ?>"><i class="lni-user"></i>Edit Profile</a></li>
+                                    <li class="<?php echo $cpcls; ?>"><a href="<?php echo base_url('applicant/change_password'); ?>"><i class="lni-lock"></i>Change Password</a></li>
+                                    <li class="ps-menu-out <?php echo $lgcls; ?>"><a href="<?php echo base_url('applicant/logout')?>"><i class="lni-power-switch"></i>Logout</a></li>
                                 </ul>
                             </div>
+
+                            <?= view('partials/portal_support') ?>
                         </div>
                     </div>

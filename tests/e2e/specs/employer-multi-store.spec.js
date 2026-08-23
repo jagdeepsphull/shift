@@ -458,6 +458,85 @@ test("a manager works from their corporate group's store, which they do not own"
   }
 });
 
+test('an owner sees who manages each of their stores', async ({ page }) => {
+  // An owner assigns a manager to a branch and then has no way of telling, from
+  // My Stores, which of their locations is covered and who to call about it.
+  const manager = { user: 'e2e.manager.listed@example.com', pass: 'E2eTest@12345' };
+  const assigned = groupStores[0];
+  const unmanaged = groupStores[1];
+
+  query(`DELETE FROM users WHERE u_userid = '${manager.user}';`);
+  query(`
+    INSERT INTO users
+      (u_usertype, u_usersubtype, u_emp_role, u_parent_id, u_store_id, u_userid, u_fname, u_lname,
+       u_pass, u_comp_name, u_l_provice, u_licence_no, u_company_logo, u_photo, u_provice, u_city,
+       u_address1, u_pincode, u_phone, u_email, u_terms, u_status, u_collartype,
+       created, modified, u_login_attempt, u_login_attempt_dt, u_ipaddress, reset_token, token_expiry)
+    VALUES
+      (1, 0, 2, ${groupId}, ${assigned.id}, '${manager.user}', 'Listed', 'Manager',
+       MD5('${manager.pass}'), '${assigned.name}', 0, '${assigned.number}', '', '', 0, 0,
+       '${assigned.address}', 'M5A 1A1', '4160000905', '${manager.user}', 1, 1, 0,
+       NOW(), NOW(), 0, NOW(), '127.0.0.1', '', '1970-01-01 00:00:00');
+  `);
+
+  try {
+    await loginAsFrontUser(page, { user: GROUP.user, pass: 'E2eTest@12345' });
+    await page.goto(STORE_LIST_URL);
+    await settle(page);
+
+    const managed = page.locator('#storelist tbody tr', { hasText: assigned.name });
+    await expect(managed, 'the manager is named on the store they run').toContainText('Listed Manager');
+    await expect(managed, 'and how to reach them').toContainText(manager.user);
+    await expect(managed).toContainText('4160000905');
+
+    // A branch nobody runs says so, rather than borrowing the row above it.
+    const bare = page.locator('#storelist tbody tr', { hasText: unmanaged.name });
+    await expect(bare, 'a store with no manager is marked as such').toContainText('No manager');
+    await expect(bare).not.toContainText('Listed Manager');
+
+    await expectNoServerError(page);
+  } finally {
+    query(`DELETE FROM users WHERE u_userid = '${manager.user}';`);
+  }
+});
+
+test.describe('the store list on a phone', () => {
+  // Nine columns of address and contact detail do not fit a phone. They used
+  // to run off the side of the screen inside a scrolling box, with no sign
+  // that anything was there; now all but the store and its Edit button fold
+  // into the panel the row opens.
+  test.use({ viewport: { width: 360, height: 780 } });
+
+  test('folds its columns away rather than running off the screen', async ({ page }) => {
+    await loginAsAgency(page);
+    await page.goto(STORE_LIST_URL);
+    await settle(page);
+
+    const spilling = await page.evaluate(() => {
+      const edge = document.documentElement.clientWidth;
+
+      return [...document.querySelectorAll('body *')]
+        .filter((el) => el.getBoundingClientRect().right > edge + 1)
+        .map((el) => `${el.tagName}.${el.className}`)
+        .slice(0, 5);
+    });
+
+    expect(spilling, 'elements past the right edge of the screen').toEqual([]);
+
+    const row = page.locator('#storelist tbody tr', { hasText: stores[0].name });
+
+    await row.locator('td.dtr-control').click();
+
+    const panel = page.locator('#storelist tbody tr.child');
+
+    await expect(panel).toContainText('Store Number');
+    await expect(panel).toContainText(stores[0].number);
+    await expect(panel).toContainText(stores[0].address);
+    await expect(panel).toContainText(stores[0].phone);
+    await expectNoServerError(page);
+  });
+});
+
 test('a shift can be posted against a chosen store', async ({ page }) => {
   const chosen = stores[1]; // deliberately not the first, so a default passes nothing
 
@@ -493,6 +572,16 @@ test('a shift can be posted against a chosen store', async ({ page }) => {
     ) || 0,
   );
   expect(stored, 'the shift records the store it was posted against').toBe(chosen.id);
+
+  // And says so on the list. An owner with several branches has otherwise
+  // nothing on the row to tell them which of them the shift is for.
+  await page.goto('employer/all_jobs');
+  await settle(page);
+
+  const listed = page.locator('#joblist tbody tr', { hasText: chosen.name });
+
+  await expect(listed, 'the list names the branch the shift is for').toHaveCount(1);
+  await expect(listed).toContainText('14 Sep 2027');
 });
 
 test('editing a shift keeps its store and can move it to another one', async ({ page }) => {
@@ -537,12 +626,30 @@ test('a shift posted before B4 still shows the address it always showed', async 
 
   const pid = scalar("SELECT p_id FROM post_job WHERE p_job_title = 'E2E-SHIFT-A';");
 
+  // An address is only shown to the applicant booked on the shift, so book one
+  // rather than drive the whole apply -> shortlist -> approve journey again.
+  const applicantId = scalar(
+    "SELECT u_id FROM users WHERE u_userid = 'e2e.pharmacist@example.com';",
+  );
+  query(`DELETE FROM stu_saved_applied_jobs WHERE p_id = ${pid} AND u_id = ${applicantId};`);
+  query(`
+    INSERT INTO stu_saved_applied_jobs
+      (u_id, agency_id, p_id, sj_applied_date, sj_status, sj_is_approved,
+       sj_admin_comment, sj_applied_desc, sj_resubmit_comments, sj_rejected_comments,
+       created, modified)
+    VALUES
+      (${applicantId}, ${agencyId}, ${pid}, NOW(), 1, 1, '', '', '', 0, NOW(), NOW());
+  `);
+
+  await loginAsApplicant(page);
   await page.goto(`front/job_detail/${pid}`);
   await settle(page);
 
   // '12 Fixture Lane' is the address seeded onto the agency login.
   await expect(page.locator('body')).toContainText('12 Fixture Lane');
   await expectNoServerError(page);
+
+  query(`DELETE FROM stu_saved_applied_jobs WHERE p_id = ${pid} AND u_id = ${applicantId};`);
 });
 
 test('the booked applicant sees the chosen store\'s address, not another store\'s', async ({ page }) => {

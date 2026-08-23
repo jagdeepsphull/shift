@@ -56,6 +56,10 @@ class Applicant extends BaseController
         $this->userinfo         = $this->custom->get_where('users', ['u_id' => $this->session->userdata('userId')]);
         $this->data['userinfo'] = $this->userinfo;
 
+        // As on the employer's side: an account switched off in the back office
+        // stops working now, not when its session happens to expire.
+        $this->stopIfAccountClosed($this->userinfo, 'front/login');
+
         $this->data['usertype']    = $this->config->item('usertype');
         $this->data['usersubtype'] = $this->config->item('usersubtype');
         $this->data['posttype']    = $this->config->item('posttype');
@@ -86,6 +90,9 @@ class Applicant extends BaseController
         $this->data['crcls']   = ($pagesection === 'certification') ? 'active' : '';
         $this->data['dccls']   = ($pagesection === 'documents') ? 'active' : '';
         $this->data['trcls']   = ($pagesection === 'tranings') ? 'active' : '';
+        // Change Password used to share the logout flag, so the link it marks
+        // was never the screen you were on.
+        $this->data['cpcls']   = ($pagesection === 'change_password') ? 'active' : '';
         $this->data['lgcls']   = ($pagesection === 'logout') ? 'active' : '';
     }
 

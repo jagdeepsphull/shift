@@ -42,6 +42,13 @@ const POSTCODE = 'M5A 1A1';
 const LICENCE = 'E2E-PAR-1';
 const OWNER_NAME = 'E2E Parity Owner Group';
 
+// One name each. An employer's name has to be theirs alone - both forms refuse
+// one that is already registered - so the two paths cannot be given the same
+// answer here as they are everywhere else. The rows are compared with the name
+// masked out, which keeps the column in the comparison without asking the two
+// accounts to share a value the application forbids them to share.
+const OWNER_NAME_ADMIN = 'E2E Parity Owner Group Two';
+
 /** @type {{group: number, store: any, province: string, city: string, subtype: string}} */
 const fixture = { group: 0, store: null, province: '0', city: '0', subtype: '0' };
 
@@ -210,7 +217,7 @@ test('an Owner is the same account either way', async ({ page }) => {
   await loginAsAdmin(page);
   await page.goto('sadmin/employer/add');
   await page.selectOption('select[name="emp_kind"]', '1');
-  await page.fill('input[name="u_comp_name"]', OWNER_NAME);
+  await page.fill('input[name="u_comp_name"]', OWNER_NAME_ADMIN);
   await fillEmployerBasics(page, created);
   await save(page);
   await expectNoServerError(page);
@@ -218,13 +225,18 @@ test('an Owner is the same account either way', async ({ page }) => {
   const fromRegistration = shape(registered);
   const fromBackOffice = shape(created);
 
+  /** The one column the two are not allowed to agree on - see OWNER_NAME_ADMIN. */
+  const masked = (row, name) => String(row).replace(name, '<name>');
+
   expect(fromRegistration, 'the registration created an account').not.toBeNull();
   expect(fromBackOffice, 'the back office created an account').not.toBeNull();
-  expect(fromBackOffice).toBe(fromRegistration);
+  expect(masked(fromBackOffice, OWNER_NAME_ADMIN)).toBe(masked(fromRegistration, OWNER_NAME));
 
-  // And what that shape actually is: a multi-store owner, named, with no
-  // location of their own and no store yet - they add those afterwards.
+  // And what that shape actually is: a multi-store owner, named with what was
+  // typed on the form it was made on, with no location of their own and no
+  // store yet - they add those afterwards.
   expect(fromRegistration).toContain(`company=|${OWNER_NAME}`);
+  expect(fromBackOffice).toContain(`company=|${OWNER_NAME_ADMIN}`);
   expect(fromRegistration).toContain('role=|1');
   expect(fromRegistration).toContain('address=||');
   expect(storesOwnedBy(registered), 'no store yet, either way').toBe(0);

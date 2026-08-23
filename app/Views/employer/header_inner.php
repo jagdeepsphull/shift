@@ -41,6 +41,13 @@
     <link rel="stylesheet" href="<?php echo base_url('assets/front/plugins/select2-bootstrap4-theme/select2-bootstrap4.min.css') ; ?>">
 
 
+    <!-- datatables: the plugin's own JavaScript is loaded in the footer, its
+         stylesheet never was. Without it a sortable heading draws no arrow, and
+         on a phone the responsive extension's "+" control - the only way to
+         reach the columns it folds away - is invisible. -->
+    <link rel="stylesheet" href="<?php echo base_url('assets/front/plugins/datatables-bs4/css/dataTables.bootstrap4.min.css') ; ?>">
+    <link rel="stylesheet" href="<?php echo base_url('assets/front/plugins/datatables-responsive/css/responsive.bootstrap4.min.css') ; ?>">
+
     <!-- Responsive Style -->
     <link rel="stylesheet" href="<?php echo base_url('assets/front/assets/css/responsive.css') ; ?>">
 	<style>
@@ -63,8 +70,13 @@
     /*to prevent Firefox FOUC, this must be here*/
     let FF_FOUC_FIX;
   </script>
+    <?php /* The home page's palette and type, applied to this area - see the
+       partial for why theme.css itself cannot simply be loaded here. */ ?>
+    <?= view('partials/portal_theme') ?>
   </head>
-  <body>
+  <?php /* The class every rule in portal_theme.php hangs off, so the palette
+     reaches this area and nothing else. */ ?>
+  <body class="ps-portal">
 
     <!-- Header Area wrapper Starts -->
     <header id="header-wrap">	
@@ -140,48 +152,87 @@
     <!-- Header Area wrapper End -->
 
 
+        <?= view('partials/portal_sidebar_styles') ?>
+
         <!-- General Detail Start -->
         <section class="dashboard-wrap section-padding" style="margin-top: 82px;">
             <div class="container-fluid">
                 <div class="row">
 
                     <!-- Sidebar Wrap -->
+                    <?php
+                        /**
+                         * The employer's side menu.
+                         *
+                         * Every icon here used to be a `ti-` class. Themify is not
+                         * loaded in this area - only line-icons is - so none of them
+                         * drew anything and the menu was a column of bare words. The
+                         * `lni-` equivalents below are all present in the font.
+                         *
+                         * Presentation is partials/portal_sidebar_styles.php.
+                         */
+                        $sideName    = trim($userinfo[0]->u_fname . ' ' . $userinfo[0]->u_lname);
+                        $sideCompany = trim((string) $userinfo[0]->u_comp_name);
+                        $sideLicence = trim((string) $userinfo[0]->u_licence_no);
+                        $sidePhone   = trim((string) $userinfo[0]->u_phone);
+                        $sideEmail   = trim((string) $userinfo[0]->u_email);
+
+                        // Initials stand in for the photo nobody uploads. Falls back to
+                        // the company's first letter, then to a dash, so the circle is
+                        // never empty.
+                        $sideInitials = trim(mb_substr((string) $userinfo[0]->u_fname, 0, 1) . mb_substr((string) $userinfo[0]->u_lname, 0, 1));
+
+                        if ($sideInitials === '') {
+                            $sideInitials = mb_substr($sideCompany !== '' ? $sideCompany : '-', 0, 1);
+                        }
+                    ?>
                     <div class="col-lg-3 col-md-3">
-                        <div class="side-dashboard">
+                        <div class="side-dashboard ps-side">
 
-                            <div class="dashboard-avatar">
-
-                                
-
-                                <div class="dashboard-avatar-text text-left">
-                                    <h4></i><?php echo $userinfo[0]->u_fname.' '.$userinfo[0]->u_lname;?>
-                                    </h4>
-                                    <span class="font-weight-bold font-italic text-info"><?php echo $userinfo[0]->u_comp_name.' ('.$userinfo[0]->u_licence_no.')';?></span><hr>
+                            <div class="ps-who">
+                                <span class="ps-avatar"><?php echo esc($sideInitials); ?></span>
+                                <div class="ps-who-text">
+                                    <h4 class="ps-name"><?php echo esc($sideName !== '' ? $sideName : 'Your account'); ?></h4>
+                                    <?php if ($sideCompany !== '') { ?>
+                                        <span class="ps-company"><?php echo esc($sideCompany . ($sideLicence !== '' ? ' (' . $sideLicence . ')' : '')); ?></span>
+                                    <?php } ?>
                                 </div>
-								<div class="dashboard-avatar-text text-left text-info font-weight-bold">
-                                    <i class="lni-phone-handset mr-2"></i><?php echo $userinfo[0]->u_phone?><hr>
-                                    <i class="lni-envelope mr-2"></i><?php echo $userinfo[0]->u_email?>
-                                </div>
-
                             </div>
 
-                            <div class="dashboard-menu">
+                            <?php if ($sidePhone !== '' || $sideEmail !== '') { ?>
+                                <div class="ps-contact">
+                                    <?php if ($sidePhone !== '') { ?>
+                                        <a href="tel:<?php echo esc($sidePhone, 'attr'); ?>"><i class="lni-phone-handset"></i><span><?php echo esc($sidePhone); ?></span></a>
+                                    <?php } ?>
+                                    <?php if ($sideEmail !== '') { ?>
+                                        <a href="mailto:<?php echo esc($sideEmail, 'attr'); ?>"><i class="lni-envelope"></i><span><?php echo esc($sideEmail); ?></span></a>
+                                    <?php } ?>
+                                </div>
+                            <?php } ?>
+
+                            <?php /* Collapsed on a phone, where this column stacks above
+                               the page and would otherwise have to be scrolled past. */ ?>
+                            <button class="ps-menu-toggle" type="button" data-toggle="collapse"
+                                    data-target="#ps-menu-panel" aria-expanded="false" aria-controls="ps-menu-panel">
+                                <span><i class="lni-menu mr-2"></i>Menu</span>
+                                <i class="lni-chevron-down"></i>
+                            </button>
+
+                            <div class="dashboard-menu collapse ps-menu-panel" id="ps-menu-panel">
                                 <ul>
-                                    <li class="<?php echo $pjcls; ?>"><a href="<?php echo base_url('employer/post_job'); ?>"><i class="ti-ruler-pencil"></i>Post New Shift </a></li>
-                                    <li class="<?php echo $ajcls; ?>"><a href="<?php echo base_url('employer/all_jobs'); ?>"><i class="ti-briefcase"></i>All Shifts</a></li>
-                                    <li class="<?php echo $stcls; ?>"><a href="<?php echo base_url('employer/stores'); ?>"><i class="ti-home"></i>My Stores</a></li>
-                                    <?php /* <li class="<?php echo $dashcls; ?>"><a href="<?php echo base_url('employer/dashboard')?>"><i class="ti-dashboard"></i>Dashboard</a></li>
-                                    <li class="<?php echo $apcls; ?>"><a href="<?php echo base_url('employer/applications'); ?>"><i class="ti-user"></i>Applications</a></li>
-                                    <li class="<?php echo $sccls; ?>"><a href="<?php echo base_url('employer/search_candidates'); ?>"><i class="ti-briefcase"></i>Search Candidates</a></li>
-                                    <li class="<?php echo $iccls; ?>"><a href="<?php echo base_url('employer/invited_candidates'); ?>"><i class="ti-briefcase"></i>Invited Candidates</a></li>
-                                    <li><a href=""><i class="ti-flag-alt-2"></i>Viewed Resume</a></li> */ ?> 
-                                    <li class="<?php echo $epcls; ?>"><a href="<?php echo base_url('employer/edit_profile'); ?>"><i class="ti-id-badge"></i>Edit Profile</a></li>
-                                    <li class="<?php echo $epcls; ?>"><a href="<?php echo base_url('employer/change_password'); ?>"><i class="ti-id-badge"></i>Change Password</a></li>
-                                    <li class="<?php echo $lgcls; ?>"><a href="<?php echo base_url('employer/logout')?>"><i class="ti-power-off"></i>Logout</a></li>
-
-                                </ul>
-
+                                    <li class="<?php echo $pjcls; ?>"><a href="<?php echo base_url('employer/post_job'); ?>"><i class="lni-pencil-alt"></i>Post New Shift</a></li>
+                                    <li class="<?php echo $ajcls; ?>"><a href="<?php echo base_url('employer/all_jobs'); ?>"><i class="lni-briefcase"></i>All Shifts</a></li>
+                                    <li class="<?php echo $stcls; ?>"><a href="<?php echo base_url('employer/stores'); ?>"><i class="lni-apartment"></i>My Stores</a></li>
+                                    <?php /* <li class="<?php echo $dashcls; ?>"><a href="<?php echo base_url('employer/dashboard')?>"><i class="lni-dashboard"></i>Dashboard</a></li>
+                                    <li class="<?php echo $apcls; ?>"><a href="<?php echo base_url('employer/applications'); ?>"><i class="lni-user"></i>Applications</a></li>
+                                    <li class="<?php echo $sccls; ?>"><a href="<?php echo base_url('employer/search_candidates'); ?>"><i class="lni-briefcase"></i>Search Candidates</a></li>
+                                    <li class="<?php echo $iccls; ?>"><a href="<?php echo base_url('employer/invited_candidates'); ?>"><i class="lni-briefcase"></i>Invited Candidates</a></li> */ ?>
+                                    <li class="<?php echo $epcls; ?>"><a href="<?php echo base_url('employer/edit_profile'); ?>"><i class="lni-user"></i>Edit Profile</a></li>
+                                    <li class="<?php echo $cpcls; ?>"><a href="<?php echo base_url('employer/change_password'); ?>"><i class="lni-lock"></i>Change Password</a></li>
+                                    <li class="ps-menu-out <?php echo $lgcls; ?>"><a href="<?php echo base_url('employer/logout')?>"><i class="lni-power-switch"></i>Logout</a></li>
                                 </ul>
                             </div>
+
+                            <?= view('partials/portal_support') ?>
                         </div>
                     </div>

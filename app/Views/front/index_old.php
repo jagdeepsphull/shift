@@ -25,7 +25,7 @@
                   <tbody>
 				  <?php foreach($jobs as $job){?>
                   <tr>
-                    <td><?php echo $job->p_job_title; ?></td>
+                    <td><?php echo esc($job->p_job_title); ?></td>
                     <td><?php echo getShiftForName($job->p_shift_for); ?></td>
                     <td><?php echo getProvinceName($job->p_province); ?></td>
                     <td><?php echo getCityName($job->p_city); ?></td>

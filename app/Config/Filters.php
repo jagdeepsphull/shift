@@ -2,6 +2,7 @@
 
 namespace Config;
 
+use App\Filters\CsrfTokenInjector;
 use CodeIgniter\Config\Filters as BaseFilters;
 use CodeIgniter\Filters\Cors;
 use CodeIgniter\Filters\CSRF;
@@ -26,6 +27,7 @@ class Filters extends BaseFilters
      */
     public array $aliases = [
         'csrf'          => CSRF::class,
+        'csrftoken'     => CsrfTokenInjector::class,
         'toolbar'       => DebugToolbar::class,
         'honeypot'      => Honeypot::class,
         'invalidchars'  => InvalidChars::class,
@@ -72,13 +74,30 @@ class Filters extends BaseFilters
      */
     public array $globals = [
         'before' => [
+            // Every POST, PUT, PATCH and DELETE must carry the session's token.
+            // Reads are untouched, so nothing about browsing changes.
+            //
+            // The token gets into the page by the filter below - there is no
+            // view to remember to edit - and into ajax calls as a header.
+            'csrf',
+
             // 'honeypot',
-            // 'csrf',
             // 'invalidchars',
         ],
         'after' => [
+            // Puts the token in the forms and hands it to jQuery. Must stay
+            // paired with 'csrf' above: turning this off leaves every form on
+            // the site failing the check.
+            'csrftoken',
+
+            // X-Frame-Options, X-Content-Type-Options and Referrer-Policy on
+            // every response the application renders. The .htaccess sets the
+            // same headers, which covers the static files Apache serves
+            // without ever entering PHP; this covers the pages, including on a
+            // host where mod_headers is not loaded.
+            'secureheaders',
+
             // 'honeypot',
-            // 'secureheaders',
         ],
     ];
 

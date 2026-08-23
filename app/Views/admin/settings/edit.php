@@ -65,7 +65,7 @@
                                         <!-- text input -->
                                         <div class="form-group">
                                             <label>Email Id</label> <span>Email ID</span>
-                                            <input type="email" class="form-control" name="s_email" placeholder="Enter Email Id" value="<?php echo $s_email;?>">
+                                            <input type="email" class="form-control" name="s_email" placeholder="Enter Email Id" value="<?php echo esc($s_email);?>">
                                         </div>
                                     </div>
                                     <div class="col-sm-4">

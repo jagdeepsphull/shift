@@ -41,6 +41,24 @@ async function seededOrder(page, selector) {
     .filter((t) => t !== undefined);
 }
 
+/**
+ * Shift date by title, for the lists that print no date of their own.
+ *
+ * @returns {Map<string, string>}
+ */
+function datesByTitle() {
+  return new Map(
+    query(`
+      SELECT p_job_title, COALESCE(p_date_start, '9999-12-31') FROM post_job
+       WHERE p_status = 1 AND p_approved = 1;
+    `)
+      .split('\n')
+      .filter((line) => line !== '')
+      .map((line) => line.split('\t'))
+      .map(([title, date]) => [title, date]),
+  );
+}
+
 test('public home page lists shifts soonest first', async ({ page }) => {
   // The home page renders `.wz-job` cards in the order the server produced;
   // the tabs and "Load More" only ever hide cards, so every card is in the
@@ -57,16 +75,7 @@ test('public home page lists shifts soonest first', async ({ page }) => {
     t.trim(),
   );
 
-  const dateOf = new Map(
-    query(`
-      SELECT p_job_title, COALESCE(p_date_start, '9999-12-31') FROM post_job
-       WHERE p_status = 1 AND p_approved = 1;
-    `)
-      .split('\n')
-      .filter((line) => line !== '')
-      .map((line) => line.split('\t'))
-      .map(([title, date]) => [title, date]),
-  );
+  const dateOf = datesByTitle();
 
   const dates = titles.map((t) => dateOf.get(t) ?? '');
 
@@ -82,8 +91,21 @@ test('related shifts on a shift detail page are soonest first', async ({ page })
   await page.goto(`front/job_detail/${pid}`);
   await settle(page);
 
-  // The carousel clones slides, so read the source items only.
-  expect(await seededOrder(page, '#rel-jobs .item:not(.cloned) h2')).toEqual(EXPECTED);
+  // The sidebar is capped and leaves the shift being read out, so the seeded
+  // three are not all in it - what has to hold is that whatever it does list
+  // reads soonest first, and never the shift the page is already showing.
+  const titles = (await page.locator('.wz-related .wz-related-title').allTextContents()).map((t) =>
+    t.trim(),
+  );
+
+  expect(titles.length).toBeGreaterThan(1);
+  expect(titles).not.toContain('E2E-SHIFT-A');
+
+  const dateOf = datesByTitle();
+  const dates = titles.map((t) => dateOf.get(t) ?? '');
+
+  expect(dates).not.toContain(''); // every row matched a database row
+  expect(dates, 'shift dates ascend down the sidebar').toEqual([...dates].sort());
   await expectNoServerError(page);
 });
 
@@ -103,8 +125,8 @@ test('agency shift list is soonest first and sorts its date column chronological
 
   // The list is a DataTable, which hides the internal Job id column and takes
   // its cells out of the DOM - so Shift ID is the first cell of a row and the
-  // date is the fourth, one to the left of where the markup puts them. The
-  // back-office specs read their shifted columns the same way.
+  // date is the fourth, the store and the merged city/province column sitting
+  // between them. The back-office specs read their shifted columns the same way.
   expect(await seededOrder(page, '#joblist tbody tr td:nth-child(1)')).toEqual(EXPECTED);
 
   const dates = await page

@@ -50,10 +50,18 @@
 
 	<!--<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script> -->
     
-    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS.
+
+         Popper is the `umd` build. The file that used to be named here,
+         assets/front/assets/js/popper.min.js, does not exist - and the one
+         beside this at plugins/popper/popper.min.js is the ES module, which
+         sets no `window.Popper` either. Bootstrap 4's tooltip throws without
+         it, and popover is built on tooltip: the throw left the My Message
+         and Agency Message buttons on Applied Shifts dead, because the
+         popover line and everything below it in the ready block never ran. -->
     <script src="<?php echo base_url('assets/front/assets/js/jquery-min.js') ; ?>"></script>
     <script src="<?php echo base_url('assets/front/assets/js/jquery.validate.min.js') ; ?>"></script>
-    <script src="<?php echo base_url('assets/front/assets/js/popper.min.js') ; ?>"></script>
+    <script src="<?php echo base_url('assets/front/plugins/popper/umd/popper.min.js') ; ?>"></script>
     <script src="<?php echo base_url('assets/front/assets/js/bootstrap.min.js') ; ?>"></script>
 	
 	
@@ -105,6 +113,7 @@
                 const cname = $(this).data('cname');
                 const licen = $(this).data('licen');
                 const address = $(this).data('address');
+                const map = $(this).data('map');
                 const approved = $(this).data('approved');
                 const appremarks = $(this).data('appremarks');
                 const shiftfor = $(this).data('shiftfor');
@@ -118,6 +127,11 @@
                 $('#modalName').val(cname);
                 $('#modalLicen').val(licen);
                 $('#modalAddress').val(address);
+
+                // A store with no address has nothing to search for, so the
+                // link is dropped rather than pointing at an empty map.
+                $('#modalMapLink').attr('href', map || '#').toggle(Boolean(map));
+
                 $('#modalApproved').val(approved);
                 $('#modalAppRemarks').val(appremarks);
                 $('#modalShiftFor').val(shiftfor);
@@ -233,7 +247,7 @@
 			  "searching": true,
 			  "ordering": true,
 			  "info": true,
-			  "autoWidth": true,
+			  "autoWidth": false,
 			  "responsive": true,
 			});
 			
@@ -263,22 +277,28 @@
 				}
 			});
 			
-			$('.summernote').summernote({
-			  toolbar: [
-				// [groupName, [list of button]]
-				['style', ['bold', 'italic', 'underline', 'clear']],
-				['font', ['strikethrough', 'superscript', 'subscript']],
-				['fontsize', ['fontsize']],
-				['color', ['color']],
-				['para', ['ul', 'ol', 'paragraph']],
-				['height', ['height']]
-			  ]
-			});
-			
-			$('.date').datepicker({
-				multidate: true,
-				format: 'dd-mm-yyyy'
-			});
+			// Guarded: neither plugin is loaded in this area's header, so an
+			// unguarded call throws and takes the rest of this block with it.
+			if ($.fn.summernote) {
+				$('.summernote').summernote({
+				  toolbar: [
+					// [groupName, [list of button]]
+					['style', ['bold', 'italic', 'underline', 'clear']],
+					['font', ['strikethrough', 'superscript', 'subscript']],
+					['fontsize', ['fontsize']],
+					['color', ['color']],
+					['para', ['ul', 'ol', 'paragraph']],
+					['height', ['height']]
+				  ]
+				});
+			}
+
+			if ($.fn.datepicker) {
+				$('.date').datepicker({
+					multidate: true,
+					format: 'dd-mm-yyyy'
+				});
+			}
 			
 		});
 		

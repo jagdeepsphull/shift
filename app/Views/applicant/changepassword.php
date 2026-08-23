@@ -4,7 +4,7 @@
 	        <div class="dashboard-caption">
 
 	            <div class="dashboard-caption-header">
-	                <h4><i class="ti-briefcase"></i>Change Password</h4>
+	                <h4><i class="lni-lock"></i>Change Password</h4>
 	            </div>
 
 	            <?php  

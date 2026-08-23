@@ -51,6 +51,11 @@
                     <th>Conatact Person</th>
                     <th>Email ID</th>
                     <th>Mobile No.</th>
+					<?php /* Ahead of Status, not after it: the table script gives the
+					   last two columns their responsive priority on the strength of
+					   every admin list ending Status then Action, and a column
+					   slipped between them would take Status off a narrow screen. */ ?>
+                    <th>Agreement Done</th>
                     <th>Status</th>
                     <th>Action</th>
                   </tr>
@@ -61,13 +66,14 @@
                   <tr>
                     <td><?php echo $user->u_id; ?></td>
 					<?php /* The kind sits under the name rather than in a column
-					   of its own: the table already fills the width, and a ninth
+					   of its own: the table already fills the width, and one more
 					   column pushed Status and the buttons off the screen. */ ?>
-                    <td><?php echo $user->u_comp_name; ?><br><small class="text-muted"><?php echo employerKindName($user); ?></small></td>
-                    <td><?php echo $user->u_licence_no; ?></td>
-                    <td><?php echo $user->u_fname.' ' .$user->u_lname; ?></td>
-                    <td><?php echo $user->u_email; ?></td>
-                    <td><?php echo $user->u_phone; ?></td>
+                    <td><?php echo esc($user->u_comp_name); ?><br><small class="text-muted"><?php echo employerKindName($user); ?></small></td>
+                    <td><?php echo esc($user->u_licence_no); ?></td>
+                    <td><?php echo esc($user->u_fname . ' ' . $user->u_lname); ?></td>
+                    <td><?php echo esc($user->u_email); ?></td>
+                    <td><?php echo esc($user->u_phone); ?></td>
+                    <td><?php echo agreementDoneBadge($user->u_agreement_done ?? 0); ?></td>
                     <td><?php if($user->u_status=='1'){?><span class="badge badge-success">Active</span><?php }else{?><span class="badge badge-warning">Pending</span><?php }?></td>
                     <td><a href="<?php echo base_url($adminpath.'/'.$link.'/edit/'.$user->u_id.$kindqs);?>" class="btn btn-success" title="Edit"><i class="fas fa-edit"></i></a>
 					<?php /* Activating here sends the same approval e-mail the
@@ -95,6 +101,7 @@
                     <th>Conatact Person</th>
                     <th>Email ID</th>
                     <th>Mobile No.</th>
+                    <th>Agreement Done</th>
                     <th>Status</th>
                     <th>Action</th>
                   </tr>

@@ -70,7 +70,7 @@
 										<!-- text input -->
 										<div class="form-group">
 											<label>Job Title</label>
-											<input type="text" required class="form-control" name="p_job_title"  placeholder="Enter Job Title" value="<?php echo $p_job_title; ?>">
+											<input type="text" required class="form-control" name="p_job_title"  placeholder="Enter Job Title" value="<?php echo esc($p_job_title); ?>">
 										</div>
 									</div> */ ?>
 									<div class="col-sm-4">
@@ -93,7 +93,7 @@
 									<div class="col-sm-4">
 										<div class="form-group">
 											<label>Hourly Rate</label>
-											<input type="number" required min="10" max="200" class="form-control" name="p_hourly_rate"  placeholder="Enter Hourly Rate" value="<?php echo $p_hourly_rate; ?>">
+											<input type="number" required min="10" max="200" class="form-control" name="p_hourly_rate"  placeholder="Enter Hourly Rate" value="<?php echo esc($p_hourly_rate); ?>">
 											
 										  
 										</div>
@@ -101,7 +101,7 @@
 									<div class="col-sm-4">
 										<div class="form-group">
 											<label>Actual Hourly Rate (to be visible on the website)</label>
-											<input type="number" required min="10" max="200" class="form-control" name="p_ac_hourly_rate"  placeholder="Enter Hourly Rate" value="<?php echo $p_ac_hourly_rate; ?>">
+											<input type="number" required min="10" max="200" class="form-control" name="p_ac_hourly_rate"  placeholder="Enter Hourly Rate" value="<?php echo esc($p_ac_hourly_rate); ?>">
 											
 										  
 										</div>
@@ -112,13 +112,13 @@
 										<!-- text input -->
 										<div class="form-group">
 											<label>Select Date</label>
-											<input required type="text" class="form-control date" name="p_dates" placeholder="Pick date" value="<?php echo $p_dates; ?>">
+											<input required type="text" class="form-control date" name="p_dates" placeholder="Pick date" value="<?php echo esc($p_dates); ?>">
 										</div>
 									</div>
 									<div class="col-sm-4">
 										<div class="form-group">
 											<label>Shift Time</label>
-											<input required type="text" class="form-control timePicker" name="p_shift_time" placeholder="Shift Time" value="<?php echo $p_shift_time; ?>">
+											<input required type="text" class="form-control timePicker" name="p_shift_time" placeholder="Shift Time" value="<?php echo esc($p_shift_time); ?>">
 										</div>
 									</div>
 								   
@@ -135,7 +135,7 @@
 									<div class="col-sm-3">
 										<!-- text input -->
 										<div class="form-group">
-											<?= view('partials/checkbox_grid', ['name' => 'p_services', 'label' => 'Details', 'items' => $store_service, 'idKey' => 'st_id', 'labelKey' => 'st_service_name', 'selected' => $p_services, 'required' => true,]) ?>
+											<?= view('partials/checkbox_grid', ['name' => 'p_services', 'label' => 'Details', 'items' => $store_service, 'idKey' => 'st_id', 'labelKey' => 'st_service_name', 'selected' => $p_services, 'required' => false,]) ?>
 										</div>
 									</div>
 									<div class="col-sm-3">
@@ -251,6 +251,10 @@
                                                 <?php } ?>
                                             </select>
                                         </div>
+                                    </div>
+
+                                    <div class="col-sm-5">
+                                        <?= view('partials/shift_email_recipients', ['selected' => $p_email_to]) ?>
                                     </div>
 									
                                 </div>

@@ -4,7 +4,7 @@
 	        <div class="dashboard-caption">
 
 	            <div class="dashboard-caption-header">
-	                <h4><i class="ti-briefcase"></i>Apply Job</h4>
+	                <h4><i class="lni-briefcase"></i>Apply Job</h4>
 	            </div>
             <?php 
 			if(session()->getFlashdata('error_msg')){echo session()->getFlashdata('error_msg');}		
@@ -28,7 +28,7 @@
 								</div>
 								
 								<div class="brows-job-position ">
-									<h3><a href="<?php echo base_url('front/job_detail/'.$jobdetail[0]->p_id); ?>"><?php echo $jobdetail[0]->p_job_title; ?></a>
+									<h3><a href="<?php echo base_url('front/job_detail/'.$jobdetail[0]->p_id); ?>"><?php echo esc($jobdetail[0]->p_job_title); ?></a>
 									</h3>
 									<p class="pb-2">
 										<span><?php //echo getPharmacyName($jobdetail[0]-> u_id ); ?></span>
@@ -45,7 +45,7 @@
 									<form name="applyjob" action="" method="post" class="pt-4">
 										<h4 class="detail-title pt-2 ml-3">Additional Remarks</h4>
 										<div class="col-md-12 col-sm-12">
-											<textarea rows="4"  cols="50" title="This field is required. Please Enter Hourly Rate and other Remarks." class="form-control textarea" placeholder=" Additional Remarks" name="sj_applied_desc"><?php echo $sj_applied_desc;?></textarea>
+											<textarea rows="4"  cols="50" title="This field is required. Please Enter Hourly Rate and other Remarks." class="form-control textarea" placeholder=" Additional Remarks" name="sj_applied_desc"><?php echo esc($sj_applied_desc);?></textarea>
         <br><br>
 										</div>
 										<div class="col-md-12 col-sm-12">

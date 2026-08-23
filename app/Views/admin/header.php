@@ -99,7 +99,7 @@
       <div class="user-panel mt-3 pb-3 mb-3 d-flex">
         
         <div class="info">
-          <a href="#" class="d-block">Logged in as <?php echo $userdet[0]->u_userid;?></a>
+          <a href="#" class="d-block">Logged in as <?php echo esc($userdet[0]->u_userid);?></a>
         </div>
       </div>
 
@@ -171,6 +171,12 @@
                 <a href="<?php echo base_url('sadmin/resources/index');?>" class="nav-link">
                   <i class="far fa-circle nav-icon"></i>
                   <p>Resources Menu</p>
+                </a>
+              </li>
+              <li class="nav-item">
+                <a href="<?php echo base_url('sadmin/testimonials/index');?>" class="nav-link">
+                  <i class="far fa-circle nav-icon"></i>
+                  <p>Testimonials</p>
                 </a>
               </li>
 			  

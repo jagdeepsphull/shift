@@ -30,8 +30,8 @@
 
                                 ?>
                             <tr>
-                                <td><?php echo $candid[0]->u_fname.' '.$candid[0]->u_lname;?></td>
-                                <td><?php echo $postjob[0]->p_job_title;?></td>
+                                <td><?php echo esc($candid[0]->u_fname . ' ' . $candid[0]->u_lname);?></td>
+                                <td><?php echo esc($postjob[0]->p_job_title);?></td>
                                 <td><?php echo dateFormat($applicationslist->sj_applied_date, 'd M Y');?></td>
                                 <td>
 									<a href="#" class="btn btn-success manage-btn" data-toggle="tooltip" data-placement="top" title="" data-original-title="Edit"><i class="lni lni-pencil"></i></a>

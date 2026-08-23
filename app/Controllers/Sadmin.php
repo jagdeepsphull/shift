@@ -31,6 +31,12 @@ class Sadmin extends BaseController
         } else {
             $this->data['userdet'] = $this->custom->get_where('users', ['u_id' => $this->session->userdata('adminUserId')]);
 
+            // An administrator account that has been switched off, or removed,
+            // stops working on the next page rather than at the end of its
+            // session. Same rule as the two portals - see
+            // BaseController::stopIfAccountClosed().
+            $this->stopIfAccountClosed($this->data['userdet'], 'sadmin/login');
+
             $menu = $this->custom->query('select * from menu where m_status=1 order by m_order asc ');
 
             $menuarr = [];
@@ -150,12 +156,30 @@ class Sadmin extends BaseController
                         ['u_status' => 1, 'u_usertype' => 0]
                     );
 
-                    if ($checkLogin && $this->custom->passwordMatches((string) $this->input->post('password'), $checkLogin)) {
+                    // The back office is the account worth guessing at, so it
+                    // locks the same way the front one does. See
+                    // CustomModel::loginLockRemaining().
+                    $lockedFor = $checkLogin ? $this->custom->loginLockRemaining($checkLogin) : 0;
+
+                    if ($lockedFor > 0) {
+                        $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">Too many failed sign-in attempts. Try again in ' . (int) ceil($lockedFor / 60) . ' minute(s).</div>');
+                    } elseif ($checkLogin && $this->custom->passwordMatches((string) $this->input->post('password'), $checkLogin)) {
+                        $this->custom->clearLoginAttempts($checkLogin['u_id']);
+
+                        // A new session id for the administrator's session, for
+                        // the reason given in Front::login(): the id the browser
+                        // arrived with may not be one it chose for itself.
+                        $this->session->sess_regenerate(true);
+
                         $this->session->set_userdata('isAdminUserLoggedIn', true);
                         $this->session->set_userdata('adminUserId', $checkLogin['u_id']);
 
                         ci_redirect('sadmin/dashboard');
                     } else {
+                        if ($checkLogin) {
+                            $this->custom->recordFailedLogin($checkLogin['u_id']);
+                        }
+
                         $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">Wrong Username or password, please try again.</div>');
                     }
                 }
@@ -1333,6 +1357,142 @@ class Sadmin extends BaseController
     }
 
     /**
+     * Testimonials: the quotes the home page rotates through, under "What Makes
+     * Us Stand Out".
+     *
+     * Unlike the other master lists, the title is not unique. Two testimonials
+     * praising the same thing may well be headed the same way, and it is the
+     * quote underneath that differs.
+     *
+     * Ordered oldest first, so the carousel opens on the first one added and the
+     * admin can predict the running order from the list screen.
+     */
+    public function testimonials()
+    {
+        $this->setup();
+
+        $module     = $this->uri->segment(2);
+        $action     = $this->uri->segment(3);
+        $id         = $this->uri->segment(4);
+        $table      = 'testimonial';
+        $idnotFound = 0;
+
+        $this->data['validation_errors'] = '';
+        $this->data['pageinfo']          = ['title' => 'Testimonial', 'link' => $module];
+        $this->data['testimonials']      = $this->custom->get_data_order($table, 't_id', 'asc');
+
+        switch ($action) {
+            default:
+                $this->load->admin_view($module . '/index', $this->data);
+                break;
+
+            case 'add':
+                if ($this->input->post('savedata')) {
+                    $this->form_validation->set_rules('t_title', 'Title', 'required');
+                    $this->form_validation->set_rules('t_description', 'Description', 'required');
+
+                    $rowData = cleanArray($this->input->post());
+                    unset($rowData['savedata']);
+
+                    if (insertQry_N($table, $rowData)) {
+                        ci_redirect('sadmin/' . $module);
+                    }
+
+                    foreach ($rowData as $ky => $vl) {
+                        $this->data[$ky] = $vl;
+                    }
+                } else {
+                    getTableInfo($this->dbname, $table);
+                }
+
+                $this->load->admin_view($module . '/add', $this->data);
+                break;
+
+            case 'edit':
+                if ($id) {
+                    $original_row     = $this->custom->get_where($table, ['t_id' => $id]);
+                    $this->data['id'] = $id;
+
+                    if ($original_row) {
+                        if ($this->input->post('updatedata')) {
+                            $this->form_validation->set_rules('t_title', 'Title', 'required');
+                            $this->form_validation->set_rules('t_description', 'Description', 'required');
+
+                            $rowData = cleanArray($this->input->post());
+                            unset($rowData['updatedata']);
+
+                            if (updateQry($table, $rowData, ['t_id' => $id])) {
+                                ci_redirect('sadmin/' . $module);
+                            }
+
+                            foreach ($rowData as $ky => $vl) {
+                                $this->data[$ky] = $vl;
+                            }
+                        } else {
+                            getTableInfo($this->dbname, $table, ['t_id' => $id]);
+                        }
+
+                        $this->load->admin_view($module . '/edit', $this->data);
+                    } else {
+                        $idnotFound = 1;
+                    }
+                } else {
+                    $idnotFound = 1;
+                }
+
+                if ($idnotFound === 1) {
+                    ci_redirect('sadmin/' . $module);
+                }
+                break;
+
+            case 'changestatus':
+                if ($id) {
+                    $original_row = $this->custom->get_where($table, ['t_id' => $id]);
+
+                    if ($original_row) {
+                        $this->custom->toggleStatus($table, 't_status', 't_id', $id);
+                        $this->session->set_flashdata('error_msg', '<div class="alert alert-success">Record has been updated.</div>');
+                        ci_redirect('sadmin/' . $module);
+                    } else {
+                        $idnotFound = 1;
+                    }
+
+                    $this->load->admin_view($module . '/index', $this->data);
+                } else {
+                    $idnotFound = 1;
+                }
+
+                if ($idnotFound === 1) {
+                    ci_redirect('sadmin/' . $module);
+                }
+                break;
+
+            case 'delete':
+                if ($id) {
+                    $original_row = $this->custom->get_where($table, ['t_id' => $id]);
+
+                    if ($original_row) {
+                        $this->custom->delete_where($table, ['t_id' => $id]);
+                        $this->session->set_flashdata('error_msg', '<div class="alert alert-success">Record has been deleted.</div>');
+
+                        ci_redirect('sadmin/' . $module);
+                    } else {
+                        $idnotFound = 1;
+                    }
+
+                    $this->load->admin_view($module . '/index', $this->data);
+                } else {
+                    $idnotFound = 1;
+                }
+
+                if ($idnotFound === 1) {
+                    ci_redirect('sadmin/' . $module);
+                }
+                break;
+        }
+    }
+
+    /**
      * Manage Email: who receives which of the site's e-mails.
      *
      * The list shows every account - administrators, employers and applicants
@@ -1656,9 +1816,21 @@ class Sadmin extends BaseController
                     if ($picksStore) {
                         $this->form_validation->set_rules('u_store_id', 'Store', 'required');
                     } else {
-                        // The account's own name - a store for one location, a
-                        // group for a chain. A manager has neither.
-                        $this->form_validation->set_rules('u_comp_name', 'Employer Name', 'required');
+                        // The account's own name - a group for an owner, a
+                        // store for one location. A manager has neither.
+                        //
+                        // It has to be theirs alone: the employer list, the
+                        // employer dropdown on both shift forms and the booking
+                        // e-mails all show an employer by this column, so two
+                        // accounts under one name is unreadable on every one of
+                        // them. Registration refuses a taken name from the same
+                        // helper, so the two forms cannot disagree.
+                        $compNameLabel = $shape['role'] === 1 ? 'Corporate Group Name' : 'Store Name';
+
+                        $this->form_validation->set_rules('u_comp_name', $compNameLabel, [
+                            'required',
+                            employerNameRule($compNameLabel),
+                        ]);
                     }
 
                     $rowData = cleanArray($this->input->post());
@@ -1674,6 +1846,10 @@ class Sadmin extends BaseController
                     $rowData['created']    = date('Y-m-d H:i:s');
                     $rowData['modified']   = date('Y-m-d H:i:s');
                     $rowData['u_usertype'] = 1;
+                    // A clear tick box posts nothing at all, so the answer is
+                    // taken from whether the field arrived rather than from its
+                    // value - the same way the applicant form reads it.
+                    $rowData['u_agreement_done'] = $this->input->post('u_agreement_done') ? 1 : 0;
 
                     // The same three-way choice registration offers, saved into
                     // the same two columns. Without it every employer added here
@@ -1799,7 +1975,23 @@ class Sadmin extends BaseController
                     if ($picksStore) {
                         $this->form_validation->set_rules('u_store_id', 'Store', 'required');
                     } else {
-                        $this->form_validation->set_rules('u_comp_name', 'Employer Name', 'required');
+                        // The same name rule the add form applies, and for the
+                        // same reason - with two differences. This account is
+                        // left out of the search, so re-saving it is not read as
+                        // a duplicate of itself; and a name it already holds is
+                        // left alone, because accounts that shared one before
+                        // the rule existed would otherwise become uneditable
+                        // rather than unique. Changing the name is checked.
+                        $compNameLabel = $shape['role'] === 1 ? 'Corporate Group Name' : 'Store Name';
+                        $postedName    = trim((string) $this->input->post('u_comp_name'));
+                        $currentName   = trim((string) ($employer_status['u_comp_name'] ?? ''));
+                        $compNameRules = ['required'];
+
+                        if (strcasecmp($postedName, $currentName) !== 0) {
+                            $compNameRules[] = employerNameRule($compNameLabel, (int) $id);
+                        }
+
+                        $this->form_validation->set_rules('u_comp_name', $compNameLabel, $compNameRules);
                     }
 
                     $rowData = cleanArray($this->input->post());
@@ -1810,6 +2002,10 @@ class Sadmin extends BaseController
                     $rowData['u_userid']  = $rowData['u_email'] ?? '';
                     $rowData['u_website'] = safeUrl($this->input->post('u_website'));
                     $rowData['modified']  = date('Y-m-d H:i:s');
+                    // Read from whether the box arrived, not its value: clearing
+                    // it posts nothing, so leaving this out would make the tick
+                    // impossible to undo.
+                    $rowData['u_agreement_done'] = $this->input->post('u_agreement_done') ? 1 : 0;
 
                     // Changing this dropdown is how an employer becomes a
                     // multi-store owner - the 62 accounts that predate the
@@ -2355,6 +2551,11 @@ class Sadmin extends BaseController
                     $rowData['created']    = date('Y-m-d H:i:s');
                     $rowData['modified']   = date('Y-m-d H:i:s');
                     $rowData['u_usertype'] = 2;
+                    // A clear tick box posts nothing at all, so the answer is
+                    // taken from whether the field arrived rather than from its
+                    // value - otherwise "not done" would be indistinguishable
+                    // from a field the form never had.
+                    $rowData['u_agreement_done'] = $this->input->post('u_agreement_done') ? 1 : 0;
                     unset($rowData['savedata'], $rowData['u_password']);
 
                     if (insertQry('users', $rowData)) {
@@ -2391,6 +2592,10 @@ class Sadmin extends BaseController
                     // Keep the login id on the address, the way the add form does.
                     $rowData['u_userid'] = $rowData['u_email'] ?? '';
                     $rowData['modified'] = date('Y-m-d H:i:s');
+                    // Read from whether the box arrived, not its value: clearing
+                    // it posts nothing, so leaving this out would make the tick
+                    // impossible to undo.
+                    $rowData['u_agreement_done'] = $this->input->post('u_agreement_done') ? 1 : 0;
                     unset($rowData['savedata']);
 
                     $applicant_status = $this->custom->get_where_row('users', ['u_id' => $id]);
@@ -2510,6 +2715,10 @@ class Sadmin extends BaseController
                     $rowData['p_additional_details'] = implode(',', (array) $this->input->post('p_additional_details'));
                     $rowData['p_jobinfo']  = $this->input->post('p_jobinfo');
                     $rowData['p_date_start'] = parseShiftDate($rowData['p_dates'] ?? null);
+                    // Neither box ticked is an answer, not an omission - it
+                    // sends the shift-posted e-mail to the fallback address -
+                    // so this is set whether or not anything was posted.
+                    $rowData['p_email_to'] = implode(',', shiftEmailChoice($this->input->post('p_email_to')));
 
                     $rowData['created']  = date('Y-m-d H:i:s');
                     $rowData['modified'] = date('Y-m-d H:i:s');
@@ -2551,7 +2760,21 @@ class Sadmin extends BaseController
                         updateQry($table, $uData, ['p_id' => $id]);
 
                         if ($applicant) {
+                            // Booking closes the shift, so it never goes live
+                            // and there is nothing to announce - the booking
+                            // e-mails that go instead are sent from here.
                             $this->bookApplicant((int) $id, $applicant, (string) $this->input->post('sj_admin_comment'));
+                        } elseif ((int) ($rowData['p_approved'] ?? 0) === 1) {
+                            // A shift saved straight to Live is live now, so it
+                            // is announced now. Approving one later does the
+                            // same from the edit branch; between them the
+                            // e-mail follows the shift going live rather than
+                            // which screen it happened on. Before this, a shift
+                            // added as Live was never announced at all.
+                            $this->sendShiftPostedEmail(
+                                $rowData + ['p_id' => $id, 'p_job_title' => $uData['p_job_title']],
+                                $u_data[0]
+                            );
                         }
 
                         ci_redirect('sadmin/postjobs', 'refresh');
@@ -2562,6 +2785,14 @@ class Sadmin extends BaseController
                     }
                 } else {
                     getTableInfo($this->dbname, $table);
+
+                    // A new shift tells both sides of the store unless the
+                    // administrator says otherwise. The column's own default is
+                    // neither, which is the right default for a row written by
+                    // something other than this form, and the wrong one to open
+                    // the form on - it would quietly send every new shift's
+                    // announcement to the fallback address.
+                    $this->data['p_email_to'] = implode(',', shiftEmailSides());
                 }
 
                 // Every store on the site, under the employer that owns it -
@@ -2622,6 +2853,9 @@ class Sadmin extends BaseController
                         $rowData['p_additional_details'] = implode(',', (array) $this->input->post('p_additional_details'));
                         $rowData['p_jobinfo']  = $this->input->post('p_jobinfo');
                         $rowData['p_date_start'] = parseShiftDate($rowData['p_dates'] ?? null);
+                        // Unticking both has to reach the column, same as on
+                        // add - it is the choice that sends to the fallback.
+                        $rowData['p_email_to'] = implode(',', shiftEmailChoice($this->input->post('p_email_to')));
 
                         $rowData['modified'] = date('Y-m-d H:i:s');
                         $rowData['p_status'] = 1;
@@ -2663,25 +2897,12 @@ class Sadmin extends BaseController
                             }
 
                             if ($shift_approved['p_approved'] != 1 && $rowData['p_approved'] == 1) {
-                                $email = $u_data[0]->u_email;
-
-                                $this->data['name'] = $u_data[0]->u_fname . ' ' . $u_data[0]->u_lname;
-
-                                $subject = 'Your Shift Has Been Posted on ' . $this->data['settings'][0]->s_sitename . '!';
-                                $message = email_body('shift-posted', [
-                                    'title'       => 'Your shift is now live',
-                                    'name'        => $this->data['name'],
-                                    'shift_title' => $shift_approved['p_job_title'],
-                                    'settings'    => $this->data['settings'],
-                                ]);
-
-                                if (! userAllowsEmail($u_data[0], 'shift-posted')) {
-                                    log_message('info', 'Shift-posted e-mail withheld: user ' . $u_data[0]->u_id . ' opted out.');
-                                } elseif (send_email($email, $subject, $message)) {
-                                    log_message('info', 'Email sent successfully!');
-                                } else {
-                                    log_message('error', 'Failed to send email.');
-                                }
+                                // Who this goes to is the form's "Send shift
+                                // e-mail to" boxes, saved on the row above.
+                                $this->sendShiftPostedEmail(
+                                    $rowData + ['p_id' => $id, 'p_job_title' => $shift_approved['p_job_title']],
+                                    $u_data[0]
+                                );
                             }
 
                             // The booking itself, after the shift row and after
@@ -2982,6 +3203,64 @@ class Sadmin extends BaseController
         }
 
         $this->load->admin_view('settings/edit', $this->data);
+    }
+
+    /**
+     * Send "your shift is live" to whoever the shift says to send it to.
+     *
+     * Called from the one moment it means anything: a shift becoming Live,
+     * whether that is a new shift saved as Live or an existing one approved.
+     * The applicant side of the site is not involved - the booking e-mails are
+     * sent from `bookApplicant()` and are not affected by any of this.
+     *
+     * @param array<string, mixed>  $shift the `post_job` row, after saving
+     * @param object|null           $owner the `users` row that owns the store
+     */
+    private function sendShiftPostedEmail(array $shift, ?object $owner): void
+    {
+        $storeId = (int) ($shift['p_store_id'] ?? 0);
+        $manager = $storeId > 0 ? (storeManagers([$storeId])[$storeId] ?? null) : null;
+
+        $audience = shiftPostedRecipients(
+            $owner,
+            $manager,
+            $shift['p_email_to'] ?? '',
+            (string) config('AppSettings')->shiftEmailFallback
+        );
+
+        if ($audience['missing'] !== []) {
+            log_message('info', sprintf(
+                'Shift-posted e-mail for %s could not reach: %s (no such account, no address, or opted out).',
+                $shift['p_job_title'] ?? ('shift ' . ($shift['p_id'] ?? '?')),
+                implode(', ', $audience['missing'])
+            ));
+        }
+
+        if ($audience['fellBack']) {
+            log_message('info', sprintf(
+                'Shift-posted e-mail for %s went to the fallback address.',
+                $shift['p_job_title'] ?? ('shift ' . ($shift['p_id'] ?? '?'))
+            ));
+        }
+
+        // The greeting is the store's owner either way. The manager is sent the
+        // same message rather than one addressed to them: this e-mail says a
+        // shift is live, and it reads the same to both sides of a store.
+        $subject = 'Your Shift Has Been Posted on ' . $this->data['settings'][0]->s_sitename . '!';
+        $message = email_body('shift-posted', [
+            'title'       => 'Your shift is now live',
+            'name'        => trim(($owner->u_fname ?? '') . ' ' . ($owner->u_lname ?? '')),
+            'shift_title' => $shift['p_job_title'] ?? '',
+            'settings'    => $this->data['settings'],
+        ]);
+
+        foreach ($audience['to'] as $address) {
+            if (send_email($address, $subject, $message)) {
+                log_message('info', 'Shift-posted e-mail sent to ' . $address);
+            } else {
+                log_message('error', 'Shift-posted e-mail failed for ' . $address);
+            }
+        }
     }
 
     /**

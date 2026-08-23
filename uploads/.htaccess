@@ -1,0 +1,42 @@
+# Nothing in here is a program.
+#
+# This folder holds what people upload - logos, licence scans, profile photos.
+# Every one of them is data the server should hand back verbatim and never run.
+# Without this file, one upload that slips past the type check in
+# `fileupload()` is a shell: the attacker asks for it by name and Apache
+# executes it as PHP, with the site's own database credentials in reach.
+#
+# Two belts, because hosts differ in which one they honour:
+
+# 1. Refuse the request outright, whatever Apache would have done with it.
+<FilesMatch "(?i)\.(php|phps|phtml|php[0-9]|phar|pl|py|cgi|sh|bash|shtml|asp|aspx|jsp|htaccess|htpasswd|env|ini)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# 2. And if some future rule lets one through, make sure no handler claims it.
+<IfModule mod_mime.c>
+    RemoveHandler .php .phps .phtml .php3 .php4 .php5 .php7 .php8 .phar .pl .py .cgi .sh .shtml
+    RemoveType .php .phps .phtml .php3 .php4 .php5 .php7 .php8 .phar
+    AddType text/plain .php .phps .phtml .php3 .php4 .php5 .php7 .php8 .phar
+</IfModule>
+
+# mod_php honours this; the FPM and CGI handlers cPanel actually uses ignore it,
+# which is why it is the third line of defence and not the first.
+<IfModule mod_php.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php7.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php8.c>
+    php_flag engine off
+</IfModule>
+
+# A directory listing here is an index of every document the site holds.
+Options -Indexes -ExecCGI

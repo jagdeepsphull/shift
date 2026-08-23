@@ -47,7 +47,7 @@
                   <tbody>
 				  <?php foreach($jobs as $job){?>
                   <tr>
-                    <td><?php echo $job->p_job_title; ?></td>
+                    <td><?php echo esc($job->p_job_title); ?></td>
                     <td><?php echo $job->p_noopening; ?></td>
                     <td><?php echo $featured[$job->p_featured]; ?></td>
                     <td><a href="<?php echo base_url($adminpath.'/'.$link.'/edit/'.$job->p_id);?>" class="btn btn-success"><i class="fas fa-edit"></i> Edit</a> <a href="<?php echo base_url($adminpath.'/'.$link.'/delete/'.$job->p_id);?>"  class="btn btn-danger"  onclick="return confirm('Are you sure? You want to delete')"><i class="fas fa-trash-alt"></i> Delete</a></td>

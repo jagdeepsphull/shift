@@ -18,6 +18,7 @@
 const { test, expect } = require('@playwright/test');
 const { loginAsAdmin, settle, expectNoServerError, filterTable } = require('../helpers/admin');
 const { query, scalar } = require('../helpers/db');
+const { cronUrl } = require('../helpers/cron');
 
 const APPLICANT = 'e2e.mailperm@example.com';
 const EMPLOYER = 'e2e.mailperm.emp@example.com';
@@ -278,8 +279,9 @@ test('the reminder cron honours the opt-out and does not retry nightly', async (
   `);
 
   // The cron endpoint the host calls when there is no shell. It always
-  // targets tomorrow, which is when the seeded shift is.
-  await page.goto('cron/remind_shifts').catch(() => {});
+  // targets tomorrow, which is when the seeded shift is. The key is what stops
+  // a stranger triggering the same send - see helpers/cron.js.
+  await page.goto(cronUrl('cron/remind_shifts')).catch(() => {});
 
   // Withheld - and stamped, so tomorrow night it is not asked again.
   expect(scalar("SELECT sj_reminder_sent_at IS NOT NULL FROM stu_saved_applied_jobs WHERE sj_applied_desc = 'E2E-MAILPERM';"))

@@ -520,7 +520,7 @@
 		  : [[parseInt(orderCol, 10), orderDir]];
 
 	  // Read from the markup rather than hard-coded: the eleven screens that
-	  // share this id have between four and nine columns.
+	  // share this id have between four and ten columns.
 	  var adminLastColumn = $adminTable.find('thead tr').first().find('th').length - 1;
 
 	  $adminTable.DataTable({

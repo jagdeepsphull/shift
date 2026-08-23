@@ -63,6 +63,10 @@ class Front extends BaseController
 
         $this->data['agencylist'] = $this->custom->get_where('users', ['u_usertype' => 1, 'u_status' => 1]);
 
+        // The carousel under "What Makes Us Stand Out", oldest first so the
+        // running order matches the back-office list.
+        $this->data['testimonials'] = $this->custom->get_where_order('testimonial', ['t_status' => 1], 't_id', 'asc');
+
         $this->load->front_view('index', $this->data, 1);
     }
 
@@ -206,6 +210,11 @@ class Front extends BaseController
     {
         $this->setup();
 
+        // Names the banner heading, the browser tab and the breadcrumb. Without
+        // it all three were blank and the page announced itself with a second
+        // heading in the body instead.
+        $this->data['pageTitle'] = 'Resources';
+
         $this->data['headermenu_parent_only'] = $this->custom->query("select * from headermenu where m_parentid = 0 AND (m_link != '')  AND m_status = 1 order by m_name asc; ");
         $this->data['headermenu_parent']      = $this->custom->query("select * from headermenu where m_parentid = 0 AND (m_link IS NULL OR m_link = '')  AND  m_status = 1 order by m_name asc; ");
 
@@ -236,12 +245,16 @@ class Front extends BaseController
         );
 
         $this->data['appliedjob'] = $this->custom->get_where('stu_saved_applied_jobs', ['p_id' => $id, 'u_id' => $uid]);
-        // "Related job posts" in the sidebar - soonest shift first, as elsewhere.
+        // "Related shifts" in the sidebar - soonest first, as elsewhere. The
+        // shift being read is left out, and the list is capped: it used to
+        // print every approved shift on the site down the side of the page.
         $this->data['relatedjobs'] = $this->custom->query(
             'Select pj.*,pr.p_name, cit.c_name ,u.u_comp_name,u.u_company_logo,u.u_licence_no '
             . 'from post_job pj, province pr, city cit, users u '
             . 'where pj.p_province= pr.p_id and p_city=cit.c_id and  pj.u_id=u.u_id and pj.p_approved=1 '
-            . 'ORDER BY ' . shiftDateOrderBy('pj')
+            . 'and pj.p_id != ? '
+            . 'ORDER BY ' . shiftDateOrderBy('pj') . ' LIMIT 6',
+            [$id]
         );
 
         $this->data['applied'] = 0;
@@ -300,21 +313,38 @@ class Front extends BaseController
         $category                  = $this->input->get('search_category');
         $this->data['category']    = $category;
 
+        // Three query-string values that used to be pasted straight into the
+        // SQL below - the one place in the application that concatenated a
+        // request value into a statement rather than binding it.
+        //
+        // It was not exploitable as it stands: the query names `country` and
+        // `users.u_a_comp_name`, neither of which survived the CI3 schema, so
+        // the statement fails before any injected clause could matter and this
+        // page has been a 500 for as long as that has been true. Bound anyway,
+        // because the reason it is safe today is an accident of the schema, and
+        // whoever revives this page should not have to notice that. The shape
+        // of the query is unchanged.
+        //
+        // Nothing on the site links here; auto-routing publishes it regardless.
         $searchqry = '';
+        $binds     = [];
 
         if (! empty($searchkey)) {
-            $searchqry .= " and pj.p_job_title like '%" . $searchkey . "%' ";
+            $searchqry .= ' and pj.p_job_title like ? ';
+            $binds[] = '%' . $searchkey . '%';
         }
 
         if (! empty($country)) {
-            $searchqry .= " and pj.p_country = '" . $country . "' ";
+            $searchqry .= ' and pj.p_country = ? ';
+            $binds[] = $country;
         }
 
         if (! empty($category)) {
-            $searchqry .= " and pj.js_id = '" . $category . "' ";
+            $searchqry .= ' and pj.js_id = ? ';
+            $binds[] = $category;
         }
 
-        $this->data['searchlist'] = $this->custom->query("Select pj.*,c.cname,u.u_a_comp_name,u.u_a_company_logo,u.u_a_ra_id from post_job pj, country c, users u where pj.p_country=c.id and pj.u_id=u.u_id {$searchqry} ");
+        $this->data['searchlist'] = $this->custom->query("Select pj.*,c.cname,u.u_a_comp_name,u.u_a_company_logo,u.u_a_ra_id from post_job pj, country c, users u where pj.p_country=c.id and pj.u_id=u.u_id {$searchqry} ", $binds);
 
         $this->data['countries']  = $this->custom->get_data('country');
         $this->data['categories'] = $this->custom->get_data('jobspecialization');
@@ -438,10 +468,29 @@ class Front extends BaseController
                     // digest, which no modern hash allows.
                     $checkLogin = $this->custom->findUserForLogin((string) $this->input->post('username'));
 
-                    // The password is checked before the status, so an inactive
-                    // account cannot be discovered by the message alone.
-                    if ($checkLogin && $this->custom->passwordMatches((string) $this->input->post('password'), $checkLogin)) {
+                    // An account that has just been guessed at eight times over
+                    // stops answering passwords for a quarter of an hour. The
+                    // check comes before the password so that a locked account
+                    // cannot be used as an oracle for which guess was right.
+                    $lockedFor = $checkLogin ? $this->custom->loginLockRemaining($checkLogin) : 0;
+
+                    if ($lockedFor > 0) {
+                        $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">Too many failed sign-in attempts. Try again in ' . (int) ceil($lockedFor / 60) . ' minute(s), or reset your password.</div>');
+                    } elseif ($checkLogin && $this->custom->passwordMatches((string) $this->input->post('password'), $checkLogin)) {
+                        // The right password ends the run of failures, whether
+                        // or not the account is active enough to be let in.
+                        $this->custom->clearLoginAttempts($checkLogin['u_id']);
+
                         if ($checkLogin['u_status'] == 1) {
+                            // A new session id the moment the account is
+                            // recognised. Without it the signed-in session
+                            // carries the id the browser arrived with, and
+                            // anybody who set that id beforehand - a link with
+                            // a session in it, a shared machine - is signed in
+                            // as this user too. `last_url` is read after this
+                            // because regenerating keeps the data.
+                            $this->session->sess_regenerate(true);
+
                             $this->session->set_userdata('isUserLoggedIn', true);
                             $this->session->set_userdata('userId', $checkLogin['u_id']);
                             $this->session->set_userdata('userType', $checkLogin['u_usertype']);
@@ -462,6 +511,10 @@ class Front extends BaseController
                             $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">Your account is not active, contact administrator.</div>');
                         }
                     } else {
+                        if ($checkLogin) {
+                            $this->custom->recordFailedLogin($checkLogin['u_id']);
+                        }
+
                         $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">Wrong Username or password, please try again.</div>');
                     }
                 }
@@ -532,6 +585,23 @@ class Front extends BaseController
 
             if ($picksStore) {
                 $this->form_validation->set_rules('u_store_id', 'Store', 'required');
+            }
+
+            // An owner is asked for the name their account is known by - the
+            // group's for an owner, the store's for one location, the same
+            // column either way (see the label the script in front/footer.php
+            // swaps in). It has to be theirs alone, or every screen that lists
+            // employers shows two companies under one name; the back-office
+            // employer form refuses a taken name from the same helper. A
+            // manager is asked for no name at all - the store they picked
+            // already has one - so neither rule applies to them.
+            if ($isOwner && ! $picksStore) {
+                $compNameLabel = $shape['role'] === 1 ? 'Corporate Group Name' : 'Store Name';
+
+                $this->form_validation->set_rules('u_comp_name', $compNameLabel, [
+                    'required',
+                    employerNameRule($compNameLabel),
+                ]);
             }
 
             // A multi-store owner is never asked for a location: their licence
@@ -1045,6 +1115,11 @@ class Front extends BaseController
     public function contact()
     {
         $this->setup();
+
+        // Names the banner heading and the browser tab. Without it both were
+        // blank and the page announced itself with a second heading in the
+        // body instead.
+        $this->data['pageTitle'] = 'Contact Us';
 
         $this->session->set_userdata('site_lang', 'english');
 

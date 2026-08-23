@@ -244,6 +244,34 @@ class AppSettings extends BaseConfig
      */
     public string $phoneCountryCode = '1';
 
+    /**
+     * The number the site itself answers on, shown under the side menu behind
+     * every login and linked into WhatsApp.
+     *
+     * Written the way it is printed - the link normalises it through
+     * `whatsappNumber()` - and kept here rather than in the two sidebars so
+     * changing it is one edit and not a hunt through the views. The same
+     * number is on the Contact page.
+     */
+    public string $supportPhone = '+1 (905) 304-7303';
+
+    /**
+     * How many wrong passwords in a row an account takes before it stops
+     * answering them, and for how long.
+     *
+     * Eight is generous for somebody who has forgotten which of their two
+     * passwords they used here, and short work of a list of ten thousand. The
+     * lock is per account and lifts by itself; Manage Employers can also clear
+     * it by saving the row, which resets the counter.
+     *
+     * Set either to 0 to switch the lock off entirely.
+     *
+     * @see \App\Models\CustomModel::loginLockRemaining()
+     */
+    public int $loginMaxAttempts = 8;
+
+    public int $loginLockoutMinutes = 15;
+
     public array $status = [
         0 => 'Deactive',
         1 => 'Active',
@@ -288,6 +316,10 @@ class AppSettings extends BaseConfig
         3 => 'Rejected',
         4 => 'Resubmit',
         5 => 'Booked',
+        // Where an approved application ends up, and where a booking the
+        // administrator made outright starts. Missing here, it printed an
+        // undefined-index notice in place of the status on every such row.
+        6 => 'Booked',
     ];
 
     /** Sender address used by the mail helper (CI3 `send_email()`). */
@@ -300,4 +332,23 @@ class AppSettings extends BaseConfig
      * `settings.s_agency_copy_email`, editable at /sadmin/settings.
      */
     public string $agencyCopyEmail = 'info@reliefshifts.com';
+
+    /**
+     * The address on every "your shift is live", whoever else is told.
+     *
+     * The shift form asks who at the store to tell - its owner, its manager,
+     * both or neither (`post_job.p_email_to`) - and this address is added to
+     * whatever that comes to. It is shown on the form as a fixed recipient, so
+     * an administrator can see where the mail is going without knowing the
+     * config.
+     *
+     * It is what makes "neither" safe. Neither is a real answer: some shifts
+     * are arranged over the phone and the pharmacy does not want the mail. The
+     * shift still gets announced here, rather than going live as an event with
+     * no record outside the database. The same holds when the chosen side
+     * cannot be reached at all - a store with no manager on it, or a recipient
+     * who opted out in Manage Email - and the send site logs which of them it
+     * was.
+     */
+    public string $shiftEmailFallback = 'info@reliefshifts.com';
 }

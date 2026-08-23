@@ -25,6 +25,7 @@ const {
   removeShiftFixture,
 } = require('../helpers/front');
 const { query, scalar } = require('../helpers/db');
+const { csrfHeaders } = require('../helpers/csrf');
 
 const ids = {};
 const STORE_NAME = 'E2E Esdef Branch';
@@ -188,9 +189,11 @@ test('a store belonging to somebody else tells the asker nothing', async ({ page
   await loginAsAgency(page);
   await page.goto('employer/post_job');
 
-  // Asked over the logged-in session, the way the form itself asks.
+  // Asked over the logged-in session, the way the form itself asks - token
+  // included, because the form sends one.
   const res = await page.request.post('employer/ajax_getstoredefaults', {
     form: { s_id: String(store) },
+    headers: await csrfHeaders(page),
   });
   const answer = await res.json();
 

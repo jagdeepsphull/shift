@@ -52,6 +52,12 @@
                     <th>Address</th>
                     <th>Phone</th>
                     <th>Links</th>
+					<?php /* The employer's answer, not the store's: the agreement is
+					   signed by the account, so every location of one chain shows the
+					   same word. Ahead of Status because the table script gives the
+					   last two columns their responsive priority on the strength of
+					   every admin list ending Status then Action. */ ?>
+                    <th>Agreement Done</th>
                     <th>Status</th>
                     <th>Action</th>
                   </tr>
@@ -88,6 +94,7 @@
 						<a href="<?php echo esc(safeUrl($store->s_website)); ?>" target="_blank" rel="noopener noreferrer" class="badge badge-info">Website</a>
 						<?php } ?>
 					</td>
+                    <td><?php echo agreementDoneBadge(userAgreementDone($store->u_id)); ?></td>
                     <td><?php if($store->s_status=='1'){?><span class="badge badge-success">Active</span><?php }else{?><span class="badge badge-warning">Inactive</span><?php }?></td>
                     <td><a href="<?php echo base_url($adminpath.'/stores/edit/'.$store->s_id.$ownerqs);?>" class="btn btn-success" title="Edit"><i class="fas fa-edit"></i></a>
 						<?php if($store->s_status=='1'){?>
@@ -110,6 +117,7 @@
                     <th>Address</th>
                     <th>Phone</th>
                     <th>Links</th>
+                    <th>Agreement Done</th>
                     <th>Status</th>
                     <th>Action</th>
                   </tr>

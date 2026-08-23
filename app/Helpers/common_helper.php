@@ -525,10 +525,46 @@ if (! function_exists('fileupload')) {
         $maxWidth  = (int) ($upload_param['width'] ?? 0);
         $maxHeight = (int) ($upload_param['height'] ?? 0);
 
+        // Two extensions, and both have to be one of the allowed ones.
+        //
+        // `getClientExtension()` is the tail of the name the browser sent, which
+        // the person uploading chooses; `guessExtension()` is derived from what
+        // the bytes actually are. Checking only the first let `shell.php.jpg`
+        // through as a jpg, and checking only the second turns away a perfectly
+        // good .docx whose type is guessed as .zip. Both must agree with the
+        // list, except that the office and pdf formats are matched on the
+        // client extension alone - their guessed types are containers shared
+        // with other formats.
         $extension = strtolower($file->getClientExtension() ?: $file->getExtension());
 
         if (! in_array($extension, $allowed, true)) {
             return ['error' => 1, 'status' => ['error' => 'The filetype you are attempting to upload is not allowed.']];
+        }
+
+        if (in_array($extension, ['gif', 'jpg', 'jpeg', 'png', 'webp'], true)) {
+            // An image has to be one. `getimagesize()` reads the header rather
+            // than the name, so a PHP script called `logo.jpg` fails here.
+            if (@getimagesize($file->getTempName()) === false) {
+                return ['error' => 1, 'status' => ['error' => 'That file is not a readable image.']];
+            }
+        } else {
+            $guessed = strtolower((string) $file->guessExtension());
+
+            // jpe/jpg and the office formats have more than one accepted
+            // spelling; a guess that lands on a different one of the pair is
+            // still the same file type.
+            $sameFamily = [
+                'jpg'  => ['jpeg', 'jpe'],
+                'jpeg' => ['jpg', 'jpe'],
+                'doc'  => ['docx', 'zip', 'bin'],
+                'docx' => ['doc', 'zip', 'bin'],
+            ];
+
+            $acceptable = array_merge([$extension], $sameFamily[$extension] ?? []);
+
+            if ($guessed !== '' && ! in_array($guessed, $acceptable, true)) {
+                return ['error' => 1, 'status' => ['error' => 'That file is not the type its name says it is.']];
+            }
         }
 
         if ($maxSizeKb > 0 && $file->getSizeByUnit('kb') > $maxSizeKb) {
@@ -554,7 +590,22 @@ if (! function_exists('fileupload')) {
             mkdir($path, 0755, true);
         }
 
-        $new_name = time() . '_' . $file->getClientName();
+        // The stored name is built here rather than taken from the browser.
+        // `getClientName()` is attacker-controlled: a multipart filename of
+        // `../../index.php` would have been passed to move() unchanged, which
+        // writes wherever it points. Letters, digits, dash, dot and underscore
+        // survive; everything else - slashes included - becomes an underscore,
+        // and the extension is the validated one rather than whatever the name
+        // ended in.
+        $stem = pathinfo((string) $file->getClientName(), PATHINFO_FILENAME);
+        $stem = preg_replace('/[^A-Za-z0-9_-]+/', '_', $stem) ?? '';
+        $stem = trim(substr($stem, 0, 60), '_-');
+
+        if ($stem === '') {
+            $stem = 'file';
+        }
+
+        $new_name = time() . '_' . bin2hex(random_bytes(4)) . '_' . $stem . '.' . $extension;
 
         try {
             $file->move($path, $new_name, true);
@@ -640,12 +691,70 @@ if (! function_exists('getPharmacyName')) {
     }
 }
 
+if (! function_exists('agreementDoneBadge')) {
+    /**
+     * The Agreement Done cell for the back-office listings.
+     *
+     * Applicants, employers, each employer kind and stores all show it, and
+     * they show it with the same two words: the office reads down these lists
+     * looking for the accounts still to chase, and four wordings would make
+     * that four separate readings. Yes/No rather than a tick, because the
+     * exports take the cell's text and a tick leaves an empty spreadsheet
+     * column - the same reason the Status column spells Active out.
+     *
+     * @param int|string|null $done the row's `u_agreement_done`
+     */
+    function agreementDoneBadge($done): string
+    {
+        return (int) $done === 1
+            ? '<span class="badge badge-success">Yes</span>'
+            : '<span class="badge badge-secondary">No</span>';
+    }
+}
+
+if (! function_exists('userAgreementDone')) {
+    /**
+     * Whether the signed agreement is on file for an account, by id.
+     *
+     * For the store list, whose rows are locations rather than logins - the
+     * agreement belongs to the employer who holds them, so every store of one
+     * chain reports the one answer.
+     *
+     * Unlike getPharmacyName() this asks nothing of the account's status: a
+     * pending employer who has already signed should say so, since that is
+     * usually the pair the office is looking for.
+     *
+     * @param int|string $uid
+     */
+    function userAgreementDone($uid = 0): int
+    {
+        $row = lookupRow('users', 'u_id', $uid);
+
+        return $row ? (int) ($row->u_agreement_done ?? 0) : 0;
+    }
+}
+
 if (! function_exists('getCityName')) {
     function getCityName($cid = 0)
     {
         $row = lookupRow('city', 'c_id', $cid, ['c_status' => 1]);
 
         return $row ? $row->c_name : '';
+    }
+}
+
+if (! function_exists('getStoreName')) {
+    /**
+     * The name of a store (location), by its `store.s_id`.
+     *
+     * A deactivated branch answers as well as an active one - a shift that was
+     * raised for it still has to say which branch it was raised for.
+     */
+    function getStoreName($sid = 0)
+    {
+        $row = lookupRow('store', 's_id', $sid);
+
+        return $row ? $row->s_name : '';
     }
 }
 
@@ -895,6 +1004,24 @@ if (! function_exists('safeUrl')) {
     }
 }
 
+if (! function_exists('mapSearchLink')) {
+    /**
+     * A Google Maps search for a place written as text.
+     *
+     * Every map link on the site is built here, so one made from a town reads
+     * and behaves the same as one made from a street address.
+     */
+    function mapSearchLink(string $place): string
+    {
+        // A trailing comma from a place built out of parts, some of them empty.
+        $place = trim(trim($place), ',');
+
+        return $place === ''
+            ? ''
+            : 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode($place);
+    }
+}
+
 if (! function_exists('storeMapLink')) {
     /**
      * The map link to show for a store, falling back to a search for its
@@ -924,11 +1051,7 @@ if (! function_exists('storeMapLink')) {
             trim((string) ($store->s_pincode ?? '')),
         ], 'strlen');
 
-        if ($parts === []) {
-            return '';
-        }
-
-        return 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode(implode(', ', $parts));
+        return mapSearchLink(implode(', ', $parts));
     }
 }
 
@@ -952,6 +1075,83 @@ if (! function_exists('pharmacyGroups')) {
             ->orderBy('u_comp_name', 'asc')
             ->get()
             ->getResult();
+    }
+}
+
+if (! function_exists('employerNameTaken')) {
+    /**
+     * Is this employer name already on another account?
+     *
+     * `u_comp_name` is the corporate group's name for an owner and the store's
+     * name for a single location - one column either way, and the label every
+     * screen shows an employer by: the employer listing, the employer dropdown
+     * on both shift forms, the store picker and the booking e-mails. Two
+     * accounts sharing it leaves all of them naming two different companies
+     * identically, so registration and the back-office employer form both
+     * refuse a name that is taken, from this one lookup.
+     *
+     * An account still waiting for the administrator counts, the same way
+     * `storeManagers()` treats a pending manager as holding their store: it has
+     * claimed the name, and freeing it means removing the account.
+     *
+     * A manager does not. The name on their row is a copy of the store they
+     * run - `storeSnapshotForManager()` puts it there - not a name they chose,
+     * so it belongs to their owner's group and counting it would refuse an
+     * owner the very name their own branch is listed under.
+     *
+     * Compared without case or surrounding spaces, so "Acme Pharmacy" cannot be
+     * registered again as " acme pharmacy ".
+     *
+     * @param int $ignoreUserId the account being edited, so re-saving it is not
+     *                          rejected as a duplicate of itself
+     */
+    function employerNameTaken(?string $name, int $ignoreUserId = 0): bool
+    {
+        $name = trim((string) $name);
+
+        // Nothing typed is a job for `required`, not for this - and a blank
+        // must never read as a duplicate of another blank row.
+        if ($name === '') {
+            return false;
+        }
+
+        $builder = ci_db()->table('users')
+            ->where('u_usertype', 1)
+            ->where('u_emp_role !=', 2)
+            ->where('LOWER(TRIM(u_comp_name))', strtolower($name));
+
+        if ($ignoreUserId > 0) {
+            $builder->where('u_id !=', $ignoreUserId);
+        }
+
+        return $builder->countAllResults() > 0;
+    }
+}
+
+if (! function_exists('employerNameRule')) {
+    /**
+     * The "not somebody else's name already" rule, for `set_rules()`.
+     *
+     * A closure rather than `is_unique[users.u_comp_name]` for two reasons: the
+     * comparison has to ignore case and spacing, and the back-office edit form
+     * has to let an account keep the name it already has. Registration and both
+     * back-office forms take it from here so they cannot drift apart.
+     *
+     * @param string $label   what the form calls the field - "Corporate Group
+     *                        Name" for an owner, "Store Name" for one location
+     * @param int    $ignoreUserId the account being edited, if any
+     */
+    function employerNameRule(string $label, int $ignoreUserId = 0): callable
+    {
+        return static function ($value, $data, ?string &$error) use ($label, $ignoreUserId): bool {
+            if (! employerNameTaken(is_string($value) ? $value : null, $ignoreUserId)) {
+                return true;
+            }
+
+            $error = 'This ' . $label . ' is already registered to another account. Please enter a different one.';
+
+            return false;
+        };
     }
 }
 
@@ -980,9 +1180,9 @@ if (! function_exists('storesForOwner')) {
     }
 }
 
-if (! function_exists('storeManagerIds')) {
+if (! function_exists('storeManagers')) {
     /**
-     * Which of these stores already have a manager on them, and who.
+     * The manager account on each of these stores, with who they are.
      *
      * One store, one manager. A branch has a single person running it, and a
      * second account pointed at the same `s_id` would give two logins the same
@@ -993,12 +1193,15 @@ if (! function_exists('storeManagerIds')) {
      * claimed the store - without that, two people could register for the same
      * branch the same afternoon and only the second would be stopped. Freeing a
      * store means removing the account holding it, which the back office does.
+     * `u_status` comes back with the row so a caller that shows the person to an
+     * owner can say the account is not approved yet, rather than naming somebody
+     * who cannot log in.
      *
      * @param array<int, int|string> $storeIds
      *
-     * @return array<int, int> `store.s_id` => `users.u_id` of the manager on it
+     * @return array<int, object> `store.s_id` => the `users` row of its manager
      */
-    function storeManagerIds(array $storeIds): array
+    function storeManagers(array $storeIds): array
     {
         $ids = array_values(array_unique(array_filter(
             array_map('intval', $storeIds),
@@ -1010,7 +1213,7 @@ if (! function_exists('storeManagerIds')) {
         }
 
         $rows = ci_db()->table('users')
-            ->select('u_id, u_store_id')
+            ->select('u_id, u_store_id, u_fname, u_lname, u_email, u_phone, u_status')
             ->where('u_usertype', 1)
             ->where('u_emp_role', 2)
             ->whereIn('u_store_id', $ids)
@@ -1018,15 +1221,35 @@ if (! function_exists('storeManagerIds')) {
             ->get()
             ->getResult();
 
-        $taken = [];
+        $managers = [];
 
         foreach ($rows as $row) {
             // The first one there is the answer. On a database that somehow
             // holds two for a store, it is taken either way.
-            $taken[(int) $row->u_store_id] ??= (int) $row->u_id;
+            $managers[(int) $row->u_store_id] ??= $row;
         }
 
-        return $taken;
+        return $managers;
+    }
+}
+
+if (! function_exists('storeManagerIds')) {
+    /**
+     * Which of these stores already have a manager on them, and who.
+     *
+     * The same lookup as `storeManagers()`, for callers that only need to know
+     * whether a store is spoken for.
+     *
+     * @param array<int, int|string> $storeIds
+     *
+     * @return array<int, int> `store.s_id` => `users.u_id` of the manager on it
+     */
+    function storeManagerIds(array $storeIds): array
+    {
+        return array_map(
+            static fn (object $manager): int => (int) $manager->u_id,
+            storeManagers($storeIds)
+        );
     }
 }
 
@@ -1614,5 +1837,121 @@ if (! function_exists('testHello')) {
     function testHello($sid = 0)
     {
         echo 'hello';
+    }
+}
+
+if (! function_exists('shiftEmailChoice')) {
+    /**
+     * The two sides a shift's "your shift is live" e-mail can be sent to.
+     *
+     * The words the shift form posts and `post_job.p_email_to` stores. They are
+     * here rather than in AppSettings because nothing may ever add a third: the
+     * form is asking about a store, and a store has an owner and a manager.
+     *
+     * @return array<int, string>
+     */
+    function shiftEmailSides(): array
+    {
+        return ['owner', 'manager'];
+    }
+
+    /**
+     * Read a posted or stored choice back as a clean list.
+     *
+     * Accepts what the form posts (an array of ticked boxes) and what the
+     * column holds (a comma separated string), so the form, the save and the
+     * send site all read it the same way. Anything not one of the two sides is
+     * dropped - the column is small and this is the only thing that writes it,
+     * but a hand-made post is not going to decide who gets mail.
+     *
+     * @param mixed $choice
+     *
+     * @return array<int, string>
+     */
+    function shiftEmailChoice($choice): array
+    {
+        $parts = is_array($choice) ? $choice : explode(',', (string) $choice);
+
+        $parts = array_map(
+            static fn ($part): string => strtolower(trim((string) $part)),
+            $parts
+        );
+
+        // array_values so the result is a list: it is stored with implode and
+        // compared with in_array, and neither wants the original keys.
+        return array_values(array_intersect(shiftEmailSides(), $parts));
+    }
+}
+
+if (! function_exists('shiftPostedRecipients')) {
+    /**
+     * Who is actually sent "your shift is live", and why.
+     *
+     * The shift names a side - the store's owner, its manager, both or neither
+     * - and this turns that into addresses. Kept pure and out of the
+     * controller: it is the one piece of the send that has to be right, and the
+     * cases that go wrong are the quiet ones (a store with no manager, a
+     * recipient who opted out) rather than anything a screen would show.
+     *
+     * A side that was ticked but cannot be reached is not silently dropped: it
+     * comes back in `missing`, so the caller can log which of them it was.
+     *
+     * The configured address is on every one of these e-mails, whoever else is:
+     * it is the site's own record that a shift went live, and the shift form
+     * shows it as a recipient that cannot be unticked. When it is the only one
+     * left - nobody ticked, or nobody reachable - `fellBack` says so, which is
+     * what the caller logs. The e-mail always goes somewhere; a shift going
+     * live unannounced is the one outcome to avoid.
+     *
+     * @param object|null $owner   the `users` row that owns the store
+     * @param object|null $manager the `users` row running it, if any
+     *
+     * @return array{to: array<int, string>, missing: array<int, string>, fellBack: bool}
+     */
+    function shiftPostedRecipients(?object $owner, ?object $manager, $choice, string $fallback): array
+    {
+        $wanted  = shiftEmailChoice($choice);
+        $to      = [];
+        $missing = [];
+
+        foreach ([['owner', $owner], ['manager', $manager]] as [$side, $user]) {
+            if (! in_array($side, $wanted, true)) {
+                continue;
+            }
+
+            $email = trim((string) ($user->u_email ?? ''));
+
+            if ($user === null || $email === '') {
+                // Nobody on that side of the store, which is normal for a
+                // manager and means the tick cannot be honoured.
+                $missing[] = $side;
+
+                continue;
+            }
+
+            if (! userAllowsEmail($user, 'shift-posted')) {
+                $missing[] = $side;
+
+                continue;
+            }
+
+            $to[] = $email;
+        }
+
+        // Both sides of a store can be the same login on a small chain.
+        $to = array_values(array_unique($to));
+
+        // Nobody reachable on the store's side is still worth saying in the
+        // log, even though the address below means something is always sent.
+        $fellBack = $to === [];
+        $fallback = trim($fallback);
+
+        // Last, so the store's own people stay at the head of the list, and
+        // only once when the configured address is also a store's login.
+        if ($fallback !== '' && ! in_array($fallback, $to, true)) {
+            $to[] = $fallback;
+        }
+
+        return ['to' => $to, 'missing' => $missing, 'fellBack' => $fellBack];
     }
 }

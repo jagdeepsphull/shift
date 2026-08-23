@@ -47,13 +47,6 @@ class CustomModel
         return $this->db->affectedRows() > 0;
     }
 
-    public function queryCustomUpdate($query)
-    {
-        $this->db->query($query);
-
-        return $this->db->affectedRows() > 0;
-    }
-
     /**
      * Flip a status column between 0 and `$onValue` for one row.
      *
@@ -275,6 +268,90 @@ class CustomModel
         }
 
         return true;
+    }
+
+    /**
+     * How many seconds this account is locked out for, or 0 if it is not.
+     *
+     * `users.u_login_attempt` and `u_login_attempt_dt` have been on the table
+     * since the CI3 site and nothing has ever read them. They hold a run of
+     * consecutive failures and when the last one was: once the run reaches
+     * `loginMaxAttempts`, the account stops answering passwords at all until
+     * `loginLockoutMinutes` have gone by since that last attempt.
+     *
+     * It counts failures per account rather than per address, which is the
+     * right way round for this site - the same pharmacy signs in from a dozen
+     * different places, and an attacker works through one list of passwords
+     * against one address. The verification image already stops the crude
+     * scripts; this is for the patient ones.
+     *
+     * @param array $user a `users` row
+     */
+    public function loginLockRemaining(array $user): int
+    {
+        $settings = config('AppSettings');
+        $max      = (int) ($settings->loginMaxAttempts ?? 0);
+        $minutes  = (int) ($settings->loginLockoutMinutes ?? 0);
+
+        if ($max <= 0 || $minutes <= 0) {
+            return 0;
+        }
+
+        if ((int) ($user['u_login_attempt'] ?? 0) < $max) {
+            return 0;
+        }
+
+        $last = strtotime((string) ($user['u_login_attempt_dt'] ?? ''));
+
+        // No usable timestamp means the counter cannot be aged out, and an
+        // account nobody can ever sign into again is worse than one more guess.
+        if ($last === false || $last <= 0) {
+            return 0;
+        }
+
+        $window    = $minutes * 60;
+        $remaining = ($last + $window) - time();
+
+        if ($remaining <= 0) {
+            return 0;
+        }
+
+        // Never more than one window, however far in the future the stored time
+        // reads. `recordFailedLogin()` writes it with PHP's clock, on
+        // `Config\App::$appTimezone`; a row stamped by anything using the
+        // database server's `NOW()` - an old CI3 write, a hand-edit, a fixture -
+        // is out by whatever the two clocks disagree by, and on a machine set
+        // to another country that is hours. Uncapped, one such row locks the
+        // account for most of a day and the message says so.
+        return min($remaining, $window);
+    }
+
+    /**
+     * Count one wrong password against the account.
+     *
+     * @param int|string $userId
+     */
+    public function recordFailedLogin($userId): void
+    {
+        $this->db->table('users')
+            ->set('u_login_attempt', 'u_login_attempt + 1', false)
+            ->set('u_login_attempt_dt', date('Y-m-d H:i:s'))
+            ->where('u_id', (int) $userId)
+            ->update();
+    }
+
+    /**
+     * Clear the run of failures. Called on every successful sign-in, so a user
+     * who mistypes twice and then gets it right starts from nothing again.
+     *
+     * @param int|string $userId
+     */
+    public function clearLoginAttempts($userId): void
+    {
+        $this->db->table('users')
+            ->where('u_id', (int) $userId)
+            ->where('u_login_attempt >', 0)
+            ->update(['u_login_attempt' => 0]);
     }
 
     /**

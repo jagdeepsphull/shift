@@ -50,12 +50,12 @@
                             <div class="card">
                                 <div class="card-header bg-info-pink" id="heading<?php echo $category->m_id ; ?>">
                                     <h3 class="mb-0">
-                                        <button class="btn btn-link text-uppercase" type="button" data-toggle="collapse" data-target="#collapse<?php echo $category->m_id ; ?>" aria-expanded="true" aria-controls="collapse<?php echo $category->m_id ; ?>">
+                                        <button class="btn btn-link text-uppercase" type="button" data-bs-toggle="collapse" data-bs-target="#collapse<?php echo $category->m_id ; ?>" aria-expanded="false" aria-controls="collapse<?php echo $category->m_id ; ?>">
                                             <?php echo $category->m_name ; ?>
                                         </button>
                                     </h3>
                                 </div>
-                                <div id="collapse<?php echo $category->m_id ; ?>" class="collapse" aria-labelledby="heading<?php echo $category->m_id ; ?>" data-parent="#dynamicAccordion">
+                                <div id="collapse<?php echo $category->m_id ; ?>" class="collapse" aria-labelledby="heading<?php echo $category->m_id ; ?>" data-bs-parent="#dynamicAccordion">
                                     <div class="card-body">
 								<?php  if($subcategories) { 
 										foreach($subcategories as $sub){ 			

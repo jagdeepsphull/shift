@@ -1530,6 +1530,43 @@ class Sadmin extends BaseController
                 $this->load->admin_view($module . '/index', $this->data);
                 break;
 
+            case 'unsubscribed':
+                // Who took themselves off the list, and when. Separate from the
+                // main screen because it answers a different question: that one
+                // is "what may this account be sent", set by an administrator,
+                // and this is "who asked us to stop", which is the recipient's
+                // own decision and the one that has to be honoured.
+                $this->data['ready'] = unsubscribeReady();
+
+                if ($this->data['ready'] && $this->input->post('resubscribe')) {
+                    // An administrator undoing it on request - somebody who
+                    // rings up because they can no longer find the e-mails. The
+                    // same write the recipient's own Re-subscribe button makes.
+                    $target = (int) $this->input->post('u_id');
+
+                    $this->custom->updateData(
+                        'users',
+                        ['u_unsubscribed_at' => null, 'modified' => date('Y-m-d H:i:s')],
+                        ['u_id' => $target]
+                    );
+
+                    log_message('info', 'Unsubscribe: u_id ' . $target . ' re-subscribed from the admin panel.');
+
+                    $this->session->set_flashdata('error_msg', '<div class="alert alert-success">That account will be sent e-mails again.</div>');
+                    ci_redirect('sadmin/' . $module . '/unsubscribed');
+                }
+
+                $this->data['users'] = $this->data['ready']
+                    ? ci_db()->table('users')
+                        ->where('u_unsubscribed_at IS NOT NULL', null, false)
+                        ->orderBy('u_unsubscribed_at', 'desc')
+                        ->get()
+                        ->getResult()
+                    : [];
+
+                $this->load->admin_view($module . '/unsubscribed', $this->data);
+                break;
+
             case 'permissions':
                 $user = $this->custom->get_where_row('users', ['u_id' => $id]);
 
@@ -3681,32 +3718,60 @@ class Sadmin extends BaseController
             return;
         }
 
-        // Sends through this site's own mail configuration (app/Config/Email.php,
-        // overridable in .env). It previously carried a third party's SMTP
-        // credentials in the source; those have been removed.
-        $settings = config('AppSettings');
-
-        $email = service('email');
-
-        $email->initialize([
-            'mailType' => 'html',
-            'charset'  => 'utf-8',
-            'newline'  => "\r\n",
-            'CRLF'     => "\r\n",
+        // Through send_email() rather than a mailer built here, for three
+        // reasons that all arrived with the Unsubscribe link. It is the only
+        // place that puts that link in a message; it is the only place that
+        // knows the SMTP settings are the site's own (this method previously
+        // carried a third party's credentials in the source); and it sends to
+        // one address at a time, so a bulk send no longer discloses the whole
+        // recipient list to everybody in the To: line.
+        $subject = (string) $subject;
+        $body    = email_body('broadcast', [
+            'title'    => $subject !== '' ? $subject : ($this->data['settings'][0]->s_sitename ?? 'PickAShift'),
+            'body'     => (string) $message,
+            'settings' => $this->data['settings'],
         ]);
 
-        $email->setFrom($settings->mailFromEmail, $settings->mailFromName);
-        $email->setTo($emails);
-        $email->setSubject((string) $subject);
-        $email->setMessage((string) $message);
-        $email->setAltMessage(strip_tags((string) $message));
+        $sent    = 0;
+        $failed  = 0;
+        $skipped = 0;
 
-        if ($email->send()) {
-            echo 'Message has been sent to all recipients';
-        } else {
-            log_message('error', $email->printDebugger(['headers']));
-            echo 'Message could not be sent.';
+        foreach ($emails as $address) {
+            // A message typed on this screen is optional e-mail by definition -
+            // there is no `emailTypes` code to look up, and nobody asked for
+            // it - so somebody who has unsubscribed is not sent it. This is the
+            // check `userAllowsEmail()` cannot make: it answers about a named
+            // template, and this message has none.
+            $user = userByEmail($address);
+
+            if ($user !== null && userHasUnsubscribed($user)) {
+                $skipped++;
+
+                continue;
+            }
+
+            send_email($address, $subject, $body) ? $sent++ : $failed++;
         }
+
+        log_message('info', sprintf(
+            'Bulk e-mail "%s": %d sent, %d failed, %d skipped as unsubscribed.',
+            $subject,
+            $sent,
+            $failed,
+            $skipped
+        ));
+
+        $report = $sent === 1 ? 'Message has been sent to 1 recipient' : ('Message has been sent to ' . $sent . ' recipients');
+
+        if ($skipped > 0) {
+            $report .= '. ' . $skipped . ' skipped - they have unsubscribed';
+        }
+
+        if ($failed > 0) {
+            $report .= '. ' . $failed . ' could not be sent - see the log';
+        }
+
+        echo $report . '.';
     }
 
     /**

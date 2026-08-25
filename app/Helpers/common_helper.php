@@ -1212,8 +1212,21 @@ if (! function_exists('storeManagers')) {
             return [];
         }
 
+        // The opt-out columns are on this select because the row goes straight
+        // to shiftPostedRecipients(), which asks whether this manager may be
+        // written to. A row without `u_email_blocked` answers "nothing is
+        // blocked" rather than admitting it does not know - which is how a
+        // manager who switched "your shift is live" off in Manage Email carried
+        // on being sent it. The unsubscribe columns are guarded because this
+        // query runs on screens that must still work before the migration.
+        $columns = 'u_id, u_store_id, u_fname, u_lname, u_email, u_phone, u_status, u_email_blocked';
+
+        if (unsubscribeReady()) {
+            $columns .= ', u_unsubscribed_at, u_unsub_token';
+        }
+
         $rows = ci_db()->table('users')
-            ->select('u_id, u_store_id, u_fname, u_lname, u_email, u_phone, u_status')
+            ->select($columns)
             ->where('u_usertype', 1)
             ->where('u_emp_role', 2)
             ->whereIn('u_store_id', $ids)
@@ -1664,6 +1677,193 @@ if (! function_exists('email_body')) {
     }
 }
 
+if (! function_exists('unsubscribeReady')) {
+    /**
+     * Has the unsubscribe migration been run?
+     *
+     * Every function below asks this first, so a deploy that uploads the code
+     * before `php spark migrate` sends e-mail without an unsubscribe link
+     * rather than fataling on a missing column halfway through a booking. The
+     * answer is looked up once per request: `fieldExists()` describes the
+     * table, and this is on the path of every send.
+     */
+    function unsubscribeReady(): bool
+    {
+        static $ready = null;
+
+        return $ready ??= ci_db()->fieldExists('u_unsubscribed_at', 'users');
+    }
+}
+
+if (! function_exists('userHasUnsubscribed')) {
+    /**
+     * Has this user opted out of everything from their inbox?
+     *
+     * `$user` is a `users` row (array or object) or a bare u_id. A row that was
+     * selected without the column - an older query, or one written before the
+     * migration - is looked up by id rather than assumed to be subscribed:
+     * guessing wrong here means mailing somebody who asked us not to.
+     *
+     * @param array|object|int|string $user
+     */
+    function userHasUnsubscribed($user): bool
+    {
+        if (is_numeric($user)) {
+            if (! unsubscribeReady()) {
+                return false;
+            }
+
+            $row = ci_db()->table('users')->select('u_unsubscribed_at')->where('u_id', (int) $user)->get()->getRow();
+
+            return $row !== null && (string) $row->u_unsubscribed_at !== '';
+        }
+
+        $user = (object) $user;
+
+        // A row that carries the column answers by itself. The schema probe
+        // guards the queries below and nothing else on purpose: deciding
+        // whether to honour an opt-out by asking the database what shape it is
+        // makes the answer "no" on every connection where that check cannot be
+        // made - which is fail-open, on the one question that must not be.
+        if (property_exists($user, 'u_unsubscribed_at')) {
+            return (string) $user->u_unsubscribed_at !== '';
+        }
+
+        return isset($user->u_id) ? userHasUnsubscribed((int) $user->u_id) : false;
+    }
+}
+
+if (! function_exists('unsubscribeToken')) {
+    /**
+     * The secret in this user's unsubscribe link, made on first use.
+     *
+     * Stable for the life of the account, so the link in an e-mail sent a year
+     * ago still works - somebody digging out an old message to get off the list
+     * is exactly who this is for. Re-subscribing does not rotate it either:
+     * that would strand every link already in their mailbox, and the token
+     * grants nothing but the choice they already had.
+     *
+     * Returns '' when the row has no id to write against, which is what tells
+     * the caller to render no link at all.
+     *
+     * @param array|object $user a `users` row
+     */
+    function unsubscribeToken($user): string
+    {
+        $user  = (object) $user;
+        $id    = (int) ($user->u_id ?? 0);
+        $token = trim((string) ($user->u_unsub_token ?? ''));
+
+        // Already on the row - the ordinary case once the backfill has run, and
+        // no reason to touch the database to confirm it.
+        if ($token !== '') {
+            return $token;
+        }
+
+        if ($id === 0 || ! unsubscribeReady()) {
+            return '';
+        }
+
+        // Not on the row - either a partial select or a user who predates the
+        // backfill. Read it back before minting a new one, so two e-mails sent
+        // in the same second do not leave the first one's link dead.
+        $row   = ci_db()->table('users')->select('u_unsub_token')->where('u_id', $id)->get()->getRow();
+        $token = trim((string) ($row->u_unsub_token ?? ''));
+
+        if ($token === '') {
+            $token = bin2hex(random_bytes(16));
+            ci_db()->table('users')->where('u_id', $id)->update(['u_unsub_token' => $token]);
+        }
+
+        return $token;
+    }
+}
+
+if (! function_exists('unsubscribeUrl')) {
+    /**
+     * Where the Unsubscribe link in an e-mail points.
+     *
+     * A landing page, not the opt-out itself: mail clients and security
+     * scanners fetch the links in a message before anybody reads it, and a URL
+     * that unsubscribes on GET opts people out who never clicked anything. The
+     * page asks, and the POST behind its button is what acts.
+     *
+     * @param array|object $user a `users` row
+     */
+    function unsubscribeUrl($user): string
+    {
+        $token = unsubscribeToken($user);
+
+        return $token === '' ? '' : base_url('unsubscribe/' . $token);
+    }
+}
+
+if (! function_exists('userByEmail')) {
+    /**
+     * The account an outgoing address belongs to, or null.
+     *
+     * How `send_email()` works out whose unsubscribe link to put in a message.
+     * It goes by address because that is all a send site is guaranteed to pass
+     * - the alternative is threading a `users` row through all thirteen of
+     * them, and the one that forgets is an e-mail with no way out of the list.
+     *
+     * A shared address returns the first account on it. That is already the
+     * site's answer everywhere else - two accounts on one mailbox cannot be
+     * told apart by anything in an e-mail - and the link still opts out an
+     * account that reads that inbox.
+     */
+    function userByEmail(string $address): ?object
+    {
+        $address = trim($address);
+
+        if ($address === '' || ! unsubscribeReady()) {
+            return null;
+        }
+
+        return ci_db()->table('users')
+            ->select('u_id, u_email, u_unsub_token, u_unsubscribed_at')
+            ->where('u_email', $address)
+            ->orderBy('u_id', 'asc')
+            ->get(1)
+            ->getRow();
+    }
+}
+
+if (! function_exists('apply_unsubscribe_link')) {
+    /**
+     * Fill in - or cut out - the layout's unsubscribe block.
+     *
+     * `app/Views/emails/layout.php` leaves the block in every message it
+     * renders, marked off by comments, with `{{unsubscribe_url}}` where the
+     * address goes. It cannot fill it in itself: a template is rendered once
+     * and the shift-posted e-mail sends that one body to both the owner and the
+     * manager, who need different links.
+     *
+     * An empty `$url` removes the block rather than leaving a dead link. That
+     * is the right outcome for the messages that are not to an account at all -
+     * the contact form landing on the administrator, the agency's copy of a
+     * booking, `php spark email:test` - none of which are a subscription
+     * anybody can be removed from.
+     */
+    function apply_unsubscribe_link(string $message, string $url): string
+    {
+        if ($url === '') {
+            return (string) preg_replace('/<!--\[unsubscribe\]-->.*?<!--\[\/unsubscribe\]-->/s', '', $message);
+        }
+
+        // esc() in its HTML context, not 'attr'. The attribute escaper encodes
+        // every non-alphanumeric byte, which turns the `:` and `/` of a perfectly
+        // ordinary URL into `&#x3A;&#x2F;&#x2F;` - something a browser decodes
+        // but plenty of mail clients show, or refuse to make a link of at all.
+        // This URL is built here from base_url() and a hex token, so the only
+        // characters that need handling are the ones that would end the
+        // attribute, which is exactly what this escapes.
+        $message = str_replace('{{unsubscribe_url}}', esc($url), $message);
+
+        return str_replace(['<!--[unsubscribe]-->', '<!--[/unsubscribe]-->'], '', $message);
+    }
+}
+
 if (! function_exists('userAllowsEmail')) {
     /**
      * May this user be sent this e-mail template?
@@ -1676,6 +1876,14 @@ if (! function_exists('userAllowsEmail')) {
      * A template that is not in `emailTypes` - reset-password, contact, test -
      * is always allowed: the list is what an administrator may switch off,
      * not a register of everything the application sends.
+     *
+     * That same list is the reach of the Unsubscribe link, and for the same
+     * reason. Somebody who has opted out of everything is still sent the
+     * password reset they just asked for and the notice that a booking they
+     * were counting on is cancelled - the two messages whose absence hurts the
+     * person the opt-out was meant to protect. Both are already documented as
+     * always-sent in Config\AppSettings; unsubscribing does not change which
+     * e-mails exist, only which of the optional ones are sent.
      *
      * @param array|object|int|string $user
      */
@@ -1695,8 +1903,20 @@ if (! function_exists('userAllowsEmail')) {
         }
 
         if (is_numeric($user)) {
-            $row  = ci_db()->table('users')->select('u_email_blocked')->where('u_id', (int) $user)->get()->getRow();
-            $user = $row ?: [];
+            $columns = 'u_id, u_email_blocked' . (unsubscribeReady() ? ', u_unsubscribed_at' : '');
+            $row     = ci_db()->table('users')->select($columns)->where('u_id', (int) $user)->get()->getRow();
+            $user    = $row ?: [];
+        }
+
+        // The recipient's own opt-out outranks anything set on their behalf:
+        // the per-type boxes on Manage Email, and the Owner and Manager ticks
+        // on the shift form. Those ticks are an administrator saying who at the
+        // store to tell, which is not a permission the store's owner gave - so
+        // a ticked side that has unsubscribed drops out here, comes back as
+        // `missing` from shiftPostedRecipients(), and the shift is still
+        // announced to the fallback address.
+        if (userHasUnsubscribed($user)) {
+            return false;
         }
 
         $user    = (object) $user;
@@ -1797,11 +2017,41 @@ if (! function_exists('send_email')) {
         }
 
         $email->setSubject($subject);
+
+        // The Unsubscribe link goes in here, not at the call sites. This is the
+        // only place that knows the one address the message is about to go to,
+        // and the shift-posted send hands the same rendered body to both the
+        // owner and the manager - who need different links. A message going to
+        // more than one address at once gets no link rather than one that opts
+        // out whichever of them the lookup happened to find first.
+        $recipient = count($recipients) === 1 ? userByEmail($recipients[0]) : null;
+        $unsubUrl  = $recipient !== null ? unsubscribeUrl($recipient) : '';
+        $message   = apply_unsubscribe_link((string) $message, $unsubUrl);
+
+        if ($unsubUrl !== '') {
+            // RFC 8058. Gmail and Yahoo both want a one-click unsubscribe on
+            // bulk mail, and the header is what puts the client's own
+            // Unsubscribe button at the top of the message - next to the button
+            // that reports it as spam, which is the other way off the list and
+            // the one that costs the domain its reputation.
+            $email->setHeader('List-Unsubscribe', '<' . $unsubUrl . '>');
+            $email->setHeader('List-Unsubscribe-Post', 'List-Unsubscribe=One-Click');
+        }
+
         $email->setMessage($message);
 
         // A multipart message with a text alternative scores better with spam
         // filters than HTML alone, and is what a text-only client falls back to.
-        $email->setAltMessage(trim(html_entity_decode(strip_tags((string) $message), ENT_QUOTES, 'UTF-8')));
+        $alt = trim(html_entity_decode(strip_tags($message), ENT_QUOTES, 'UTF-8'));
+
+        if ($unsubUrl !== '') {
+            // strip_tags keeps the word "Unsubscribe" and throws away the href,
+            // so without this the text half of the message offers a way out
+            // that is not a link to anywhere.
+            $alt .= "\n\nUnsubscribe: " . $unsubUrl;
+        }
+
+        $email->setAltMessage($alt);
 
         if ($email->send(false)) {
             return true;

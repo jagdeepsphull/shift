@@ -25,13 +25,22 @@ final class ShiftEmailRecipientsTest extends CIUnitTestCase
         helper('common');
     }
 
-    /** A `users` row, as the send site holds one. */
-    private function user(string $email, string $blocked = ''): object
+    /**
+     * A `users` row, as the send site holds one.
+     *
+     * `u_unsubscribed_at` is on it even when nobody has unsubscribed, and that
+     * is load-bearing: a row that does not carry the column makes
+     * `userHasUnsubscribed()` go and look the account up by id, which would
+     * quietly turn these into database tests whose result depends on whatever
+     * u_id 1 happens to be on the machine running them.
+     */
+    private function user(string $email, string $blocked = '', ?string $unsubscribedAt = null): object
     {
         return (object) [
-            'u_id'            => 1,
-            'u_email'         => $email,
-            'u_email_blocked' => $blocked,
+            'u_id'              => 1,
+            'u_email'           => $email,
+            'u_email_blocked'   => $blocked,
+            'u_unsubscribed_at' => $unsubscribedAt,
         ];
     }
 
@@ -130,6 +139,41 @@ final class ShiftEmailRecipientsTest extends CIUnitTestCase
         $audience = shiftPostedRecipients(
             $this->user('owner@example.com', '3'),
             $this->user('manager@example.com', '3'),
+            'owner,manager',
+            self::FALLBACK
+        );
+
+        $this->assertSame([self::FALLBACK], $audience['to']);
+        $this->assertTrue($audience['fellBack']);
+        $this->assertSame(['owner', 'manager'], $audience['missing']);
+    }
+
+    public function testSomebodyWhoUnsubscribedIsNotWrittenToThoughTheirBoxIsTicked(): void
+    {
+        // The whole point of the Unsubscribe link. The administrator ticked
+        // Owner on the shift form - which is them saying who at the store to
+        // tell, not the owner agreeing to be told - and the owner had already
+        // taken themselves off the list from their inbox. The tick does not
+        // outrank that.
+        $audience = shiftPostedRecipients(
+            $this->user('owner@example.com', '', '2026-08-24 09:00:00'),
+            $this->user('manager@example.com'),
+            'owner,manager',
+            self::FALLBACK
+        );
+
+        $this->assertSame(['manager@example.com', self::FALLBACK], $audience['to']);
+        $this->assertSame(['owner'], $audience['missing']);
+    }
+
+    public function testUnsubscribingCoversEveryTypeNotJustTheOnesBlocked(): void
+    {
+        // `u_email_blocked` is empty on both of these - nothing was switched
+        // off on Manage Email - so the only thing keeping the e-mail from them
+        // is the opt-out itself.
+        $audience = shiftPostedRecipients(
+            $this->user('owner@example.com', '', '2026-08-24 09:00:00'),
+            $this->user('manager@example.com', '', '2026-08-24 09:30:00'),
             'owner,manager',
             self::FALLBACK
         );

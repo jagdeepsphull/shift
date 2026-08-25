@@ -79,7 +79,20 @@ class Filters extends BaseFilters
             //
             // The token gets into the page by the filter below - there is no
             // view to remember to edit - and into ajax calls as a header.
-            'csrf',
+            //
+            // The unsubscribe URL is the one exception, and has to be. RFC 8058
+            // one-click means Gmail and Yahoo post to it straight from their own
+            // Unsubscribe button: no page of ours was ever loaded, so there is
+            // no session and no token to send, and refusing the post leaves
+            // "report spam" as the working button beside it.
+            //
+            // What CSRF protects is an action that borrows the visitor's
+            // signed-in identity. This endpoint has none to borrow: it is
+            // authorised by the secret in the URL, it is reachable signed out,
+            // and the worst a forged post can do is stop e-mail reaching
+            // somebody whose unsubscribe link the forger already had - which is
+            // the same thing they could do by following it themselves.
+            'csrf' => ['except' => ['unsubscribe/*']],
 
             // 'honeypot',
             // 'invalidchars',

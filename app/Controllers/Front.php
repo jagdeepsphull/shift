@@ -1112,6 +1112,105 @@ class Front extends BaseController
         $this->load->front_view('privacy_policy', $this->data);
     }
 
+    /**
+     * The Unsubscribe link on every e-mail the site sends.
+     *
+     * Reached from a mailbox, so it signs nobody in and asks for no password:
+     * the token in the URL is the whole of the authorisation, which is the only
+     * thing somebody holding the e-mail is guaranteed to have. It says which
+     * address it is about before acting, so a link forwarded to the wrong
+     * person is visibly the wrong account rather than a silent opt-out.
+     *
+     * GET only ever shows the question. Mail clients, link scanners and
+     * corporate mail gateways fetch every URL in a message before a human sees
+     * it, and an opt-out that happens on GET is one those prefetches perform on
+     * the recipient's behalf - people vanish off the list having clicked
+     * nothing. The POST behind the button is what writes.
+     *
+     * A POST with no button is the one-click unsubscribe from RFC 8058: the
+     * List-Unsubscribe-Post header on these e-mails tells Gmail and Yahoo they
+     * may post here directly from their own Unsubscribe button, with no form
+     * and no session. That is deliberately honoured, because the alternative
+     * button next to it in those clients is "report spam".
+     */
+    public function unsubscribe($token = '')
+    {
+        $this->setup();
+
+        $this->data['pageTitle'] = 'Email preferences';
+        $this->data['token']     = (string) $token;
+
+        $user = $this->unsubscribeAccount((string) $token);
+
+        if ($user === null) {
+            // Says no more than that this link does not work. Which tokens
+            // exist is not something a stranger with a guess should learn.
+            $this->data['state'] = 'invalid';
+
+            $this->load->front_view('unsubscribe', $this->data);
+
+            return;
+        }
+
+        $this->data['account'] = $user->u_email;
+
+        if (strtolower($this->request->getMethod()) === 'post') {
+            // date() and not NOW(): this database's clock and this server's
+            // disagree, and every other stamp in the application is PHP's.
+            $resubscribing = $this->input->post('resubscribeSubmit') !== null;
+
+            $this->custom->updateData(
+                'users',
+                [
+                    'u_unsubscribed_at' => $resubscribing ? null : date('Y-m-d H:i:s'),
+                    'modified'          => date('Y-m-d H:i:s'),
+                ],
+                ['u_id' => (int) $user->u_id]
+            );
+
+            log_message('info', sprintf(
+                'Unsubscribe: %s %s (u_id %d).',
+                $user->u_email,
+                $resubscribing ? 're-subscribed' : 'opted out of all optional e-mail',
+                (int) $user->u_id
+            ));
+
+            $this->data['state'] = $resubscribing ? 'resubscribed' : 'done';
+
+            $this->load->front_view('unsubscribe', $this->data);
+
+            return;
+        }
+
+        // Somebody who is already off the list gets the way back rather than a
+        // button that repeats what they did.
+        $this->data['state'] = userHasUnsubscribed($user) ? 'already' : 'confirm';
+
+        $this->load->front_view('unsubscribe', $this->data);
+    }
+
+    /**
+     * The account an unsubscribe token belongs to, or null.
+     *
+     * A blank token matches the rows that have not been given one yet, so it is
+     * refused before the query rather than opting out whichever account the
+     * database returned first.
+     */
+    private function unsubscribeAccount(string $token): ?object
+    {
+        $token = trim($token);
+
+        if ($token === '' || ! unsubscribeReady()) {
+            return null;
+        }
+
+        return ci_db()->table('users')
+            ->select('u_id, u_email, u_fname, u_lname, u_unsubscribed_at')
+            ->where('u_unsub_token', $token)
+            ->get(1)
+            ->getRow();
+    }
+
     public function contact()
     {
         $this->setup();

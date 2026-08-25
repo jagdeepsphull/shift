@@ -323,7 +323,7 @@ class AppSettings extends BaseConfig
     ];
 
     /** Sender address used by the mail helper (CI3 `send_email()`). */
-    public string $mailFromEmail = 'pickashift@reliefshifts.com';
+    public string $mailFromEmail = 'donotreply@pickashift.ca';
 
     public string $mailFromName = 'PickAShift';
 
@@ -350,5 +350,5 @@ class AppSettings extends BaseConfig
      * who opted out in Manage Email - and the send site logs which of them it
      * was.
      */
-    public string $shiftEmailFallback = 'info@reliefshifts.com';
+    public string $shiftEmailFallback = 'team@pickashift.ca';
 }

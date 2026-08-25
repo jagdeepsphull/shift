@@ -11,7 +11,7 @@ use CodeIgniter\Config\BaseConfig;
  */
 class Email extends BaseConfig
 {
-    public string $fromEmail  = 'pickashift@reliefshifts.com';
+    public string $fromEmail  = 'donotreply@pickashift.ca';
     public string $fromName   = 'PickAShift';
     public string $recipients = '';
 
@@ -24,7 +24,7 @@ class Email extends BaseConfig
      * The mail sending protocol: mail, sendmail, smtp
      *
      * SMTP, always. Bare `mail()` sends straight from the web server, which
-     * fails SPF/DKIM for reliefshifts.com — booking mail then lands in spam or
+     * fails SPF/DKIM for pickashift.ca — booking mail then lands in spam or
      * is dropped with no bounce, and nobody finds out until an applicant says
      * they never heard back.
      */

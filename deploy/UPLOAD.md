@@ -909,7 +909,7 @@ to run for them:
     to Live from the back office now announces itself, which it did not before
     this release: only approving one on the edit screen did.
   - **Neither ticked sends to `AppSettings::$shiftEmailFallback`**
-    (`info@reliefshifts.com`), not to nobody. Same if the ticked side cannot be
+    (`team@pickashift.ca`), not to nobody. Same if the ticked side cannot be
     reached — a store with no manager account on it, or a recipient who turned
     this e-mail off in Manage Email. `writable/logs/` names which it was.
   - The applicant's booking e-mail is untouched by any of this and still goes

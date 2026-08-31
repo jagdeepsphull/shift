@@ -876,6 +876,68 @@ $migrations = [
             return $notes;
         },
     ],
+    [
+        'version' => '2026-08-24-090000',
+        'class'   => 'App\Database\Migrations\AddUserUnsubscribed',
+        'label'   => 'AddUserUnsubscribed',
+        'apply'   => static function (mysqli $db): array {
+            $notes = [];
+
+            // NULL, not 0: this records when somebody opted out as well as
+            // that they did, and NULL means every account carries on receiving
+            // exactly what it received before this ran.
+            if (! columnExists($db, 'users', 'u_unsubscribed_at')) {
+                run($db, "ALTER TABLE `users`
+                          ADD COLUMN `u_unsubscribed_at` DATETIME NULL DEFAULT NULL
+                          COMMENT 'When this user opted out of all optional e-mail. NULL = still subscribed.'
+                          AFTER `u_email_blocked`");
+                $notes[] = 'added users.u_unsubscribed_at';
+            } else {
+                $notes[] = 'users.u_unsubscribed_at already there';
+            }
+
+            if (! columnExists($db, 'users', 'u_unsub_token')) {
+                run($db, "ALTER TABLE `users`
+                          ADD COLUMN `u_unsub_token` VARCHAR(64) NOT NULL DEFAULT ''
+                          COMMENT 'Secret in this user\'s unsubscribe link. Blank until first needed.'
+                          AFTER `u_unsubscribed_at`");
+                $notes[] = 'added users.u_unsub_token';
+            } else {
+                $notes[] = 'users.u_unsub_token already there';
+            }
+
+            // Not unique - rows sit at '' until their first e-mail, and a
+            // unique key would refuse the second one.
+            $idx = $db->query("SHOW INDEX FROM `users` WHERE Key_name = 'idx_users_unsub_token'");
+
+            if ($idx && $idx->num_rows === 0) {
+                run($db, 'CREATE INDEX `idx_users_unsub_token` ON `users` (`u_unsub_token`)');
+                $notes[] = 'indexed users.u_unsub_token';
+            } else {
+                $notes[] = 'users.u_unsub_token already indexed';
+            }
+
+            // Give every existing account its token now, so the first e-mail
+            // after this deploy is a plain read rather than a write. Done in
+            // SQL rather than a PHP loop because this runs over a web request
+            // on shared hosting, where a hundred round trips is a timeout.
+            $filled = 0;
+
+            if ($res = $db->query("SELECT `u_id` FROM `users` WHERE `u_unsub_token` = ''")) {
+                while ($row = $res->fetch_assoc()) {
+                    $token = bin2hex(random_bytes(16));
+                    run($db, "UPDATE `users` SET `u_unsub_token` = '{$token}' WHERE `u_id` = " . (int) $row['u_id']);
+                    $filled++;
+                }
+            }
+
+            $notes[] = $filled > 0
+                ? "gave {$filled} existing account(s) an unsubscribe token"
+                : 'every account already has an unsubscribe token';
+
+            return $notes;
+        },
+    ],
 ];
 
 $applied = 0;

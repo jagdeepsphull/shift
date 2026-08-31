@@ -45,6 +45,30 @@
   <link rel="stylesheet" href="<?php echo base_url();?>assets/admin/plugins/summernote/summernote-bs4.min.css">
   
   <style>
+        /* The logo is a transparent PNG lettered in black and red, so against
+           AdminLTE's dark sidebar the wordmark all but vanished. The strip it
+           sits in gets its own white background - the rest of the sidebar stays
+           the theme's. */
+        .main-sidebar .brand-link {
+            background-color: #fff;
+            border-bottom: 1px solid #dee2e6;
+            display: block;
+            padding: 12px 16px;
+            text-align: center;
+        }
+
+        /* AdminLTE floats the brand image left at a fixed height, which suits a
+           square mark next to wordmark text. This one is the wordmark, 470x114,
+           so it is centred and left to scale on its own ratio instead. */
+        .main-sidebar .brand-link .brand-image {
+            float: none;
+            margin: 0;
+            max-height: 46px;
+            max-width: 100%;
+            width: auto;
+            opacity: 1;
+        }
+
         /* Hide the calendar portion to show only time pickers */
         .daterangepicker .calendar-table,
         .daterangepicker .ranges {
@@ -88,9 +112,8 @@
   <!-- Main Sidebar Container -->
   <aside class="main-sidebar sidebar-dark-primary elevation-4">
     <!-- Brand Logo -->
-    <span class="brand-text font-weight-light"><a href="<?php echo base_url($adminpath.'/dashboard');?>" class="brand-link">
+    <a href="<?php echo base_url($adminpath.'/dashboard');?>" class="brand-link">
       <img src="<?php echo base_url('/assets/front/assets/img/logo.png');?>" alt="<?php echo $settings[0]->s_sitename;?> Logo" class="brand-image">
-      <?php //echo $settings[0]->s_sitename;?> </span>
     </a>
 
     <!-- Sidebar -->
@@ -182,10 +205,28 @@
 			  
             </ul>
           </li>
+		  <?php
+			/* The sidebar badges: how much is sitting in each queue waiting on
+			   the admin. Drawn only when there is something to draw, so a badge
+			   appearing means there is work and no badge means none - a zero
+			   would have to be read before it could be dismissed.
+
+			   $pending counts accounts not yet activated, $review counts rows
+			   not yet decided on. */
+			$pending = $pendingUsers ?? [];
+			$review  = $pendingReview ?? [];
+			$badge   = function($count){
+				if(!$count){ return ''; }
+				return ' <span class="badge badge-warning right">'.(int)$count.'</span>';
+			};
+		  ?>
 		  <li class="nav-item">
-			<a href="<?php echo base_url('sadmin/applications');?>" class="nav-link">
+			<a href="<?php echo base_url('sadmin/applications');?>" class="nav-link <?php echo($link=='applications')?"active":"";?>">
 			  <i class="nav-icon fas fa-th"></i>
-			  <p>Applications</p>
+			  <p>
+				Applications
+				<?php echo $badge($review['application'] ?? 0);?>
+			  </p>
 			</a>
 		  </li>
 		  <li class="nav-item">
@@ -208,11 +249,6 @@
 			   treeview: All Employers plus one list per kind. The badge on each
 			   counts the accounts of that kind still waiting to be activated. */
 			$kindcode   = ($link=='employer') ? (int) ($kind ?? 0) : 0;
-			$pending    = $pendingUsers ?? [];
-			$badge      = function($count){
-				if(!$count){ return ''; }
-				return ' <span class="badge badge-warning right">'.(int)$count.'</span>';
-			};
 		  ?>
 		  <?php if($menuarr) {?>
 			  <?php foreach($menuarr as $ky=>$vl) {?>
@@ -267,6 +303,7 @@
 						  <p>
 							<?php echo $vl['mname'];?>
 							<?php echo ($vl['mlink']=='applicant') ? $badge($pending['applicant'] ?? 0) : '';?>
+							<?php echo ($vl['mlink']=='postjobs')  ? $badge($review['postjobs'] ?? 0)   : '';?>
 						  </p>
 						</a>
 					  </li>

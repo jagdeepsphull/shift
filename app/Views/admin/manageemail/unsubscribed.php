@@ -1,14 +1,18 @@
 <?php
 /**
- * Manage Email: every account on the site, each with a button to its own
- * e-mail permissions page.
+ * Who has taken themselves off the e-mail list, newest first.
  *
- * One list for all three account types deliberately - the feature is about
- * recipients, and an administrator, an employer and an applicant are all
- * recipients. The User Type column is what tells them apart.
+ * Deliberately a separate screen from Manage Email rather than a filter on it.
+ * That screen is the administrator's switchboard - what an account *may* be
+ * sent - and this is a list of people who asked us to stop, which is not a
+ * setting to be adjusted so much as an instruction to be honoured. Keeping them
+ * apart means nobody clears an opt-out while tidying up permissions.
+ *
+ * @var array|object $users  `users` rows with u_unsubscribed_at set
+ * @var bool         $ready  false until the migration has been run
  */
 
-/** The account's kind, in words. */
+/** The account's kind, in words. Same wording as the Manage Email list. */
 $typeLabel = static function ($user) use ($usersubtype) {
     $usertype = (int) $user->u_usertype;
 
@@ -24,46 +28,6 @@ $typeLabel = static function ($user) use ($usersubtype) {
 
     return 'Employer - ' . employerKindName($user);
 };
-
-/**
- * How much of the mail this user still receives.
- *
- * Counted against the e-mails this account can actually be sent, not the whole
- * config: an applicant blocked from the two employer-only types is not "2
- * blocked" - neither was ever going to arrive. An administrator is a recipient
- * of none of them, so there is nothing to summarise.
- */
-$permSummary = static function ($user) {
-    // The recipient's own opt-out is shown ahead of the boxes below, because it
-    // overrides all of them. "All emails" beside somebody who unsubscribed from
-    // their inbox would be a promise this screen keeps and the send sites do
-    // not - and it is the reading that leads an administrator to go looking for
-    // the bug in the mailer.
-    if (userHasUnsubscribed($user)) {
-        return '<span class="badge badge-dark">Unsubscribed</span>';
-    }
-
-    $offered = emailTypesFor($user);
-
-    if ($offered === []) {
-        return '<span class="text-muted">&mdash;</span>';
-    }
-
-    $blocked = array_intersect(
-        array_map('intval', array_filter(explode(',', (string) ($user->u_email_blocked ?? '')), 'strlen')),
-        array_keys($offered)
-    );
-
-    if ($blocked === []) {
-        return '<span class="badge badge-success">All emails</span>';
-    }
-
-    if (count($blocked) >= count($offered)) {
-        return '<span class="badge badge-danger">All blocked</span>';
-    }
-
-    return '<span class="badge badge-warning">' . count($blocked) . ' of ' . count($offered) . ' blocked</span>';
-};
 ?>
 <!-- Content Wrapper. Contains page content -->
   <div class="content-wrapper">
@@ -72,18 +36,18 @@ $permSummary = static function ($user) {
       <div class="container-fluid">
         <div class="row mb-2">
           <div class="col-sm-6">
-            <h1>Manage <?php echo $pageinfo['title']; ?></h1>
+            <h1>Unsubscribed</h1>
           </div>
           <div class="col-sm-6">
             <ol class="breadcrumb float-sm-right">
               <li class="breadcrumb-item"><a href="<?php echo base_url('sadmin/dashboard');?>">Home</a></li>
-              <li class="breadcrumb-item active">Manage <?php echo $pageinfo['title']; ?></li>
+              <li class="breadcrumb-item"><a href="<?php echo base_url('sadmin/' . $pageinfo['link']);?>">Manage <?php echo $pageinfo['title']; ?></a></li>
+              <li class="breadcrumb-item active">Unsubscribed</li>
             </ol>
           </div>
         </div>
       </div><!-- /.container-fluid -->
     </section>
-
 
   <!-- Main content -->
     <section class="content">
@@ -93,17 +57,31 @@ $permSummary = static function ($user) {
 		?>
         <div class="row">
           <div class="col-12">
-  <div class="card">
+            <div class="card">
               <div class="card-header">
-                <h3 class="card-title">Who receives which e-mails</h3>
+                <h3 class="card-title">Accounts that opted out from the link in an e-mail</h3>
                 <div class="card-tools">
-                  <a href="<?php echo base_url('sadmin/' . $pageinfo['link'] . '/unsubscribed');?>" class="btn btn-sm btn-default">
-                    <i class="fas fa-ban"></i> Unsubscribed
+                  <a href="<?php echo base_url('sadmin/' . $pageinfo['link']);?>" class="btn btn-sm btn-default">
+                    <i class="fas fa-arrow-left"></i> Back to Manage <?php echo $pageinfo['title']; ?>
                   </a>
                 </div>
               </div>
               <!-- /.card-header -->
               <div class="card-body">
+
+                <?php if (! $ready) { ?>
+                  <div class="alert alert-warning mb-0">
+                    The unsubscribe columns are not in the database yet. Run <code>php spark migrate</code>
+                    on this server, then reload this page.
+                  </div>
+                <?php } else { ?>
+
+                <p class="text-muted">
+                  These accounts are sent none of the optional e-mails, whatever the boxes on Manage Email say
+                  and whoever is ticked as a recipient on a shift. They are still sent a password reset they ask
+                  for, and notice that a shift they were booked on has been cancelled.
+                </p>
+
                 <table id="example1" class="table table-bordered table-striped">
                   <thead>
                   <tr>
@@ -111,7 +89,7 @@ $permSummary = static function ($user) {
                     <th>Name</th>
                     <th>Email</th>
                     <th>User Type</th>
-                    <th>Email Permissions</th>
+                    <th>Unsubscribed On</th>
                     <th>Status</th>
                     <th>Action</th>
                   </tr>
@@ -120,20 +98,33 @@ $permSummary = static function ($user) {
                   <?php
 				  if($users){
 					  foreach($users as $record){
+						  $when = strtotime((string) $record->u_unsubscribed_at);
 						  ?>
 						  <tr>
 							<td><?php echo (int) $record->u_id;?></td>
 							<td><?php echo esc(trim($record->u_fname . ' ' . $record->u_lname));?></td>
 							<td><?php echo esc($record->u_email);?></td>
 							<td><?php echo esc($typeLabel($record));?></td>
-							<td><?php echo $permSummary($record);?></td>
+							<td><?php echo $when ? esc(date('d M Y, H:i', $when)) : '-';?></td>
 							<td><?php echo $status[$record->u_status] ?? '-';?></td>
 							<td>
-							<a href="<?php echo base_url('sadmin/' . $pageinfo['link'] . '/permissions/' . (int) $record->u_id);?>" class="btn btn-primary"><i class="fas fa-envelope-open-text"></i> Email Permissions</a>
+							  <?php /* A post, not a link: this changes something, and a link that
+							           changes something is one a crawler in the admin panel can follow. */ ?>
+							  <form action="" method="post" class="d-inline"
+							        onsubmit="return confirm('Send e-mails to this account again? They asked to stop.');">
+								<input type="hidden" name="u_id" value="<?php echo (int) $record->u_id;?>">
+								<button type="submit" name="resubscribe" value="1" class="btn btn-warning">
+								  <i class="fas fa-undo"></i> Re-subscribe
+								</button>
+							  </form>
 							</td>
 						  </tr>
 						  <?php
 					  }
+				  } else {
+					  ?>
+					  <tr><td colspan="7" class="text-center text-muted">Nobody has unsubscribed.</td></tr>
+					  <?php
 				  }
 				  ?>
                   </tbody>
@@ -143,12 +134,15 @@ $permSummary = static function ($user) {
                     <th>Name</th>
                     <th>Email</th>
                     <th>User Type</th>
-                    <th>Email Permissions</th>
+                    <th>Unsubscribed On</th>
                     <th>Status</th>
                     <th>Action</th>
                   </tr>
                   </tfoot>
                 </table>
+
+                <?php } ?>
+
               </div>
               <!-- /.card-body -->
             </div>

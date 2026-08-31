@@ -10,11 +10,20 @@
 $wz_today = date('Y-m-d');
 $wz_recent_cutoff = date('Y-m-d', strtotime('-14 days'));
 
-// Shift types present in the list, for the dropdown.
+// The "Shift Requested For" types worth offering: those the back office has
+// active AND that at least one shift on this page is posted for. Names and the
+// active flag come from the `shift_for` list, so a type the admin renames or
+// retires follows along; the shifts decide which of them appear, so the filter
+// never offers a choice that would empty the list.
+$wz_used = [];
+foreach ($jobs ?: [] as $wz_job) {
+    $wz_used[(int) $wz_job->p_shift_for] = true;
+}
+
 $wz_types = [];
-foreach ($jobs as $wz_job) {
-    $wz_name = getShiftForName($wz_job->p_shift_for);
-    if ($wz_name !== '') {
+foreach (($shift_for ?: []) as $wz_row) {
+    $wz_name = trim((string) $wz_row->sf_name);
+    if ($wz_name !== '' && isset($wz_used[(int) $wz_row->sf_id])) {
         $wz_types[$wz_name] = $wz_name;
     }
 }

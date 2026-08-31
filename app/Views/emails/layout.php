@@ -50,7 +50,25 @@ $supportTo = $settings[0]->s_email ?? 'info@reliefshifts.com';
 
         <div class="footer" style="background: #f1f1f4; padding: 16px 20px; text-align: center; font-size: 13px; color: #666;">
             <p style="margin: 0 0 6px;">&copy; <?= date('Y') ?> <?= esc($site) ?>. All rights reserved.</p>
-            <p style="margin: 0;"><a href="<?= base_url('terms') ?>" style="color: #7c3aed;">Terms &amp; Conditions</a></p>
+            <p style="margin: 0 0 10px;"><a href="<?= base_url('terms') ?>" style="color: #7c3aed;">Terms &amp; Conditions</a></p>
+
+            <?php /*
+                Left here as a marked block with a placeholder, and finished by
+                `apply_unsubscribe_link()` when the message is sent. The layout
+                cannot write the address itself: a body is rendered once, and
+                the shift-posted e-mail sends that same body to a store's owner
+                and its manager, whose links differ. Sending strips the block
+                whole for the messages that are not to an account - the contact
+                form, the agency's copy, the CLI test - so no message ever
+                carries a dead Unsubscribe.
+
+                Being in the layout is the point: an e-mail template added later
+                inherits the link without anybody remembering to add it.
+            */ ?>
+            <!--[unsubscribe]-->
+            <p style="margin: 0; font-size: 12px; color: #888;">You are receiving this because you have an account on <?= esc($site) ?>.<br>
+                <a href="{{unsubscribe_url}}" style="color: #7c3aed;">Unsubscribe from these e-mails</a></p>
+            <!--[/unsubscribe]-->
         </div>
     </div>
 </body>

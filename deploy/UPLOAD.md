@@ -22,12 +22,12 @@ copied either — `vendor/` is rebuilt with `composer install --no-dev`.
 Fill in the blanks in the generated `.env`. The build cannot do it, because real
 credentials must never live in the repository.
 
-| Setting | Where it comes from |
-|---|---|
-| `database.default.*` | cPanel → MySQL Databases |
+| Setting                             | Where it comes from                        |
+| ----------------------------------- | ------------------------------------------ |
+| `database.default.*`                | cPanel → MySQL Databases                   |
 | `email.SMTPUser` / `email.SMTPPass` | Mailgun → Sending → Domain settings → SMTP |
 
-`reliefshifts.com` already publishes SPF (`include:mailgun.org`), DKIM (`k1`) and
+`pickashift.ca` already publishes SPF (`include:mailgun.org`), DKIM (`k1`) and
 DMARC (`p=quarantine`), so mail sent through Mailgun authenticates. Mail sent any
 other way — including PHP `mail()` — does not, and gets quarantined. That is why
 `email.protocol` is `smtp` and must stay that way.
@@ -41,15 +41,15 @@ nowhere else. On a split deploy that file is
 `index.php`. Edit it in cPanel's File Manager, save, and the next page load uses
 it: nothing to restart, no cache to clear.
 
-| Line in `.env` | What it changes |
-|---|---|
-| `email.SMTPHost` | the server the mail is sent *through* |
-| `email.SMTPUser` / `email.SMTPPass` | the credentials for it |
-| `email.SMTPPort` / `email.SMTPCrypto` | `587` pairs with `tls`, `465` pairs with `ssl` |
-| `email.protocol` | leave it `smtp` — see the DKIM note above |
-| `appsettings.mailFromEmail` | the address the mail is **from** |
-| `appsettings.mailFromName` | the name beside it |
-| `appsettings.shiftEmailFallback` | where a shift e-mail goes when the ticked side cannot be reached |
+| Line in `.env`                        | What it changes                                                  |
+| ------------------------------------- | ---------------------------------------------------------------- |
+| `email.SMTPHost`                      | the server the mail is sent _through_                            |
+| `email.SMTPUser` / `email.SMTPPass`   | the credentials for it                                           |
+| `email.SMTPPort` / `email.SMTPCrypto` | `587` pairs with `tls`, `465` pairs with `ssl`                   |
+| `email.protocol`                      | leave it `smtp` — see the DKIM note above                        |
+| `appsettings.mailFromEmail`           | the address the mail is **from**                                 |
+| `appsettings.mailFromName`            | the name beside it                                               |
+| `appsettings.shiftEmailFallback`      | where a shift e-mail goes when the ticked side cannot be reached |
 
 The sender is `appsettings.` and not `email.`, which is worth knowing before you
 spend an afternoon on it. Every send site in the application calls `setFrom()`
@@ -66,7 +66,7 @@ php spark email:test you@gmail.com      # run from pickashift_app/, needs SSH
 
 Without SSH, the back office's bulk e-mail screen sends through the same
 configuration. When sending fails, `writable/logs/` names the reason — a wrong
-password reads as *"Failed to authenticate password"*, a wrong host as a
+password reads as _"Failed to authenticate password"_, a wrong host as a
 connection timeout.
 
 ---
@@ -79,7 +79,7 @@ connection timeout.
 4. Set permissions: `writable/` and `uploads/` need to be writable by the web
    server (`755`, or `775` on some hosts).
 5. Run the database migrations (see below).
-6. Visit `https://reliefshifts.com/staging/`.
+6. Visit `https://pickashift.ca/staging/`.
 
 Three things the staging bundle does differently, all of them deliberate:
 
@@ -130,7 +130,7 @@ mysqldump -u USER -p pickashift --ignore-table=pickashift.visit_log | mysql -u U
 
 The live site is the **pickashift.ca** folder in cPanel's file manager
 (`/home/m50dt2r0daoy/pickashift.ca`), which is that domain's document root — not
-`public_html/`, which is `reliefshifts.com`. Uploading into the wrong one of the
+`public_html/`, which is `pickashift.ca`. Uploading into the wrong one of the
 two is the mistake to watch for: nothing errors, the files simply appear under a
 domain nobody was told to visit.
 
@@ -143,7 +143,7 @@ Once staging is approved:
    `deploy/build/production/private/pickashift_app/.env` in a split build, and
    `deploy/build/production/.env` in a flat one. `cron.key` is already
    generated; note the value the build prints, the cron entry needs it.
-3. **Back up first** — database export *and* a copy of the current files.
+3. **Back up first** — database export _and_ a copy of the current files.
 4. Upload: `pickashift-site.zip` into `/pickashift.ca/` and
    `pickashift-private.zip` into the home directory, extracting each in place.
 5. Set `pickashift.ca/uploads/` and `pickashift_app/writable/` to 755 (775 on
@@ -163,7 +163,7 @@ check the padlock before announcing it: with `forceGlobalSecureRequests` on and
 HSTS being sent, a browser that meets the site once over a broken certificate
 remembers the refusal for a year.
 
-Run cPanel → **SSL/TLS Status** → *Run AutoSSL* for pickashift.ca first, and
+Run cPanel → **SSL/TLS Status** → _Run AutoSSL_ for pickashift.ca first, and
 confirm the certificate covers **both** `pickashift.ca` and `www.pickashift.ca`.
 The `.htaccess` sends www to the bare domain, and that redirect is itself served
 over https.
@@ -178,12 +178,12 @@ makes a second, better layout possible, and `--split` builds it:
 php deploy/build.php production --split --zip
 ```
 
-|  | Flat (default) | Split (`--split`, recommended) |
-|---|---|---|
-| Document root holds | `index.php` `.htaccess` `robots.txt` `assets/` `uploads/` **and** `app/` `vendor/` `writable/` `.env` | `index.php` `.htaccess` `robots.txt` `assets/` `uploads/` |
-| Beside it, `pickashift_app/` | — | `app/` `vendor/` `writable/` `.env` `spark` |
-| What keeps `app/` and `.env` private | the rules in `.htaccess` | nothing has to — they have no URL |
-| Upload | one zip | two zips, two places |
+|                                      | Flat (default)                                                                                        | Split (`--split`, recommended)                            |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| Document root holds                  | `index.php` `.htaccess` `robots.txt` `assets/` `uploads/` **and** `app/` `vendor/` `writable/` `.env` | `index.php` `.htaccess` `robots.txt` `assets/` `uploads/` |
+| Beside it, `pickashift_app/`         | —                                                                                                     | `app/` `vendor/` `writable/` `.env` `spark`               |
+| What keeps `app/` and `.env` private | the rules in `.htaccess`                                                                              | nothing has to — they have no URL                         |
+| Upload                               | one zip                                                                                               | two zips, two places                                      |
 
 Both are safe **today**: the `.htaccess` rules are real and the test suite checks
 them. The difference is what happens the day they stop being honoured — an
@@ -242,7 +242,7 @@ somewhere to write. On an existing site they already hold real data:
   it destroys them, and nothing else has a copy.
 - **`writable/`** holds live sessions. Replacing it signs everyone out.
 
-Upload *around* them, or exclude both from the transfer after the first deploy.
+Upload _around_ them, or exclude both from the transfer after the first deploy.
 
 ---
 
@@ -274,12 +274,12 @@ forgotten. **The two filters are one feature** — `csrf` without `csrftoken`
 locks every form on the site, and the build refuses to produce a bundle that
 has one and not the other.
 
-*Check it:* view source on the sign-in page. There is a
+_Check it:_ view source on the sign-in page. There is a
 `<input type="hidden" name="csrf_token" ...>` immediately after the `<form>`
 tag. Then sign in, edit a store, change a dropdown that loads cities — all
 three still work.
 
-*If a form starts failing:* the symptom is being bounced back to the same page
+_If a form starts failing:_ the symptom is being bounced back to the same page
 with nothing saved, and `writable/logs/` naming `SecurityException`. The usual
 cause is a page left open past the session expiry — reload and resubmit.
 
@@ -295,7 +295,7 @@ actually are (an image has to load as an image), and the stored name is built
 from scratch — `time()_<random>_<cleaned name>.<checked extension>` — rather
 than from what the browser sent, which could contain `../`.
 
-*Check it:* put a text file called `test.php` into `uploads/` with the file
+_Check it:_ put a text file called `test.php` into `uploads/` with the file
 manager and open `https://pickashift.ca/uploads/test.php`. It must give **403**,
 not a blank page and not the file. Delete it afterwards.
 
@@ -305,7 +305,7 @@ The root `.htaccess` refuses the folder, and the bundle drops a second
 `.htaccess` inside it. It holds live sessions — a readable session file is a
 signed-in account.
 
-*Check it:* `https://pickashift.ca/writable/logs/` → 403.
+_Check it:_ `https://pickashift.ca/writable/logs/` → 403.
 
 ### 4. The session cookie is https-only, and the id changes at sign-in
 
@@ -314,7 +314,7 @@ production `.env`. Both sign-in paths now call `sess_regenerate(true)` the
 moment the password is accepted, so the signed-in session never keeps the id
 the browser arrived with.
 
-*Check it:* sign in, then in devtools → Application → Cookies, `ci_session`
+_Check it:_ sign in, then in devtools → Application → Cookies, `ci_session`
 shows Secure ✓ and HttpOnly ✓.
 
 ### 5. Eight wrong passwords locks the account for fifteen minutes
@@ -328,7 +328,7 @@ clears it; the lock lifts by itself.
 Both numbers are in `app/Config/AppSettings.php` (`loginMaxAttempts`,
 `loginLockoutMinutes`); either set to 0 switches it off.
 
-*If a real user is locked out:* wait it out, or clear
+_If a real user is locked out:_ wait it out, or clear
 `u_login_attempt` for that row in phpMyAdmin.
 
 ### 6. Security headers on every response
@@ -340,7 +340,7 @@ the `secureheaders` filter so they cover the pages on a host where
 `mod_headers` is missing. `X-Powered-By` is unset — it announces the exact PHP
 version.
 
-*Check it:* `curl -sI https://pickashift.ca/ | grep -i strict` returns a line.
+_Check it:_ `curl -sI https://pickashift.ca/ | grep -i strict` returns a line.
 
 ### 7. The cron URLs take a key
 
@@ -368,7 +368,7 @@ admin screens and the two portals.
 
 The attack this closes is not against the person who types it. It is: register
 with `<script>…</script>` as your first name, wait for an administrator to open
-Manage Employers, and the script runs inside *their* session, which can approve
+Manage Employers, and the script runs inside _their_ session, which can approve
 accounts and read every booking. Nothing before this release stopped that.
 
 **What is deliberately not escaped** is the rich text — a shift's description,
@@ -376,7 +376,7 @@ a testimonial, the resource pages. Those are written in the back office and are
 meant to contain markup; escaping them would print the tags on screen. Treat
 the editors that write them as trusted, because they are.
 
-*Check it:* register a test account with `<b>Bold</b>` as the first name and
+_Check it:_ register a test account with `<b>Bold</b>` as the first name and
 open it in Manage Employers. The list must show the tags as text, not a bold
 name. Delete the account afterwards.
 
@@ -398,7 +398,7 @@ at `u_status`, so somebody switched off kept working normally in the tab they
 had open — for up to the two hours a session lasts. Applies to administrators
 too.
 
-*Check it:* sign in as a test employer in one browser, deactivate that account
+_Check it:_ sign in as a test employer in one browser, deactivate that account
 in the back office from another, then click anything in the first. It must land
 on the login page saying the account is no longer active.
 
@@ -438,29 +438,29 @@ afterwards.
 
 **Two new tables**
 
-| Table | Columns | Holds |
-|---|---|---|
-| `additional_details` | `ad_id`, `ad_name`, `ad_status` | The Additional Details master, maintained at Main Master → Additional Details. `ad_status` defaults to 1, so a newly added entry is Active. |
-| `testimonial` | `t_id`, `t_title`, `t_description`, `t_status` | The Testimonials master, maintained in the back office and drawn by the home page carousel. Two text columns because a testimonial is a heading plus the quote. `t_status` defaults to 1, so a newly added one is Active. |
+| Table                | Columns                                        | Holds                                                                                                                                                                                                                     |
+| -------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `additional_details` | `ad_id`, `ad_name`, `ad_status`                | The Additional Details master, maintained at Main Master → Additional Details. `ad_status` defaults to 1, so a newly added entry is Active.                                                                               |
+| `testimonial`        | `t_id`, `t_title`, `t_description`, `t_status` | The Testimonials master, maintained in the back office and drawn by the home page carousel. Two text columns because a testimonial is a heading plus the quote. `t_status` defaults to 1, so a newly added one is Active. |
 
 **Four new columns**, all `VARCHAR(255) NULL`, all holding a comma-separated
 list of ids in the same shape as the existing `p_skills` / `p_services`
 
-| Column | Points at | Meaning |
-|---|---|---|
-| `post_job.p_additional_details` | `additional_details.ad_id` | Which additional details this shift offers |
-| `store.s_skills` | `software_skills.ss_id` | The store's default software, copied onto a new shift |
-| `store.s_services` | `store_service.st_id` | The store's default details |
-| `store.s_additional_details` | `additional_details.ad_id` | The store's default additional details |
+| Column                          | Points at                  | Meaning                                               |
+| ------------------------------- | -------------------------- | ----------------------------------------------------- |
+| `post_job.p_additional_details` | `additional_details.ad_id` | Which additional details this shift offers            |
+| `store.s_skills`                | `software_skills.ss_id`    | The store's default software, copied onto a new shift |
+| `store.s_services`              | `store_service.st_id`      | The store's default details                           |
+| `store.s_additional_details`    | `additional_details.ad_id` | The store's default additional details                |
 
 **One more new column**, which is not a list of ids like the four above
 
-| Column | Holds |
-|---|---|
+| Column                | Holds                                                                                                                                                         |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `post_job.p_email_to` | `VARCHAR(32) NOT NULL DEFAULT ''` — who the "your shift is live" e-mail goes to, as the words `owner`, `manager`, both, or neither. Ticked on the shift form. |
 
-Empty is a real answer there and means *send it to the fallback address*, not
-*send nothing* — so the migration sets every shift that already exists to
+Empty is a real answer there and means _send it to the fallback address_, not
+_send nothing_ — so the migration sets every shift that already exists to
 `owner`, which is exactly who it mailed before the column existed. Deploying
 therefore changes nothing about a shift already on the site.
 
@@ -470,10 +470,10 @@ therefore changes nothing about a shift already on the site.
 **Owner**. The dropdowns are drawn from `Config\AppSettings` and post the
 number the database stores, rather than a word:
 
-| Code | Kind | `users.u_emp_role` |
-|---|---|---|
-| 1 | Owner | 1 |
-| 2 | Manager | 2 |
+| Code | Kind    | `users.u_emp_role` |
+| ---- | ------- | ------------------ |
+| 1    | Owner   | 1                  |
+| 2    | Manager | 2                  |
 
 No migration is needed for it. Those are the numbers `u_emp_role` already
 held — the third kind was role 2 with no group, and no account on live is one
@@ -494,7 +494,7 @@ One thing to be aware of if the host runs MySQL in **strict mode**:
 `sj_applied_desc`, `sj_resubmit_comments` and `sj_rejected_comments` are
 `NOT NULL` with no default, so an insert that leaves them out is refused. The
 booking fills all three in, so it is safe either way — but if you ever see
-*"Field 'sj_applied_desc' doesn't have a default value"* in `writable/logs/`, it
+_"Field 'sj_applied_desc' doesn't have a default value"_ in `writable/logs/`, it
 came from one of the older paths (saving a shift from the front end, or an
 employer shortlisting somebody), not from this one.
 
@@ -542,7 +542,7 @@ existed. Two consequences worth knowing before you run it:
 - Every employer becomes eligible to hold more than one store, and appears
   under **Owners** in the User Type filters.
 - The **Corporate Group** dropdown on registration lists all of them, because a
-  corporate group *is* a multi-store owner. It listed only a handful before.
+  corporate group _is_ a multi-store owner. It listed only a handful before.
 
 It does not reverse: the column does not record what a row held beforehand, so
 `down()` deliberately does nothing.
@@ -561,15 +561,15 @@ It touches **blank columns only**, and only from the store the account is
 already attached to, so a Manager whose details were corrected by hand keeps
 them and one with no store is left alone. Like the above it does not reverse.
 
-### What does *not* travel with the migrations
+### What does _not_ travel with the migrations
 
 Migrations carry schema and the one role change — **not content you typed in
 locally**. After deploying you have to enter these on the live site by hand:
 
-| What | Where | Note |
-|---|---|---|
-| Additional Details entries | Main Master → Additional Details | The table arrives empty. Until you add entries, that tick-box group is an empty box on the shift and store forms — harmless, but it looks broken. |
-| Testimonials | The Testimonials screen in the back office | The table arrives empty, so the home page carousel has nothing to show. Add a few before anyone looks at the live front page. |
+| What                        | Where                                                                                     | Note                                                                                                                                                                            |
+| --------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Additional Details entries  | Main Master → Additional Details                                                          | The table arrives empty. Until you add entries, that tick-box group is an empty box on the shift and store forms — harmless, but it looks broken.                               |
+| Testimonials                | The Testimonials screen in the back office                                                | The table arrives empty, so the home page carousel has nothing to show. Add a few before anyone looks at the live front page.                                                   |
 | Each store's shift defaults | Manage Employers → Stores → Edit → Shift defaults, or the employer's own My Stores → Edit | Blank on every store, so a new shift starts empty exactly as it does today. Set them per store as you go — the employer can now do this themselves, which is usually who knows. |
 
 ---
@@ -591,7 +591,7 @@ cd /path/to/site && php spark migrate
 delete it:
 
 ```
-https://reliefshifts.com/staging/migrate.php?key=b7f4c1e93a2d6058
+https://pickashift.ca/staging/migrate.php?key=b7f4c1e93a2d6058
 ```
 
 It applies all seventeen over mysqli and writes the same rows into `migrations` that
@@ -602,31 +602,31 @@ changes nothing. It prints what it did, including counts: how many stores it
 built, how many shifts it pointed at one, and anything it had to leave alone.
 
 This is now clearly the right route without SSH. Six of the seventeen are no longer
-a column you could reasonably type by hand: `AddStoreTable` creates a table *and*
+a column you could reasonably type by hand: `AddStoreTable` creates a table _and_
 runs two data statements, and two more repair data rather than change the schema.
 
 ### What each one costs you if it is skipped
 
-| Migration | Skipping it means |
-|---|---|
-| `AddShiftDateColumn` | Every page 500s — the front page orders by `p_date_start`. |
-| `AddAgencyCopyEmailSetting` | The admin Settings page breaks; the form posts a column that does not exist. |
-| `AddShiftReminderSentAt` | `shifts:remind` errors, and with nowhere to record that it ran it would re-mail the same people nightly. |
-| `AddStoreTable` | The loudest of all. Manage Stores, the employer's own store screens and the shift form all query `store`, so all of them 500 and **no shift can be posted at all**. |
-| `AddUserParentId` | The employer type selector cannot save a Manager — a Manager is a role plus a pharmacy group, and the group has nowhere to go. |
-| `ClarifyEmpRoleComment` | Nothing visible. It rewords a column comment. |
-| `BackfillBlankUserLoginId` | Accounts an administrator created still cannot sign in. The complaint arrives as "it says my password is wrong". |
-| `AddLocationAndWebsiteFields` | Saving any store, or any employer, fails on an unknown column — both forms now post a web address. |
-| `AddUserStoreId` | Registering as a Manager fails on an unknown column, and any Manager already created is left unable to see a store or post a shift. It also points existing Managers at the store they already owned, so skipping it strands them. |
-| `AddAdditionalDetailsTable` | Creates the `additional_details` master. Without it the new Additional Details screen 500s, and so do **the add-shift form and both store forms** — all three read the table to draw their tick boxes. |
-| `AddJobAdditionalDetails` | Saving a shift fails on an unknown column: the shift form posts `p_additional_details`. |
-| `AddStoreShiftDefaults` | Saving a store fails on three unknown columns, and the shift form's "fill from the store" call returns nothing. |
-| `MakeEmployersMultiStore` | Nothing breaks, but every employer that registered before the kinds existed stays kind-less: absent from every User Type filter, and refused a second store. Data only — no schema change. |
-| `AddUserEmailBlocked` | Manage Email 500s on an unknown column — and so does **every guarded send site**: registration, activation, posting a shift, both halves of a booking and the nightly reminder all read `u_email_blocked`. Unlike the other columns this one is on the *sending* path, so skipping it stops mail rather than breaking one screen. |
-| `BackfillManagerStoreSnapshot` | Nothing breaks, but any Manager added from the back office before this release stays nameless: a blank row on the employer list, a blank entry in the employer dropdown on both shift forms, and no address in their booking e-mails. Data only — no schema change. |
-| `AddShiftEmailRecipients` | Saving a shift from the back office fails on an unknown column — both shift forms post `p_email_to`. Add Shift and Edit Shift are the whole of the back office's shift handling, so skipping this one stops the administrator posting shifts at all. |
-| `AddTestimonialTable` | Creates the `testimonial` master. Without it the new Testimonials screen in the back office 500s, and so does **the public home page**, which reads the table to draw its carousel. That second one is the whole site, not one screen — check it first if the front page is blank after deploying. |
-| `AddUserAgreementDone` | Saving from any of the four back-office user forms — applicant add/edit, employer add/edit — fails on an unknown column: all four post `u_agreement_done` for the Agreement Done tick box. Those four are how the office creates and corrects accounts, so skipping it stops both. |
+| Migration                      | Skipping it means                                                                                                                                                                                                                                                                                                                 |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AddShiftDateColumn`           | Every page 500s — the front page orders by `p_date_start`.                                                                                                                                                                                                                                                                        |
+| `AddAgencyCopyEmailSetting`    | The admin Settings page breaks; the form posts a column that does not exist.                                                                                                                                                                                                                                                      |
+| `AddShiftReminderSentAt`       | `shifts:remind` errors, and with nowhere to record that it ran it would re-mail the same people nightly.                                                                                                                                                                                                                          |
+| `AddStoreTable`                | The loudest of all. Manage Stores, the employer's own store screens and the shift form all query `store`, so all of them 500 and **no shift can be posted at all**.                                                                                                                                                               |
+| `AddUserParentId`              | The employer type selector cannot save a Manager — a Manager is a role plus a pharmacy group, and the group has nowhere to go.                                                                                                                                                                                                    |
+| `ClarifyEmpRoleComment`        | Nothing visible. It rewords a column comment.                                                                                                                                                                                                                                                                                     |
+| `BackfillBlankUserLoginId`     | Accounts an administrator created still cannot sign in. The complaint arrives as "it says my password is wrong".                                                                                                                                                                                                                  |
+| `AddLocationAndWebsiteFields`  | Saving any store, or any employer, fails on an unknown column — both forms now post a web address.                                                                                                                                                                                                                                |
+| `AddUserStoreId`               | Registering as a Manager fails on an unknown column, and any Manager already created is left unable to see a store or post a shift. It also points existing Managers at the store they already owned, so skipping it strands them.                                                                                                |
+| `AddAdditionalDetailsTable`    | Creates the `additional_details` master. Without it the new Additional Details screen 500s, and so do **the add-shift form and both store forms** — all three read the table to draw their tick boxes.                                                                                                                            |
+| `AddJobAdditionalDetails`      | Saving a shift fails on an unknown column: the shift form posts `p_additional_details`.                                                                                                                                                                                                                                           |
+| `AddStoreShiftDefaults`        | Saving a store fails on three unknown columns, and the shift form's "fill from the store" call returns nothing.                                                                                                                                                                                                                   |
+| `MakeEmployersMultiStore`      | Nothing breaks, but every employer that registered before the kinds existed stays kind-less: absent from every User Type filter, and refused a second store. Data only — no schema change.                                                                                                                                        |
+| `AddUserEmailBlocked`          | Manage Email 500s on an unknown column — and so does **every guarded send site**: registration, activation, posting a shift, both halves of a booking and the nightly reminder all read `u_email_blocked`. Unlike the other columns this one is on the _sending_ path, so skipping it stops mail rather than breaking one screen. |
+| `BackfillManagerStoreSnapshot` | Nothing breaks, but any Manager added from the back office before this release stays nameless: a blank row on the employer list, a blank entry in the employer dropdown on both shift forms, and no address in their booking e-mails. Data only — no schema change.                                                               |
+| `AddShiftEmailRecipients`      | Saving a shift from the back office fails on an unknown column — both shift forms post `p_email_to`. Add Shift and Edit Shift are the whole of the back office's shift handling, so skipping this one stops the administrator posting shifts at all.                                                                              |
+| `AddTestimonialTable`          | Creates the `testimonial` master. Without it the new Testimonials screen in the back office 500s, and so does **the public home page**, which reads the table to draw its carousel. That second one is the whole site, not one screen — check it first if the front page is blank after deploying.                                |
+| `AddUserAgreementDone`         | Saving from any of the four back-office user forms — applicant add/edit, employer add/edit — fails on an unknown column: all four post `u_agreement_done` for the Agreement Done tick box. Those four are how the office creates and corrects accounts, so skipping it stops both.                                                |
 
 ### Checking which have run
 
@@ -671,7 +671,7 @@ missing `users.u_agreement_done`. Run the 08-20 file whether or not either
 earlier one was run; it is the 08-19 file with one guarded section added.
 
 Both replace `release-2026-08-18.sql`, which carried only two of the five and
-left `users.u_email_blocked` out — the one column on the *sending* path, so a
+left `users.u_email_blocked` out — the one column on the _sending_ path, so a
 database updated with that file alone stops mailing rather than breaking a
 screen.
 
@@ -681,9 +681,9 @@ screen.
 
 Two jobs need a daily cron. Both are safe to run more than once a day.
 
-| Job | With SSH | Without SSH |
-|---|---|---|
-| Mark passed shifts Inactive | `php spark jobs:expire` | `GET /cron/expire_jobs` |
+| Job                               | With SSH                  | Without SSH               |
+| --------------------------------- | ------------------------- | ------------------------- |
+| Mark passed shifts Inactive       | `php spark jobs:expire`   | `GET /cron/expire_jobs`   |
 | Remind applicants booked tomorrow | `php spark shifts:remind` | `GET /cron/remind_shifts` |
 
 Run the reminder in the **morning** — it e-mails people about tomorrow, so a
@@ -700,11 +700,11 @@ that matters, block them by IP in `.htaccess` and use the SSH form.
 These are **not** cron jobs — putting `shifts:backfill-dates --write` on a
 schedule would be actively wrong. Each is run once, by you, when it is called for.
 
-| Command | When |
-|---|---|
-| `php spark shifts:backfill-dates` | After migrating, if any shift shows no date |
-| `php spark email:preview <template> <shiftId>` | To read an e-mail without sending one |
-| `php spark email:test you@gmail.com` | After filling in SMTP credentials |
+| Command                                        | When                                        |
+| ---------------------------------------------- | ------------------------------------------- |
+| `php spark shifts:backfill-dates`              | After migrating, if any shift shows no date |
+| `php spark email:preview <template> <shiftId>` | To read an e-mail without sending one       |
+| `php spark email:test you@gmail.com`           | After filling in SMTP credentials           |
 
 `shifts:backfill-dates` finishes what `AddShiftDateColumn` starts. The migration
 reads the `dd-mm-yyyy` text the date picker writes; a handful of older shifts
@@ -779,8 +779,8 @@ New in this release:
   status, delete it. A new entry must land **Active**, not Deactive.
 - Admin → Stores → Edit: the **Shift defaults** block shows Software, Details
   and Additional Details. Tick some and press Update Store, then reopen — they
-  must come back ticked. *If Update appears to do nothing, see the note below on
-  province and city.*
+  must come back ticked. _If Update appears to do nothing, see the note below on
+  province and city._
 - Post a shift: the form asks for **Employer (Group)** and **Store (Location)**
   and nothing else about who the shift is for. Pick the company on the left and
   the dropdown beside it holds only that company's stores. Choosing a store
@@ -795,7 +795,7 @@ New in this release:
   dropdown, type a message, save. The shift must land in the list reading
   **Closed**, Admin → Applications → Booked must show it, and two e-mails must
   go out — one to the applicant carrying your message, one to the employer. Then
-  post a second shift leaving that section on *"Nobody yet"*: it must behave
+  post a second shift leaving that section on _"Nobody yet"_: it must behave
   exactly as before, with the Shift Approval dropdown still deciding its status.
 - On staging, do that **only after `staging-scrub.sql` has run**. Booking sends
   both e-mails the instant you press Save — there is no confirmation step, and
@@ -824,11 +824,11 @@ New in this release:
   three: `popper.min.js` was requested from a path that does not exist,
   Bootstrap's tooltip throws without it, and the throw took out everything
   initialised after it. If they are dead again after this deploy, look in the
-  browser console for *"Bootstrap tooltips require Popper.js"* before anything
+  browser console for _"Bootstrap tooltips require Popper.js"_ before anything
   else, and check `assets/front/plugins/popper/umd/popper.min.js` arrived.
 - **Register a Manager** for a store that already has one: it must be refused
-  with *"This store already has a manager registered"*, and on the store
-  dropdown that branch reads *"- already has a manager"* and cannot be chosen.
+  with _"This store already has a manager registered"_, and on the store
+  dropdown that branch reads _"- already has a manager"_ and cannot be chosen.
   An account still waiting for approval holds its store, which is the point:
   two people cannot claim the same branch on the same afternoon and both be
   approved later. The back office is exempt — an administrator still needs to
@@ -899,9 +899,9 @@ to run for them:
 - **The employer's own store list names whoever manages each branch**, so an
   owner can see which of their stores has somebody on it. No schema.
 - **The back-office shift form asks who to tell.** Add Shift and Edit Shift now
-  carry **Send shift e-mail to** beside Shift Approval: *Owner*, *Manager*,
+  carry **Send shift e-mail to** beside Shift Approval: _Owner_, _Manager_,
   both, or neither. **This is the second item with a migration** — see
-  `post_job.p_email_to` above. Add a shift with only *Owner* ticked, reopen it,
+  `post_job.p_email_to` above. Add a shift with only _Owner_ ticked, reopen it,
   and the boxes must come back as you left them; untick both, save, reopen, and
   they must still be clear. A new shift opens with both ticked.
   - Sent when the shift **goes Live** — saved as Live, or approved later — so
@@ -916,13 +916,13 @@ to run for them:
     out on every booking.
 - **A shift page now tells three different readers three different amounts.**
   This is the change most worth checking by hand, because two of the three
-  tiers are about what must *not* be on the page:
+  tiers are about what must _not_ be on the page:
 
-  | Reader | Sees |
-  |---|---|
-  | Signed out | Role, **town**, date, time, Software, Details. Rate reads *To be disclosed*. |
-  | Signed in | The above **plus the hourly rate** (`CAD$ n/hour`) and the pharmacy's Additional details. |
-  | Booking confirmed | The above **plus the pharmacy**: store name, street address, Get directions, *Where to find it*, its website and its phone. |
+  | Reader            | Sees                                                                                                                        |
+  | ----------------- | --------------------------------------------------------------------------------------------------------------------------- |
+  | Signed out        | Role, **town**, date, time, Software, Details. Rate reads _To be disclosed_.                                                |
+  | Signed in         | The above **plus the hourly rate** (`CAD$ n/hour`) and the pharmacy's Additional details.                                   |
+  | Booking confirmed | The above **plus the pharmacy**: store name, street address, Get directions, _Where to find it_, its website and its phone. |
 
   Open a shift from Browse Shifts signed out, then signed in, then as somebody
   whose booking on that shift is approved. At the first two tiers the store
@@ -932,11 +932,12 @@ to run for them:
   is `p_ac_hourly_rate`, what the applicant is paid; `p_hourly_rate`, what the
   employer is billed, must never appear. A shift posted from the employer's own
   form has no applicant rate — that form asks for one number — so those keep
-  reading *To be disclosed* even signed in, which is correct, not a fault.
+  reading _To be disclosed_ even signed in, which is correct, not a fault.
   No schema.
+
 - **The shift page is laid out in cards**, like the rest of the front end, with
   the facts in a two-column grid rather than a column of large icon discs. The
-  sidebar is now a plain **Related shifts** list: it was rendering *empty* on
+  sidebar is now a plain **Related shifts** list: it was rendering _empty_ on
   live, because nothing initialises owl carousel any more and its stylesheet
   keeps an uninitialised carousel hidden. It also lists at most six other
   shifts and no longer offers the shift you are reading as related to itself.
@@ -983,7 +984,7 @@ of it:
   specifically; a single-store employer looks the same either way.
 - **The support number sits under the side menu, on all three kinds of account.**
   Sign in as an owner, as one of their managers and as a pharmacist: under
-  Logout each must show *Need help? +1 (905) 304-7303*, and clicking it must
+  Logout each must show _Need help? +1 (905) 304-7303_, and clicking it must
   open WhatsApp with a country code in front of the digits
   (`web.whatsapp.com/send?phone=1905...`) - without it the chat opens on nobody.
   Check it on a phone too: it sits outside the collapsing menu, so it is there

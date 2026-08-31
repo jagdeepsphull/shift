@@ -90,7 +90,7 @@ Objection: You may object to the processing of your personal information for cer
 7. Contact Us 
 If you have any questions or concerns about this Privacy Policy or our data practices, please contact us at: 
 Pick-A-Shift 
-Email: Info@reliefshifts.com 
+Email: team@pickashift.ca 
 Phone: 905-304-7303 
 
 			</div>

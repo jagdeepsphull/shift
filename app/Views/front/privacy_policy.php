@@ -54,7 +54,7 @@
         <h3>7. Contact Us</h3>
         <p>If you have any questions or concerns about this Privacy Policy or our data practices, please contact us at:</p>
         <p><strong>Pick-A-Shift</strong><br>
-            Email: <a href="mailto:info@reliefshifts.com">info@reliefshifts.com</a><br>
+            Email: <a href="mailto:team@pickashift.ca">team@pickashift.ca</a><br>
             Phone: 905-304-7303
         </p>
 			</div>

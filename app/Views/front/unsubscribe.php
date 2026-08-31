@@ -29,8 +29,8 @@ $account = $account ?? '';
                     <p class="mb-4">We could not match this unsubscribe link to an account. It may have been
                         cut short by your e-mail program when the message was forwarded.</p>
                     <p class="mb-0">Write to us and we will take you off the list by hand:
-                        <a href="mailto:<?= esc($settings[0]->s_email ?? 'info@reliefshifts.com') ?>" class="theme-cl">
-                            <?= esc($settings[0]->s_email ?? 'info@reliefshifts.com') ?></a>
+                        <a href="mailto:<?= esc($settings[0]->s_email ?? 'team@pickashift.ca') ?>" class="theme-cl">
+                            <?= esc($settings[0]->s_email ?? 'team@pickashift.ca') ?></a>
                     </p>
 
                 <?php } elseif ($state === 'confirm') { ?>

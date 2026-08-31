@@ -14,7 +14,7 @@ class App extends BaseConfig
      * Ported from CI3 `$config['base_url']`. Override per environment in `.env`
      * with `app.baseURL = 'http://localhost/pickashift/'`.
      */
-    public string $baseURL = 'https://reliefshifts.com/';
+    public string $baseURL = 'https://pickashift.ca/';
 
     /**
      * @var list<string>

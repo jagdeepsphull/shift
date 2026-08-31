@@ -1,7 +1,10 @@
 <title>PickAShift Mail</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap">
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap"
+/>
 
 <style>
   :root {
@@ -21,7 +24,8 @@
     --admin-soft: #fbeedb;
     --auto: #0d6d65;
     --auto-soft: #d8f1ed;
-    --shadow: 0 1px 2px rgba(28, 23, 38, .05), 0 8px 24px -16px rgba(28, 23, 38, .3);
+    --shadow:
+      0 1px 2px rgba(28, 23, 38, 0.05), 0 8px 24px -16px rgba(28, 23, 38, 0.3);
   }
 
   @media (prefers-color-scheme: dark) {
@@ -42,7 +46,7 @@
       --admin-soft: #33260f;
       --auto: #63e6d3;
       --auto-soft: #0e2e2b;
-      --shadow: 0 1px 2px rgba(0, 0, 0, .4);
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
     }
   }
 
@@ -63,10 +67,12 @@
     --admin-soft: #33260f;
     --auto: #63e6d3;
     --auto-soft: #0e2e2b;
-    --shadow: 0 1px 2px rgba(0, 0, 0, .4);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
   }
 
-  * { box-sizing: border-box; }
+  * {
+    box-sizing: border-box;
+  }
 
   body {
     background: var(--ground);
@@ -79,14 +85,23 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  .wrap { max-width: 58rem; margin: 0 auto; }
+  .wrap {
+    max-width: 58rem;
+    margin: 0 auto;
+  }
 
-  h1, h2, h3, h4 {
+  h1,
+  h2,
+  h3,
+  h4 {
     font-family: Archivo, "Helvetica Neue", Arial, sans-serif;
     text-wrap: balance;
   }
 
-  code, .mono { font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace; }
+  code,
+  .mono {
+    font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  }
 
   .masthead {
     display: flex;
@@ -101,7 +116,7 @@
     font-family: Archivo, sans-serif;
     font-size: 12px;
     font-weight: 600;
-    letter-spacing: .16em;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--accent);
     margin: 0;
@@ -110,7 +125,7 @@
   h1 {
     font-size: clamp(2.1rem, 6vw, 3.1rem);
     font-weight: 700;
-    letter-spacing: -.025em;
+    letter-spacing: -0.025em;
     line-height: 1.02;
     margin: 0;
   }
@@ -131,13 +146,16 @@
     margin: 0 0 56px;
   }
 
-  .strip div { background: var(--surface); padding: 14px 16px; }
+  .strip div {
+    background: var(--surface);
+    padding: 14px 16px;
+  }
 
   .strip dt {
     font-family: Archivo, sans-serif;
     font-size: 10.5px;
     font-weight: 600;
-    letter-spacing: .13em;
+    letter-spacing: 0.13em;
     text-transform: uppercase;
     color: var(--ink-3);
     margin: 0 0 4px;
@@ -151,12 +169,14 @@
     word-break: break-word;
   }
 
-  section { margin: 0 0 64px; }
+  section {
+    margin: 0 0 64px;
+  }
 
   h2 {
     font-size: 1.5rem;
     font-weight: 700;
-    letter-spacing: -.015em;
+    letter-spacing: -0.015em;
     margin: 0 0 6px;
   }
 
@@ -166,13 +186,24 @@
     margin: 0 0 26px;
   }
 
-  p { max-width: 65ch; }
+  p {
+    max-width: 65ch;
+  }
 
-  .table-scroll { overflow-x: auto; border: 1px solid var(--rule); background: var(--surface); }
+  .table-scroll {
+    overflow-x: auto;
+    border: 1px solid var(--rule);
+    background: var(--surface);
+  }
 
-  table { border-collapse: collapse; width: 100%; min-width: 40rem; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 40rem;
+  }
 
-  th, td {
+  th,
+  td {
     text-align: left;
     padding: 11px 16px;
     border-bottom: 1px solid var(--rule);
@@ -184,17 +215,25 @@
     font-family: Archivo, sans-serif;
     font-size: 10.5px;
     font-weight: 600;
-    letter-spacing: .13em;
+    letter-spacing: 0.13em;
     text-transform: uppercase;
     color: var(--ink-3);
     background: var(--surface-2);
     white-space: nowrap;
   }
 
-  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr:last-child td {
+    border-bottom: 0;
+  }
 
-  td a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--rule-strong); }
-  td a:hover { border-bottom-color: var(--accent); }
+  td a {
+    color: var(--accent);
+    text-decoration: none;
+    border-bottom: 1px solid var(--rule-strong);
+  }
+  td a:hover {
+    border-bottom-color: var(--accent);
+  }
 
   .mail {
     background: var(--surface);
@@ -216,7 +255,7 @@
   .mail-head h3 {
     font-size: 1.22rem;
     font-weight: 700;
-    letter-spacing: -.012em;
+    letter-spacing: -0.012em;
     margin: 0;
     flex: 1 1 14rem;
   }
@@ -225,19 +264,35 @@
     font-family: Archivo, sans-serif;
     font-size: 10px;
     font-weight: 600;
-    letter-spacing: .12em;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     padding: 4px 9px;
     border-radius: 2px;
     white-space: nowrap;
   }
 
-  .chip.visitor { color: var(--visitor); background: var(--visitor-soft); }
-  .chip.admin   { color: var(--admin);   background: var(--admin-soft); }
-  .chip.auto    { color: var(--auto);    background: var(--auto-soft); }
-  .chip.accent  { color: var(--accent);  background: var(--accent-soft); }
+  .chip.visitor {
+    color: var(--visitor);
+    background: var(--visitor-soft);
+  }
+  .chip.admin {
+    color: var(--admin);
+    background: var(--admin-soft);
+  }
+  .chip.auto {
+    color: var(--auto);
+    background: var(--auto-soft);
+  }
+  .chip.accent {
+    color: var(--accent);
+    background: var(--accent-soft);
+  }
 
-  .file { font-family: "IBM Plex Mono", monospace; font-size: 12.5px; color: var(--ink-3); }
+  .file {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12.5px;
+    color: var(--ink-3);
+  }
 
   .facts {
     display: grid;
@@ -250,7 +305,7 @@
     font-family: Archivo, sans-serif;
     font-size: 10.5px;
     font-weight: 600;
-    letter-spacing: .13em;
+    letter-spacing: 0.13em;
     text-transform: uppercase;
     color: var(--ink-3);
     padding: 12px 0 11px 22px;
@@ -264,22 +319,33 @@
     border-bottom: 1px solid var(--rule);
   }
 
-  .facts dd:last-of-type, .facts dt:last-of-type { border-bottom: 0; }
+  .facts dd:last-of-type,
+  .facts dt:last-of-type {
+    border-bottom: 0;
+  }
 
-  .facts code { font-size: 12.5px; }
+  .facts code {
+    font-size: 12.5px;
+  }
 
   code {
     background: var(--surface-2);
     border: 1px solid var(--rule);
     border-radius: 2px;
-    padding: .5px 4px;
+    padding: 0.5px 4px;
     font-size: 13px;
     word-break: break-word;
   }
 
-  .off { color: var(--ink-3); }
+  .off {
+    color: var(--ink-3);
+  }
 
-  .preview { margin: 22px; border: 1px solid var(--rule-strong); overflow: hidden; }
+  .preview {
+    margin: 22px;
+    border: 1px solid var(--rule-strong);
+    overflow: hidden;
+  }
 
   .preview-subject {
     background: var(--surface-2);
@@ -294,7 +360,7 @@
     font-family: Archivo, sans-serif;
     font-size: 10.5px;
     font-weight: 600;
-    letter-spacing: .13em;
+    letter-spacing: 0.13em;
     text-transform: uppercase;
     color: var(--ink-3);
     margin-right: 8px;
@@ -312,12 +378,26 @@
     font-weight: 600;
   }
 
-  .preview-body { padding: 18px 20px; background: var(--surface); }
-  .preview-body > :first-child { margin-top: 0; }
-  .preview-body > :last-child { margin-bottom: 0; }
-  .preview-body p { margin: 0 0 12px; }
-  .preview-body ul { margin: 0 0 12px; padding-left: 20px; }
-  .preview-body li { margin: 0 0 3px; }
+  .preview-body {
+    padding: 18px 20px;
+    background: var(--surface);
+  }
+  .preview-body > :first-child {
+    margin-top: 0;
+  }
+  .preview-body > :last-child {
+    margin-bottom: 0;
+  }
+  .preview-body p {
+    margin: 0 0 12px;
+  }
+  .preview-body ul {
+    margin: 0 0 12px;
+    padding-left: 20px;
+  }
+  .preview-body li {
+    margin: 0 0 3px;
+  }
 
   .preview-foot {
     border-top: 1px dashed var(--rule-strong);
@@ -327,8 +407,12 @@
     color: var(--ink-2);
   }
 
-  .preview-foot p { margin: 0 0 6px; }
-  .preview-foot p:last-child { margin: 0; }
+  .preview-foot p {
+    margin: 0 0 6px;
+  }
+  .preview-foot p:last-child {
+    margin: 0;
+  }
 
   .btn {
     display: inline-block;
@@ -341,15 +425,17 @@
     border-radius: 6px;
   }
 
-  .center { text-align: center; }
+  .center {
+    text-align: center;
+  }
 
   .v {
     font-family: "IBM Plex Mono", monospace;
-    font-size: .86em;
+    font-size: 0.86em;
     color: var(--accent);
     background: var(--accent-soft);
     border-radius: 2px;
-    padding: .5px 4px;
+    padding: 0.5px 4px;
     white-space: nowrap;
   }
 
@@ -357,7 +443,7 @@
     display: block;
     font-family: Archivo, sans-serif;
     font-size: 11px;
-    letter-spacing: .04em;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
     color: var(--ink-3);
     margin: 14px 0 6px;
@@ -371,7 +457,10 @@
     font-size: 14px;
   }
 
-  .aside p { margin: 0; max-width: none; }
+  .aside p {
+    margin: 0;
+    max-width: none;
+  }
 
   footer {
     border-top: 1px solid var(--rule);
@@ -380,24 +469,41 @@
     font-size: 13.5px;
   }
 
-  a { color: var(--accent); }
-  a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  a {
+    color: var(--accent);
+  }
+  a:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
 
   @media (max-width: 560px) {
-    .facts { grid-template-columns: 1fr; }
-    .facts dt { padding: 12px 18px 0; border-bottom: 0; }
-    .facts dd { padding: 2px 18px 12px; }
-    .preview, .aside { margin: 16px; }
+    .facts {
+      grid-template-columns: 1fr;
+    }
+    .facts dt {
+      padding: 12px 18px 0;
+      border-bottom: 0;
+    }
+    .facts dd {
+      padding: 2px 18px 12px;
+    }
+    .preview,
+    .aside {
+      margin: 16px;
+    }
   }
 </style>
 
 <div class="wrap">
-
   <header class="masthead">
     <p class="kicker">PickAShift &middot; app/Views/emails</p>
     <h1>Every message the site sends</h1>
-    <p class="standfirst">Ten templates and one free-typed broadcast. For each one: what sets it off, the
-    subject line that lands in the inbox, who is on it, and the words themselves.</p>
+    <p class="standfirst">
+      Ten templates and one free-typed broadcast. For each one: what sets it
+      off, the subject line that lands in the inbox, who is on it, and the words
+      themselves.
+    </p>
   </header>
 
   <dl class="strip">
@@ -421,16 +527,23 @@
 
   <section>
     <h2>How a message is put together</h2>
-    <p class="section-note">Every body is a template &mdash; none are built as HTML strings in a controller.
-    <code>email_body()</code> renders one and hands <code>$settings</code> in for you, so the site name and the
-    support address are always filled. Nine of the ten templates extend <code>emails/layout.php</code>, which
-    supplies the violet banner across the top and the two paragraphs at the bottom. Only
-    <code>contact.php</code> stands alone as a document of its own.</p>
+    <p class="section-note">
+      Every body is a template &mdash; none are built as HTML strings in a
+      controller. <code>email_body()</code> renders one and hands
+      <code>$settings</code> in for you, so the site name and the support
+      address are always filled. Nine of the ten templates extend
+      <code>emails/layout.php</code>, which supplies the violet banner across
+      the top and the two paragraphs at the bottom. Only
+      <code>contact.php</code> stands alone as a document of its own.
+    </p>
 
-    <p class="section-note">A plain-text alternative is generated from each body by stripping the tags, so
-    text-only clients get something readable and spam filters see a proper multipart message. A send that fails
-    is logged and stashed in session tempdata under <code>email_failures</code>, so the page that follows can
-    say so rather than pretending it went.</p>
+    <p class="section-note">
+      A plain-text alternative is generated from each body by stripping the
+      tags, so text-only clients get something readable and spam filters see a
+      proper multipart message. A send that fails is logged and stashed in
+      session tempdata under <code>email_failures</code>, so the page that
+      follows can say so rather than pretending it went.
+    </p>
 
     <div class="mail">
       <div class="mail-head">
@@ -442,12 +555,16 @@
         <div class="preview-banner"><span class="v">$title</span></div>
         <div class="preview-body">
           <p class="off">&hellip; the template's own content &hellip;</p>
-          <p>If you have any questions, our support team is at
-          <span class="v">settings.s_email</span>.</p>
+          <p>
+            If you have any questions, our support team is at
+            <span class="v">settings.s_email</span>.
+          </p>
         </div>
         <div class="preview-foot">
-          <p>&copy; <span class="v">current year</span> <span class="v">settings.s_sitename</span>. All rights
-          reserved.</p>
+          <p>
+            &copy; <span class="v">current year</span>
+            <span class="v">settings.s_sitename</span>. All rights reserved.
+          </p>
           <p>Terms &amp; Conditions</p>
         </div>
       </div>
@@ -456,8 +573,11 @@
 
   <section>
     <h2>The eleven messages</h2>
-    <p class="section-note">Ordered below by what triggers them: a visitor using the front site, an
-    administrator pressing something in the back office, the nightly job, or the command line.</p>
+    <p class="section-note">
+      Ordered below by what triggers them: a visitor using the front site, an
+      administrator pressing something in the back office, the nightly job, or
+      the command line.
+    </p>
 
     <div class="table-scroll">
       <table>
@@ -494,7 +614,9 @@
           </tr>
           <tr>
             <td><a href="#account-approved">account-approved</a></td>
-            <td>Your Account Has Been Approved &ndash; Welcome to <em>site</em>!</td>
+            <td>
+              Your Account Has Been Approved &ndash; Welcome to <em>site</em>!
+            </td>
             <td>The user</td>
             <td>Admin activates an account</td>
             <td>Type 2</td>
@@ -508,14 +630,19 @@
           </tr>
           <tr>
             <td><a href="#booking-applicant">booking-applicant</a></td>
-            <td>Congratulations! You Have Been Approved for Shift ID : <em>title</em></td>
+            <td>
+              Congratulations! You Have Been Approved for Shift ID :
+              <em>title</em>
+            </td>
             <td>The applicant, agency copied</td>
             <td>Admin books an applicant</td>
             <td>Type 4</td>
           </tr>
           <tr>
             <td><a href="#booking-employer">booking-employer</a></td>
-            <td>A New Applicant Has Been Approved for Shift ID : <em>title</em></td>
+            <td>
+              A New Applicant Has Been Approved for Shift ID : <em>title</em>
+            </td>
             <td>The employer, agency copied</td>
             <td>Admin books an applicant</td>
             <td>Type 5</td>
@@ -555,7 +682,9 @@
 
   <section>
     <h2>Set off by a visitor</h2>
-    <p class="section-note">The three anybody can trigger from the public side of the site.</p>
+    <p class="section-note">
+      The three anybody can trigger from the public side of the site.
+    </p>
 
     <article class="mail" id="welcome">
       <div class="mail-head">
@@ -565,26 +694,46 @@
       </div>
       <dl class="facts">
         <dt>Sent when</dt>
-        <dd>Somebody completes the registration form, before any admin has looked at the account.</dd>
+        <dd>
+          Somebody completes the registration form, before any admin has looked
+          at the account.
+        </dd>
         <dt>Code</dt>
         <dd><code>app/Controllers/Front.php:701</code></dd>
         <dt>To</dt>
         <dd>The address just registered with</dd>
         <dt>Opt-out</dt>
-        <dd>Type 1, &ldquo;Welcome (on registration)&rdquo; &mdash; guarded like the rest, though at
-        registration the block list is necessarily empty</dd>
+        <dd>
+          Type 1, &ldquo;Welcome (on registration)&rdquo; &mdash; guarded like
+          the rest, though at registration the block list is necessarily empty
+        </dd>
       </dl>
       <div class="preview">
-        <div class="preview-subject"><b>Subject</b>Welcome to <span class="v">site name</span>! Your Account is
-        Pending</div>
-        <div class="preview-banner">Welcome to <span class="v">site name</span>!</div>
+        <div class="preview-subject">
+          <b>Subject</b>Welcome to <span class="v">site name</span>! Your
+          Account is Pending
+        </div>
+        <div class="preview-banner">
+          Welcome to <span class="v">site name</span>!
+        </div>
         <div class="preview-body">
-          <p><strong>Hello, <span class="v">first last</span>!</strong></p>
-          <p>Thank you for registering with <span class="v">site name</span>. Your account is currently under
-          review and will be activated once it is approved.</p>
-          <p>As soon as that happens you will get a confirmation e-mail, and you will be able to sign in with
-          the credentials you chose during registration.</p>
-          <p>We appreciate your patience and look forward to having you as part of our community.</p>
+          <p>
+            <strong>Hello, <span class="v">first last</span>!</strong>
+          </p>
+          <p>
+            Thank you for registering with <span class="v">site name</span>.
+            Your account is currently under review and will be activated once it
+            is approved.
+          </p>
+          <p>
+            As soon as that happens you will get a confirmation e-mail, and you
+            will be able to sign in with the credentials you chose during
+            registration.
+          </p>
+          <p>
+            We appreciate your patience and look forward to having you as part
+            of our community.
+          </p>
         </div>
       </div>
     </article>
@@ -597,7 +746,10 @@
       </div>
       <dl class="facts">
         <dt>Sent when</dt>
-        <dd>The forgot-password form is submitted with an address that has an account.</dd>
+        <dd>
+          The forgot-password form is submitted with an address that has an
+          account.
+        </dd>
         <dt>Code</dt>
         <dd><code>app/Controllers/Front.php:141</code></dd>
         <dt>To</dt>
@@ -612,13 +764,22 @@
         <div class="preview-banner">Reset your password</div>
         <div class="preview-body">
           <p><strong>Reset your password</strong></p>
-          <p>We received a request to reset the password on your account. Use the button below to choose a new
-          one.</p>
+          <p>
+            We received a request to reset the password on your account. Use the
+            button below to choose a new one.
+          </p>
           <p class="center"><span class="btn">Choose a new password</span></p>
-          <p class="off">The link is valid for <span class="v">10</span> minutes. If the button does not work,
-          copy this address into your browser:<br><span class="v">reset link</span></p>
-          <p>If you did not ask for a password reset you can ignore this e-mail &mdash; your current password
-          stays as it is.</p>
+          <p class="off">
+            The link is valid for <span class="v">10</span> minutes. If the
+            button does not work, copy this address into your browser:<br /><span
+              class="v"
+              >reset link</span
+            >
+          </p>
+          <p>
+            If you did not ask for a password reset you can ignore this e-mail
+            &mdash; your current password stays as it is.
+          </p>
         </div>
       </div>
     </article>
@@ -635,10 +796,14 @@
         <dt>Code</dt>
         <dd><code>app/Controllers/Front.php:1106</code></dd>
         <dt>To</dt>
-        <dd><code>settings.s_email</code> &mdash; the site's own admin address</dd>
+        <dd>
+          <code>settings.s_email</code> &mdash; the site's own admin address
+        </dd>
         <dt>Layout</dt>
-        <dd>The only template that does <em>not</em> extend the shared wrapper. It is a whole document with its
-        own grey table.</dd>
+        <dd>
+          The only template that does <em>not</em> extend the shared wrapper. It
+          is a whole document with its own grey table.
+        </dd>
         <dt>Opt-out</dt>
         <dd class="off">None</dd>
       </dl>
@@ -646,14 +811,18 @@
         <div class="preview-subject"><b>Subject</b>New Contact Us Message</div>
         <div class="preview-body">
           <p><strong>New Contact Us Message</strong></p>
-          <p><strong>Name:</strong> <span class="v">name</span><br>
-          <strong>Email:</strong> <span class="v">email</span><br>
-          <strong>Subject:</strong> <span class="v">subject</span><br>
-          <strong>Message:</strong></p>
+          <p>
+            <strong>Name:</strong> <span class="v">name</span><br />
+            <strong>Email:</strong> <span class="v">email</span><br />
+            <strong>Subject:</strong> <span class="v">subject</span><br />
+            <strong>Message:</strong>
+          </p>
           <p class="off"><span class="v">message, line breaks kept</span></p>
         </div>
         <div class="preview-foot">
-          <p class="center">This message was sent via the Contact Us form on your website.</p>
+          <p class="center">
+            This message was sent via the Contact Us form on your website.
+          </p>
         </div>
       </div>
     </article>
@@ -661,8 +830,10 @@
 
   <section>
     <h2>Set off by an administrator</h2>
-    <p class="section-note">Six messages leave the moment somebody in the back office presses save, approve or
-    send.</p>
+    <p class="section-note">
+      Six messages leave the moment somebody in the back office presses save,
+      approve or send.
+    </p>
 
     <article class="mail" id="account-approved">
       <div class="mail-head">
@@ -672,26 +843,41 @@
       </div>
       <dl class="facts">
         <dt>Sent when</dt>
-        <dd>An admin flips a user from pending to active &mdash; from the edit form or the activate button, on
-        employers and applicants alike.</dd>
+        <dd>
+          An admin flips a user from pending to active &mdash; from the edit
+          form or the activate button, on employers and applicants alike.
+        </dd>
         <dt>Code</dt>
-        <dd><code>Sadmin::sendAccountApprovedEmail()</code>, called at
-        <code>Sadmin.php:2046, 2229, 2581</code></dd>
+        <dd>
+          <code>Sadmin::sendAccountApprovedEmail()</code>, called at
+          <code>Sadmin.php:2046, 2229, 2581</code>
+        </dd>
         <dt>To</dt>
         <dd>The user whose account went live</dd>
         <dt>Opt-out</dt>
         <dd>Type 2, &ldquo;Account approved&rdquo;</dd>
       </dl>
       <div class="preview">
-        <div class="preview-subject"><b>Subject</b>Your Account Has Been Approved &ndash; Welcome to
-        <span class="v">site name</span>!</div>
+        <div class="preview-subject">
+          <b>Subject</b>Your Account Has Been Approved &ndash; Welcome to
+          <span class="v">site name</span>!
+        </div>
         <div class="preview-banner">Your account has been approved</div>
         <div class="preview-body">
-          <p><strong>Hello, <span class="v">first last</span>!</strong></p>
-          <p>Great news &mdash; your account with <span class="v">site name</span> has been approved and is now
-          active. You can sign in using the credentials you provided during registration.</p>
+          <p>
+            <strong>Hello, <span class="v">first last</span>!</strong>
+          </p>
+          <p>
+            Great news &mdash; your account with
+            <span class="v">site name</span> has been approved and is now
+            active. You can sign in using the credentials you provided during
+            registration.
+          </p>
           <p class="center"><span class="btn">Sign in</span></p>
-          <p>Enjoy exploring the platform, and welcome to the <span class="v">site name</span> community!</p>
+          <p>
+            Enjoy exploring the platform, and welcome to the
+            <span class="v">site name</span> community!
+          </p>
         </div>
       </div>
     </article>
@@ -704,31 +890,58 @@
       </div>
       <dl class="facts">
         <dt>Sent when</dt>
-        <dd>A shift becomes Live &mdash; either saved as Live outright or approved later.</dd>
+        <dd>
+          A shift becomes Live &mdash; either saved as Live outright or approved
+          later.
+        </dd>
         <dt>Code</dt>
-        <dd><code>Sadmin::sendShiftPostedEmail()</code>, called at <code>Sadmin.php:2750, 2878</code></dd>
+        <dd>
+          <code>Sadmin::sendShiftPostedEmail()</code>, called at
+          <code>Sadmin.php:2750, 2878</code>
+        </dd>
         <dt>To</dt>
-        <dd>Whichever sides the shift names in <code>p_email_to</code> &mdash; the store's owner, its manager,
-        both or neither &mdash; <em>plus</em> the fixed address <code>team@pickashift.ca</code>, which is on
-        every one of these and cannot be unticked.</dd>
+        <dd>
+          Whichever sides the shift names in <code>p_email_to</code> &mdash; the
+          store's owner, its manager, both or neither &mdash; <em>plus</em> the
+          fixed address <code>team@pickashift.ca</code>, which is on every one
+          of these and cannot be unticked.
+        </dd>
         <dt>Addressed to</dt>
-        <dd>The store's owner either way. A manager gets the same message rather than one written for them:
-        this e-mail says a shift is live, and that reads the same to both sides of a store.</dd>
+        <dd>
+          The store's owner either way. A manager gets the same message rather
+          than one written for them: this e-mail says a shift is live, and that
+          reads the same to both sides of a store.
+        </dd>
         <dt>Opt-out</dt>
-        <dd>Type 3, &ldquo;Shift posted&rdquo; (employers only). A side that was ticked but is unreachable
-        &mdash; no manager on the store, no address, or opted out &mdash; is logged, not silently dropped.</dd>
+        <dd>
+          Type 3, &ldquo;Shift posted&rdquo; (employers only). A side that was
+          ticked but is unreachable &mdash; no manager on the store, no address,
+          or opted out &mdash; is logged, not silently dropped.
+        </dd>
       </dl>
       <div class="preview">
-        <div class="preview-subject"><b>Subject</b>Your Shift Has Been Posted on
-        <span class="v">site name</span>!</div>
+        <div class="preview-subject">
+          <b>Subject</b>Your Shift Has Been Posted on
+          <span class="v">site name</span>!
+        </div>
         <div class="preview-banner">Your shift is now live</div>
         <div class="preview-body">
-          <p><strong>Hello, <span class="v">owner first last</span>!</strong></p>
-          <p>Great news &mdash; your shift <strong><span class="v">shift title</span></strong> has been posted
-          and is now live on our platform.</p>
-          <p>Applicants can view and apply for it straight away. We will let you know each time a candidate
-          submits an application.</p>
-          <p>Thank you for choosing <span class="v">site name</span> to fill your shift.</p>
+          <p>
+            <strong>Hello, <span class="v">owner first last</span>!</strong>
+          </p>
+          <p>
+            Great news &mdash; your shift
+            <strong><span class="v">shift title</span></strong> has been posted
+            and is now live on our platform.
+          </p>
+          <p>
+            Applicants can view and apply for it straight away. We will let you
+            know each time a candidate submits an application.
+          </p>
+          <p>
+            Thank you for choosing <span class="v">site name</span> to fill your
+            shift.
+          </p>
         </div>
       </div>
     </article>
@@ -741,50 +954,91 @@
       </div>
       <dl class="facts">
         <dt>Sent when</dt>
-        <dd>An admin approves an application, or places an applicant on a shift outright.</dd>
+        <dd>
+          An admin approves an application, or places an applicant on a shift
+          outright.
+        </dd>
         <dt>Code</dt>
-        <dd><code>Sadmin::sendBookingEmails()</code>, <code>Sadmin.php:3533</code></dd>
+        <dd>
+          <code>Sadmin::sendBookingEmails()</code>, <code>Sadmin.php:3533</code>
+        </dd>
         <dt>To</dt>
         <dd>The applicant, with the agency copy address in CC</dd>
         <dt>Rate shown</dt>
-        <dd><code>p_ac_hourly_rate</code> &mdash; what the applicant is paid, deliberately not the rate on the
-        employer's copy</dd>
+        <dd>
+          <code>p_ac_hourly_rate</code> &mdash; what the applicant is paid,
+          deliberately not the rate on the employer's copy
+        </dd>
         <dt>Address shown</dt>
-        <dd>The shift's own store, not the employer's login columns. For a multi-store owner those are the head
-        office, and this is the message telling somebody which building to walk into.</dd>
+        <dd>
+          The shift's own store, not the employer's login columns. For a
+          multi-store owner those are the head office, and this is the message
+          telling somebody which building to walk into.
+        </dd>
         <dt>Opt-out</dt>
-        <dd>Type 4, &ldquo;Booking confirmation (as applicant)&rdquo;. If the applicant opted out the agency's
-        copy still goes &mdash; the opt-out is theirs, not the agency's.</dd>
+        <dd>
+          Type 4, &ldquo;Booking confirmation (as applicant)&rdquo;. If the
+          applicant opted out the agency's copy still goes &mdash; the opt-out
+          is theirs, not the agency's.
+        </dd>
       </dl>
       <div class="preview">
-        <div class="preview-subject"><b>Subject</b>Congratulations! You Have Been Approved for Shift ID :
-        <span class="v">shift title</span></div>
+        <div class="preview-subject">
+          <b>Subject</b>Congratulations! You Have Been Approved for Shift ID :
+          <span class="v">shift title</span>
+        </div>
         <div class="preview-banner">You have been approved for a shift</div>
         <div class="preview-body">
-          <p><strong>Hello, <span class="v">first last</span>!</strong></p>
-          <p>We are delighted to tell you that you have been approved for
-          <strong><span class="v">shift title</span></strong> at
-          <strong><span class="v">company name</span></strong>.</p>
+          <p>
+            <strong>Hello, <span class="v">first last</span>!</strong>
+          </p>
+          <p>
+            We are delighted to tell you that you have been approved for
+            <strong><span class="v">shift title</span></strong> at
+            <strong><span class="v">company name</span></strong
+            >.
+          </p>
           <p>Here are the details:</p>
           <ul>
-            <li>Store: <span class="v">store name</span> (no. <span class="v">store number</span>)</li>
-            <li>Where to find it: <span class="v">location label</span> <em class="off">&mdash; only if the
-            store has one</em></li>
-            <li>Store address: <span class="v">address, city, province, postcode</span></li>
-            <li>Store phone: <span class="v">phone</span> <em class="off">&mdash; only if set</em></li>
+            <li>
+              Store: <span class="v">store name</span> (no.
+              <span class="v">store number</span>)
+            </li>
+            <li>
+              Where to find it: <span class="v">location label</span>
+              <em class="off">&mdash; only if the store has one</em>
+            </li>
+            <li>
+              Store address:
+              <span class="v">address, city, province, postcode</span>
+            </li>
+            <li>
+              Store phone: <span class="v">phone</span>
+              <em class="off">&mdash; only if set</em>
+            </li>
             <li>Shift requested for: <span class="v">role</span></li>
             <li>Shift date: <span class="v">date</span></li>
             <li>Shift time: <span class="v">time</span></li>
             <li>Rate: CAD$ <span class="v">applicant rate</span>/hour</li>
             <li>Software: <span class="v">skills</span></li>
             <li>Services: <span class="v">services</span></li>
-            <li>Message from the agency: <span class="v">approval comment</span> <em class="off">&mdash; only
-            if the admin typed one</em></li>
+            <li>
+              Message from the agency: <span class="v">approval comment</span>
+              <em class="off">&mdash; only if the admin typed one</em>
+            </li>
           </ul>
-          <p><span style="color:#1a73e8">Get directions to this store</span> <em class="off">&mdash; the
-          store's pasted map pin, or a search for the address above</em></p>
+          <p>
+            <span style="color: #1a73e8">Get directions to this store</span>
+            <em class="off"
+              >&mdash; the store's pasted map pin, or a search for the address
+              above</em
+            >
+          </p>
           <p>We wish you all the best for the shift.</p>
-          <span class="cond">If the shift has no store attached, the first lines fall back to</span>
+          <span class="cond"
+            >If the shift has no store attached, the first lines fall back
+            to</span
+          >
           <ul>
             <li>Store no.: <span class="v">employer licence no.</span></li>
             <li>Store address: <span class="v">employer address</span></li>
@@ -801,28 +1055,48 @@
       </div>
       <dl class="facts">
         <dt>Sent when</dt>
-        <dd>The same moment as the applicant's copy &mdash; the second half of one booking.</dd>
+        <dd>
+          The same moment as the applicant's copy &mdash; the second half of one
+          booking.
+        </dd>
         <dt>Code</dt>
-        <dd><code>Sadmin::sendBookingEmails()</code>, <code>Sadmin.php:3559</code></dd>
+        <dd>
+          <code>Sadmin::sendBookingEmails()</code>, <code>Sadmin.php:3559</code>
+        </dd>
         <dt>To</dt>
         <dd>The employer, with the agency copy address in CC</dd>
         <dt>Rate shown</dt>
         <dd><code>p_hourly_rate</code> &mdash; what the employer is billed</dd>
         <dt>Opt-out</dt>
-        <dd>Type 5, &ldquo;Booking confirmation (as employer)&rdquo;. Agency copy still goes.</dd>
+        <dd>
+          Type 5, &ldquo;Booking confirmation (as employer)&rdquo;. Agency copy
+          still goes.
+        </dd>
       </dl>
       <div class="preview">
-        <div class="preview-subject"><b>Subject</b>A New Applicant Has Been Approved for Shift ID :
-        <span class="v">shift title</span></div>
-        <div class="preview-banner">An applicant has been approved for your shift</div>
+        <div class="preview-subject">
+          <b>Subject</b>A New Applicant Has Been Approved for Shift ID :
+          <span class="v">shift title</span>
+        </div>
+        <div class="preview-banner">
+          An applicant has been approved for your shift
+        </div>
         <div class="preview-body">
-          <p><strong>Hello, <span class="v">employer first last</span>!</strong></p>
-          <p>An applicant has been approved for your shift
-          <strong><span class="v">shift title</span></strong>.</p>
+          <p>
+            <strong>Hello, <span class="v">employer first last</span>!</strong>
+          </p>
+          <p>
+            An applicant has been approved for your shift
+            <strong><span class="v">shift title</span></strong
+            >.
+          </p>
           <p>Here are their details:</p>
           <ul>
-            <li>Store: <span class="v">store name</span> (no. <span class="v">store number</span>)
-            <em class="off">&mdash; which branch, for a chain</em></li>
+            <li>
+              Store: <span class="v">store name</span> (no.
+              <span class="v">store number</span>)
+              <em class="off">&mdash; which branch, for a chain</em>
+            </li>
             <li>Applicant name: <span class="v">first last</span></li>
             <li>Licence no.: <span class="v">licence no.</span></li>
             <li>Licence province: <span class="v">province</span></li>
@@ -846,39 +1120,60 @@
       </div>
       <dl class="facts">
         <dt>Sent when</dt>
-        <dd>A booking is taken back off an applicant from the shift form: swapped for somebody else, cleared,
-        or the shift itself made inactive.</dd>
+        <dd>
+          A booking is taken back off an applicant from the shift form: swapped
+          for somebody else, cleared, or the shift itself made inactive.
+        </dd>
         <dt>Code</dt>
-        <dd><code>Sadmin::sendCancellationEmail()</code>, <code>Sadmin.php:3371</code></dd>
+        <dd>
+          <code>Sadmin::sendCancellationEmail()</code>,
+          <code>Sadmin.php:3371</code>
+        </dd>
         <dt>To</dt>
         <dd>The applicant who lost the shift, with the agency copied</dd>
         <dt>No comment</dt>
-        <dd>It carries no message from the administrator on purpose. The box on that form is addressed to
-        whoever is <em>being</em> booked; forwarding it here would be telling somebody something meant for
-        someone else.</dd>
+        <dd>
+          It carries no message from the administrator on purpose. The box on
+          that form is addressed to whoever is <em>being</em> booked; forwarding
+          it here would be telling somebody something meant for someone else.
+        </dd>
         <dt>Opt-out</dt>
-        <dd class="off">None. &ldquo;Do not attend&rdquo; is not optional mail.</dd>
+        <dd class="off">
+          None. &ldquo;Do not attend&rdquo; is not optional mail.
+        </dd>
       </dl>
       <div class="preview">
-        <div class="preview-subject"><b>Subject</b>Your shift booking has been cancelled :
-        <span class="v">shift title</span></div>
+        <div class="preview-subject">
+          <b>Subject</b>Your shift booking has been cancelled :
+          <span class="v">shift title</span>
+        </div>
         <div class="preview-banner">Your shift booking has been cancelled</div>
         <div class="preview-body">
-          <p><strong>Hello, <span class="v">first last</span>!</strong></p>
-          <p>We are writing to let you know that your booking for
-          <strong><span class="v">shift title</span></strong> at
-          <strong><span class="v">company name</span></strong> has been cancelled.
-          <strong>Please do not attend this shift.</strong></p>
+          <p>
+            <strong>Hello, <span class="v">first last</span>!</strong>
+          </p>
+          <p>
+            We are writing to let you know that your booking for
+            <strong><span class="v">shift title</span></strong> at
+            <strong><span class="v">company name</span></strong> has been
+            cancelled. <strong>Please do not attend this shift.</strong>
+          </p>
           <p>The booking was for:</p>
           <ul>
-            <li>Store: <span class="v">store name</span> (no. <span class="v">store number</span>)</li>
+            <li>
+              Store: <span class="v">store name</span> (no.
+              <span class="v">store number</span>)
+            </li>
             <li>Shift date: <span class="v">date</span></li>
             <li>Shift time: <span class="v">time</span></li>
             <li>Role: <span class="v">role</span></li>
           </ul>
-          <p>You are free to apply for other shifts on the site as usual, and we will be in touch as more come
-          up. If you think this is a mistake, or you would like to know more, please reply to this e-mail or
-          call us on <span class="v">settings.s_contactno</span>.</p>
+          <p>
+            You are free to apply for other shifts on the site as usual, and we
+            will be in touch as more come up. If you think this is a mistake, or
+            you would like to know more, please reply to this e-mail or call us
+            on <span class="v">settings.s_contactno</span>.
+          </p>
           <p>We are sorry for the inconvenience.</p>
         </div>
       </div>
@@ -892,26 +1187,37 @@
       </div>
       <dl class="facts">
         <dt>Sent when</dt>
-        <dd>An admin fills in the Send Email screen at <code>/sadmin/send_email</code> and presses send.</dd>
+        <dd>
+          An admin fills in the Send Email screen at
+          <code>/sadmin/send_email</code> and presses send.
+        </dd>
         <dt>Code</dt>
         <dd><code>Sadmin::send()</code>, <code>Sadmin.php:3645</code></dd>
         <dt>To</dt>
-        <dd>A comma-separated list typed into the form. Everyone on it is a visible recipient, so they all see
-        each other.</dd>
+        <dd>
+          A comma-separated list typed into the form. Everyone on it is a
+          visible recipient, so they all see each other.
+        </dd>
         <dt>Body</dt>
-        <dd>Whatever the admin types &mdash; no wrapper, no banner, no footer. This is the one message on the
-        site with no template behind it.</dd>
+        <dd>
+          Whatever the admin types &mdash; no wrapper, no banner, no footer.
+          This is the one message on the site with no template behind it.
+        </dd>
       </dl>
       <div class="aside">
-        <p>It goes through the site's own mail configuration. The third party's SMTP credentials that used to
-        sit hard-coded here have been removed.</p>
+        <p>
+          It goes through the site's own mail configuration. The third party's
+          SMTP credentials that used to sit hard-coded here have been removed.
+        </p>
       </div>
     </article>
   </section>
 
   <section>
     <h2>Sent on a schedule</h2>
-    <p class="section-note">One message goes out without anybody pressing anything.</p>
+    <p class="section-note">
+      One message goes out without anybody pressing anything.
+    </p>
 
     <article class="mail" id="shift-reminder">
       <div class="mail-head">
@@ -923,41 +1229,74 @@
         <dt>Sent when</dt>
         <dd>The day before a booked shift, once per booking.</dd>
         <dt>Run by</dt>
-        <dd><code>php spark shifts:remind</code>, or <code>GET /cron/remind_shifts</code> on hosts without a
-        command line. Safe to hit more than once a day &mdash; <code>sj_reminder_sent_at</code> stops
-        repeats.</dd>
+        <dd>
+          <code>php spark shifts:remind</code>, or
+          <code>GET /cron/remind_shifts</code> on hosts without a command line.
+          Safe to hit more than once a day &mdash;
+          <code>sj_reminder_sent_at</code> stops repeats.
+        </dd>
         <dt>Code</dt>
-        <dd><code>send_shift_reminders()</code>, <code>app/Helpers/common_helper.php:1543</code></dd>
+        <dd>
+          <code>send_shift_reminders()</code>,
+          <code>app/Helpers/common_helper.php:1543</code>
+        </dd>
         <dt>To</dt>
         <dd>The booked applicant</dd>
         <dt>Opt-out</dt>
         <dd>Type 6, &ldquo;Day-before shift reminder&rdquo;</dd>
       </dl>
       <div class="preview">
-        <div class="preview-subject"><b>Subject</b>Reminder: your shift tomorrow at
-        <span class="v">store name, or company name</span></div>
+        <div class="preview-subject">
+          <b>Subject</b>Reminder: your shift tomorrow at
+          <span class="v">store name, or company name</span>
+        </div>
         <div class="preview-banner">Your shift is tomorrow</div>
         <div class="preview-body">
-          <p><strong>Hello, <span class="v">first last</span>!</strong></p>
-          <p>A reminder that you are booked for a shift <strong>tomorrow</strong>,
-          <span class="v">Friday 21 August 2026</span>.</p>
+          <p>
+            <strong>Hello, <span class="v">first last</span>!</strong>
+          </p>
+          <p>
+            A reminder that you are booked for a shift
+            <strong>tomorrow</strong>,
+            <span class="v">Friday 21 August 2026</span>.
+          </p>
           <ul>
-            <li>Store: <span class="v">store name</span> (no. <span class="v">store number</span>)</li>
-            <li>Where to find it: <span class="v">location label</span> <em class="off">&mdash; only if
-            set</em></li>
-            <li>Address: <span class="v">address, city, province, postcode</span></li>
-            <li>Store phone: <span class="v">phone</span> <em class="off">&mdash; only if set</em></li>
+            <li>
+              Store: <span class="v">store name</span> (no.
+              <span class="v">store number</span>)
+            </li>
+            <li>
+              Where to find it: <span class="v">location label</span>
+              <em class="off">&mdash; only if set</em>
+            </li>
+            <li>
+              Address: <span class="v">address, city, province, postcode</span>
+            </li>
+            <li>
+              Store phone: <span class="v">phone</span>
+              <em class="off">&mdash; only if set</em>
+            </li>
             <li>Shift time: <span class="v">time</span></li>
             <li>Rate: CAD$ <span class="v">applicant rate</span>/hour</li>
             <li>Role: <span class="v">role</span></li>
             <li>Software: <span class="v">skills</span></li>
           </ul>
-          <p><span style="color:#1a73e8">Get directions to this store</span></p>
-          <p>If you can no longer attend, tell us as soon as you can so the pharmacy can be covered.</p>
-          <span class="cond">If the shift has no store attached, the first lines fall back to</span>
+          <p>
+            <span style="color: #1a73e8">Get directions to this store</span>
+          </p>
+          <p>
+            If you can no longer attend, tell us as soon as you can so the
+            pharmacy can be covered.
+          </p>
+          <span class="cond"
+            >If the shift has no store attached, the first lines fall back
+            to</span
+          >
           <ul>
-            <li>Store: <span class="v">company name</span> (no.
-            <span class="v">employer licence no.</span>)</li>
+            <li>
+              Store: <span class="v">company name</span> (no.
+              <span class="v">employer licence no.</span>)
+            </li>
             <li>Address: <span class="v">employer address</span></li>
           </ul>
         </div>
@@ -980,34 +1319,52 @@
         <dt>Code</dt>
         <dd><code>app/Commands/TestEmail.php:46</code></dd>
         <dt>Why the wrapper</dt>
-        <dd>It renders through the same layout as every real message, so a delivery test also proves the
-        templates render.</dd>
+        <dd>
+          It renders through the same layout as every real message, so a
+          delivery test also proves the templates render.
+        </dd>
       </dl>
       <div class="preview">
-        <div class="preview-subject"><b>Subject</b>Test message from <span class="v">sender name</span></div>
+        <div class="preview-subject">
+          <b>Subject</b>Test message from <span class="v">sender name</span>
+        </div>
         <div class="preview-banner">Delivery test</div>
         <div class="preview-body">
           <p><strong>Delivery test</strong></p>
-          <p>This message was sent at <strong><span class="v">timestamp</span></strong> through
-          <strong><span class="v">smtp host:port</span></strong>.</p>
-          <p>If it reached you, SMTP delivery from this server is working. If it landed in the junk folder, the
-          sending domain still needs SPF and DKIM records.</p>
+          <p>
+            This message was sent at
+            <strong><span class="v">timestamp</span></strong> through
+            <strong><span class="v">smtp host:port</span></strong
+            >.
+          </p>
+          <p>
+            If it reached you, SMTP delivery from this server is working. If it
+            landed in the junk folder, the sending domain still needs SPF and
+            DKIM records.
+          </p>
         </div>
       </div>
       <div class="aside">
-        <p>To read a body without sending it: <code>php spark email:preview &lt;template&gt;</code>
-        (<code>app/Commands/PreviewEmail.php</code>) prints any of these templates filled with sample data.</p>
+        <p>
+          To read a body without sending it:
+          <code>php spark email:preview &lt;template&gt;</code>
+          (<code>app/Commands/PreviewEmail.php</code>) prints any of these
+          templates filled with sample data.
+        </p>
       </div>
     </article>
   </section>
 
   <section>
     <h2>Who can turn what off</h2>
-    <p class="section-note">Six of the eleven are optional. Each has a numeric code; a user's blocked codes
-    live in <code>users.u_email_blocked</code> as a comma-separated list, and every send site asks
-    <code>userAllowsEmail()</code> before going ahead. The list is defined in
-    <code>app/Config/AppSettings.php:222</code>, and Manage Email only offers an account the types its own side
-    can actually receive.</p>
+    <p class="section-note">
+      Six of the eleven are optional. Each has a numeric code; a user's blocked
+      codes live in <code>users.u_email_blocked</code> as a comma-separated
+      list, and every send site asks <code>userAllowsEmail()</code> before going
+      ahead. The list is defined in <code>app/Config/AppSettings.php:222</code>,
+      and Manage Email only offers an account the types its own side can
+      actually receive.
+    </p>
 
     <div class="table-scroll">
       <table>
@@ -1020,18 +1377,51 @@
           </tr>
         </thead>
         <tbody>
-          <tr><td>1</td><td>Welcome (on registration)</td><td><code>welcome</code></td><td>Both</td></tr>
-          <tr><td>2</td><td>Account approved</td><td><code>account-approved</code></td><td>Both</td></tr>
-          <tr><td>3</td><td>Shift posted (your shift is live)</td><td><code>shift-posted</code></td><td>Employers</td></tr>
-          <tr><td>4</td><td>Booking confirmation (as applicant)</td><td><code>booking-applicant</code></td><td>Applicants</td></tr>
-          <tr><td>5</td><td>Booking confirmation (as employer)</td><td><code>booking-employer</code></td><td>Employers</td></tr>
-          <tr><td>6</td><td>Day-before shift reminder</td><td><code>shift-reminder</code></td><td>Applicants</td></tr>
+          <tr>
+            <td>1</td>
+            <td>Welcome (on registration)</td>
+            <td><code>welcome</code></td>
+            <td>Both</td>
+          </tr>
+          <tr>
+            <td>2</td>
+            <td>Account approved</td>
+            <td><code>account-approved</code></td>
+            <td>Both</td>
+          </tr>
+          <tr>
+            <td>3</td>
+            <td>Shift posted (your shift is live)</td>
+            <td><code>shift-posted</code></td>
+            <td>Employers</td>
+          </tr>
+          <tr>
+            <td>4</td>
+            <td>Booking confirmation (as applicant)</td>
+            <td><code>booking-applicant</code></td>
+            <td>Applicants</td>
+          </tr>
+          <tr>
+            <td>5</td>
+            <td>Booking confirmation (as employer)</td>
+            <td><code>booking-employer</code></td>
+            <td>Employers</td>
+          </tr>
+          <tr>
+            <td>6</td>
+            <td>Day-before shift reminder</td>
+            <td><code>shift-reminder</code></td>
+            <td>Applicants</td>
+          </tr>
         </tbody>
       </table>
     </div>
 
-    <p class="section-note" style="margin-top:22px">The other five have no switch on purpose: the password
-    reset, the cancellation, the contact form, the delivery test, and the ad-hoc broadcast.</p>
+    <p class="section-note" style="margin-top: 22px">
+      The other five have no switch on purpose: the password reset, the
+      cancellation, the contact form, the delivery test, and the ad-hoc
+      broadcast.
+    </p>
   </section>
 
   <section>
@@ -1039,7 +1429,12 @@
     <div class="table-scroll">
       <table>
         <thead>
-          <tr><th>What</th><th>Default</th><th>Where it is set</th><th>On which messages</th></tr>
+          <tr>
+            <th>What</th>
+            <th>Default</th>
+            <th>Where it is set</th>
+            <th>On which messages</th>
+          </tr>
         </thead>
         <tbody>
           <tr>
@@ -1050,16 +1445,21 @@
           </tr>
           <tr>
             <td>Agency copy</td>
-            <td><code>info@reliefshifts.com</code></td>
-            <td><code>settings.s_agency_copy_email</code>, editable at <code>/sadmin/settings</code></td>
+            <td><code>team@pickashift.ca</code></td>
+            <td>
+              <code>settings.s_agency_copy_email</code>, editable at
+              <code>/sadmin/settings</code>
+            </td>
             <td>Both booking halves and the cancellation, in CC</td>
           </tr>
           <tr>
             <td>Shift fallback</td>
             <td><code>team@pickashift.ca</code></td>
             <td><code>AppSettings::$shiftEmailFallback</code></td>
-            <td>Every &ldquo;shift is live&rdquo;, whoever else is on it &mdash; so a shift never goes live
-            unannounced</td>
+            <td>
+              Every &ldquo;shift is live&rdquo;, whoever else is on it &mdash;
+              so a shift never goes live unannounced
+            </td>
           </tr>
         </tbody>
       </table>
@@ -1067,9 +1467,10 @@
   </section>
 
   <footer>
-    Read off the code in <code>app/Views/emails/</code>, <code>app/Controllers/</code> and
-    <code>app/Helpers/common_helper.php</code> on 20 August 2026. Copy is shown with its variables marked, and
-    lines that only appear in some sends are noted as such.
+    Read off the code in <code>app/Views/emails/</code>,
+    <code>app/Controllers/</code> and
+    <code>app/Helpers/common_helper.php</code> on 20 August 2026. Copy is shown
+    with its variables marked, and lines that only appear in some sends are
+    noted as such.
   </footer>
-
 </div>

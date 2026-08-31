@@ -6,7 +6,7 @@
  * Upload next to index.php (or /staging/index.php), open it, read the result,
  * then DELETE IT.
  *
- *   https://reliefshifts.com/staging/migrate.php?key=b7f4c1e93a2d6058
+ *   https://pickashift.ca/staging/migrate.php?key=b7f4c1e93a2d6058
  *
  * `php spark migrate` is the right way to do this and needs a command line.
  * This does the same eighteen migrations over mysqli, reading credentials from the
@@ -237,8 +237,8 @@ $migrations = [
                     AFTER `s_email`");
                 $notes[] = 'added settings.s_agency_copy_email';
 
-                run($db, "UPDATE `settings` SET `s_agency_copy_email` = 'info@reliefshifts.com' WHERE `s_id` = 1");
-                $notes[] = 'defaulted to info@reliefshifts.com';
+                run($db, "UPDATE `settings` SET `s_agency_copy_email` = 'team@pickashift.ca' WHERE `s_id` = 1");
+                $notes[] = 'defaulted to team@pickashift.ca';
             } else {
                 $notes[] = 'settings.s_agency_copy_email already there';
             }
@@ -985,6 +985,6 @@ echo "\n" . str_repeat('-', 72) . "\n";
 printf("  %d applied, %d failed\n", $applied, $failed);
 echo str_repeat('-', 72) . "\n";
 
-echo "\nNow reload https://reliefshifts.com/staging/ - the front page should list shifts.\n";
+echo "\nNow reload https://pickashift.ca/staging/ - the front page should list shifts.\n";
 echo "Then re-run diagnose.php to confirm, and delete both files.\n";
 echo "\n*** DELETE THIS FILE NOW: migrate.php ***\n";

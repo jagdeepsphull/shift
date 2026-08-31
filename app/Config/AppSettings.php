@@ -331,7 +331,7 @@ class AppSettings extends BaseConfig
      * Fallback for the address copied on booking e-mails. The live value is
      * `settings.s_agency_copy_email`, editable at /sadmin/settings.
      */
-    public string $agencyCopyEmail = 'info@reliefshifts.com';
+    public string $agencyCopyEmail = 'team@pickashift.ca';
 
     /**
      * The address on every "your shift is live", whoever else is told.

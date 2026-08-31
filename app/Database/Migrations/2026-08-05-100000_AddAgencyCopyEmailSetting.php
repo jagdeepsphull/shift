@@ -27,7 +27,7 @@ class AddAgencyCopyEmailSetting extends Migration
 
         $this->db->table('settings')
             ->where('s_id', 1)
-            ->update(['s_agency_copy_email' => 'info@reliefshifts.com']);
+            ->update(['s_agency_copy_email' => 'team@pickashift.ca']);
     }
 
     public function down()

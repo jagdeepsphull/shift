@@ -4,7 +4,7 @@
  * One-shot deployment check. Upload to the site (or /staging/), open it, read
  * the result, then DELETE IT.
  *
- *   https://reliefshifts.com/staging/diagnose.php?key=aa985b3d36a381d2
+ *   https://pickashift.ca/staging/diagnose.php?key=aa985b3d36a381d2
  *
  * It answers the question a 500 page will not: which of the half-dozen things a
  * fresh deploy needs is actually missing. It runs standalone - no framework, so

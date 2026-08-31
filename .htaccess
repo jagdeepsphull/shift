@@ -43,7 +43,7 @@ Options -Indexes +FollowSymlinks
 ServerSignature Off
 
 # Begin EnforceSSL
-# Named no hostname any more. It used to list reliefshifts.com and
+# Named no hostname any more. It used to list pickashift.ca and
 # reliefstars.com, which meant a third domain pointed at the same folder -
 # pickashift.ca - was served over plain http and nothing said so.
 <IfModule mod_rewrite.c>

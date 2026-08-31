@@ -21,7 +21,7 @@
 					<h3>Contact Us</h3>
 					<p>If you have any questions or concerns about Our Terms & Conditions Policy, please contact us at:</p>
 					<p><strong>Pick-A-Shift</strong></p>
-					<p>Email: <a href="mailto:info@reliefshifts.com">info@reliefshifts.com</a></p>
+					<p>Email: <a href="mailto:team@pickashift.ca">team@pickashift.ca</a></p>
 					<p>Phone: 905-304-7303</p>
 			</div>
     </div>	

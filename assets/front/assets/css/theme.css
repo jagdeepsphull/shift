@@ -185,17 +185,21 @@ header#header-wrap .navbar {
 }
 
 /* Magnolia Script is a commercial face, so it cannot be served from a CDN the
-   way the rest of the type is. This block looks for an installed copy first,
-   then a self-hosted webfont under ../fonts/. Both may be absent: a src list
-   that resolves to nothing leaves the family undefined and the stack on
-   .wz-hero h1 falls through to Dancing Script, so the headline stays script
-   either way. Drop magnolia-script.woff2 into assets/front/assets/fonts/ and
-   it takes over with no other edit. */
+   way the rest of the type is. This looks for a copy installed on the reader's
+   machine and nothing else, because nothing else is here to find: the webfont
+   is not in the repository, and naming a file that is absent buys nothing but
+   two 404s and a "download failed" in every visitor's console on every load.
+   The family stays undefined without it, and the stack on .wz-hero h1 falls
+   through to Dancing Script, so the headline is script either way.
+
+   When the licence is bought: drop magnolia-script.woff2 (and .woff) into
+   assets/front/assets/fonts/ and uncomment the two url() lines below. They are
+   the whole of the change. */
 @font-face {
   font-family: 'Magnolia Script';
-  src: local('Magnolia Script'),
-       url('../fonts/magnolia-script.woff2') format('woff2'),
-       url('../fonts/magnolia-script.woff') format('woff');
+  src: local('Magnolia Script');
+  /* url('../fonts/magnolia-script.woff2') format('woff2'), */
+  /* url('../fonts/magnolia-script.woff') format('woff'); */
   font-weight: 400 700;
   font-style: normal;
   font-display: swap;

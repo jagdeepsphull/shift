@@ -56,6 +56,10 @@ class Sadmin extends BaseController
             // still waiting to be activated.
             $this->data['employerKinds'] = $this->config->item('employerKinds');
             $this->data['pendingUsers']  = $this->pendingUserCounts();
+
+            // Applications and shifts still waiting on a decision, for the two
+            // badges beside those entries.
+            $this->data['pendingReview'] = $this->pendingReviewCounts();
         }
 
         $this->data['usersubtype']          = $this->config->item('usersubtype');
@@ -116,6 +120,50 @@ class Sadmin extends BaseController
 
             if ($code !== 0 && isset($counts[$code])) {
                 $counts[$code] += $total;
+            }
+        }
+
+        return $counts;
+    }
+
+    /**
+     * How many rows are still waiting for an admin decision, for the sidebar
+     * badges beside Applications and Shift Jobs.
+     *
+     * One round trip for both, because `setup()` runs on every back-office
+     * page. Each count uses the same condition as the screen its entry opens,
+     * so the number on the badge is the number of pending rows the admin will
+     * actually find there.
+     *
+     * Keyed by the sidebar entry rather than by table, so the view looks a
+     * badge up by the same name it draws the entry from.
+     *
+     * @return array<string, int>
+     */
+    private function pendingReviewCounts(): array
+    {
+        $counts = ['application' => 0, 'postjobs' => 0];
+
+        // The application count carries the same two joins as the list on
+        // sadmin/applications, because they are what decide whether a row can
+        // be shown at all: an application whose shift or whose employer has
+        // since been deleted never reaches the screen. Counting it would badge
+        // the admin for work that cannot be opened, let alone done.
+        $rows = $this->custom->query(
+            "SELECT 'application' AS entry, COUNT(*) AS total
+               FROM stu_saved_applied_jobs ssa
+               JOIN users u ON u.u_id = ssa.agency_id
+               JOIN post_job pj ON pj.p_id = ssa.p_id
+              WHERE ssa.sj_is_approved = 0
+              UNION ALL
+             SELECT 'postjobs' AS entry, COUNT(*) AS total
+               FROM post_job
+              WHERE p_approved = 0"
+        );
+
+        foreach ($rows ?: [] as $row) {
+            if (isset($counts[$row->entry])) {
+                $counts[$row->entry] = (int) $row->total;
             }
         }
 

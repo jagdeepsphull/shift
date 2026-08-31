@@ -1,0 +1,94 @@
+/*
+ * The spinner shown in a submit button while its form is on its way to the
+ * server. Injected into every page by App\Filters\FormSubmitSpinner.
+ *
+ * Deliberately self-contained. The back office is on Bootstrap 4 and the public
+ * site is on Bootstrap 5, so anything borrowed from a framework would have to be
+ * right in both - and would break the day either one moves. This depends on
+ * nothing but the button it sits in.
+ */
+
+/* `currentColor` is what makes one rule work on every button on the site: the
+   ring is drawn in whatever colour the label already is, so it reads correctly
+   on the dark primary buttons, the outline ones and the plain links alike. */
+.pas-spin {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: pas-spin 0.75s linear infinite;
+
+    /* Sits on the text baseline rather than the box, so it lines up with the
+       label whatever the button's padding is. */
+    vertical-align: -0.125em;
+}
+
+/* Inside a <button>, before the label. */
+.pas-spin--inside {
+    margin-right: 0.5em;
+}
+
+/*
+ * Over the right-hand end of an <input type="submit">, which cannot hold
+ * anything inside it. The wrapper is added around the input at submit time and
+ * taken away again afterwards; it carries the input's own width, so nothing in
+ * the layout moves.
+ */
+.pas-wrap {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+    vertical-align: middle;
+}
+
+.pas-spin--over {
+    position: absolute;
+    top: 50%;
+    right: 0.9em;
+    margin-top: -0.5em;
+
+    /*
+     * Both themes put `position: relative; z-index: 1` on .btn. That makes the
+     * button a positioned element painted above anything at z-index auto - so
+     * without this the ring is drawn *underneath* the button and is simply not
+     * there, while every measurement of it still reports visible, on top and
+     * correctly coloured (hit-testing skips the disabled input, so it wins the
+     * hit test it loses the paint). The script raises this further if it finds
+     * a control sitting higher still.
+     */
+    z-index: 2;
+}
+
+@keyframes pas-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/*
+ * Vestibular disorders are triggered by spinning, so honour the system setting.
+ * Slowed to a crawl rather than stopped: the point of the thing is to say work
+ * is still happening, and a frozen ring says the opposite.
+ */
+@media (prefers-reduced-motion: reduce) {
+    .pas-spin {
+        animation-duration: 3s;
+    }
+}
+
+/* The cursor says "working" anywhere over the form, not just over the button. */
+form[data-pas-busy] {
+    cursor: progress;
+}
+
+/*
+ * A disabled button already greys out on its own in both frameworks. This keeps
+ * it legible while it does: at the default disabled opacity the spinner is hard
+ * to make out on the mid-tone buttons in the back office.
+ */
+form[data-pas-busy] [data-pas-control] {
+    opacity: 1;
+    cursor: progress;
+}

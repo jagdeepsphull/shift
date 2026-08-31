@@ -384,6 +384,12 @@ $mustContain = [
     [$priv, 'app/Config/Security.php',           "csrfProtection = 'session'"],
     [$priv, 'app/Filters/CsrfTokenInjector.php', 'injectIntoForms'],
 
+    // The filter names these two by path. Left behind, they are a 404 on every
+    // page and no spinner anywhere - which looks like a slow server rather
+    // than a missing file, and nothing logs it.
+    [$pub,  'assets/common/form-spinner.js',     'carryOver'],
+    [$pub,  'assets/common/form-spinner.css',    'pas-spin'],
+
     // The front controller has to agree with the layout it was built for.
     // A split bundle whose index.php still looks for app/ beside itself is a
     // 503 on every page, and a flat one rewritten for a private folder is the

@@ -3,6 +3,7 @@
 namespace Config;
 
 use App\Filters\CsrfTokenInjector;
+use App\Filters\FormSubmitSpinner;
 use CodeIgniter\Config\Filters as BaseFilters;
 use CodeIgniter\Filters\Cors;
 use CodeIgniter\Filters\CSRF;
@@ -28,6 +29,7 @@ class Filters extends BaseFilters
     public array $aliases = [
         'csrf'          => CSRF::class,
         'csrftoken'     => CsrfTokenInjector::class,
+        'formspinner'   => FormSubmitSpinner::class,
         'toolbar'       => DebugToolbar::class,
         'honeypot'      => Honeypot::class,
         'invalidchars'  => InvalidChars::class,
@@ -102,6 +104,11 @@ class Filters extends BaseFilters
             // paired with 'csrf' above: turning this off leaves every form on
             // the site failing the check.
             'csrftoken',
+
+            // The spinner that appears in a submit button while the form is on
+            // its way. Same reasoning as the token above - one place that
+            // cannot be forgotten, rather than seventy-two forms that can.
+            'formspinner',
 
             // X-Frame-Options, X-Content-Type-Options and Referrer-Policy on
             // every response the application renders. The .htaccess sets the

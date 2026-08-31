@@ -4,9 +4,6 @@
  * Sent to the applicant when an admin approves them for a shift. The agency is
  * copied on this one (see `getAgencyCopyEmail()`).
  *
- * Note the rate shown here is `p_ac_hourly_rate` — what the applicant is paid —
- * which is deliberately not the rate on the employer's copy of this booking.
- *
  * The address is the shift's own store, not the employer's login columns: for a
  * multi-store owner those are the head office, and this message is the one
  * telling somebody which building to walk into.
@@ -49,7 +46,6 @@ $mapLink = $store ? storeMapLink($store) : '';
         <li>Shift requested for: <?= esc(getShiftForName($shift['p_shift_for'])) ?></li>
         <li>Shift date: <?= esc(dateFormat($shift['p_dates'])) ?></li>
         <li>Shift time: <?= esc($shift['p_shift_time']) ?></li>
-        <li>Rate: CAD$ <?= esc($shift['p_ac_hourly_rate']) ?>/hour</li>
         <li>Software: <?= esc(getSoftwareSkills($shift['p_skills'])) ?></li>
         <li>Services: <?= esc(getStoreServices($shift['p_services'])) ?></li>
         <?php if (trim((string) $approval_comment) !== '') { ?>

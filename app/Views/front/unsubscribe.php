@@ -67,7 +67,7 @@ $account = $account ?? '';
                         about your account changes, and you can still sign in as usual.</p>
 
                     <form action="" method="post">
-                        <button type="submit" name="resubscribeSubmit" value="1" class="btn btn-outline-secondary">
+                        <button type="submit" name="resubscribeSubmit" value="1" class="wz-btn wz-btn-light">
                             Changed your mind? Re-subscribe
                         </button>
                     </form>

@@ -126,8 +126,8 @@
 							<div class="col-sm-3">
 								<!-- text input -->
 								<div class="form-group">
-									<label>Zipcode</label><span class="text-danger font-weight-bold ml-1" style="font-size:12px;"> e.g., M5A 1A1</span>
-									<input required class="form-control" placeholder="Enter Zipcode" name="u_pincode" value="<?php echo esc($u_pincode); ?>" >
+									<label>Postal Code</label><span class="text-danger font-weight-bold ml-1" style="font-size:12px;"> e.g., M5A 1A1</span>
+									<input required class="form-control" placeholder="Enter Postal Code" name="u_pincode" value="<?php echo esc($u_pincode); ?>" >
 								</div>
 							</div>
 						</div>

@@ -1874,7 +1874,7 @@ class Sadmin extends BaseController
                     // Same rule the public form uses: the e-mail becomes the
                     // login id, so it has to be a real address and unused.
                     $this->form_validation->set_rules('u_email', 'Email', 'required|valid_email|is_unique[users.u_userid]');
-                    $this->form_validation->set_rules('u_phone', 'Company Conatct No.', ['required', 'regex_match[' . PHONE_PATTERN . ']'], ['regex_match' => 'The {field} must be ' . PHONE_LENGTH . ' digits, numbers only.']);
+                    $this->form_validation->set_rules('u_phone', 'Company Contact No.', ['required', 'regex_match[' . PHONE_PATTERN . ']'], ['regex_match' => 'The {field} must be ' . PHONE_LENGTH . ' digits, numbers only.']);
                     // The same name rule the public forms apply: letters, spaces
                     // and the punctuation real names contain. Without it the back
                     // office accepted digits and symbols the rest of the site
@@ -2034,7 +2034,7 @@ class Sadmin extends BaseController
                     // Ignoring this row, so re-saving without touching the
                     // e-mail is not rejected as a duplicate of itself.
                     $this->form_validation->set_rules('u_email', 'Email', 'required|valid_email|is_unique[users.u_userid,u_id,' . (int) $id . ']');
-                    $this->form_validation->set_rules('u_phone', 'Company Conatct No.', ['required', 'regex_match[' . PHONE_PATTERN . ']'], ['regex_match' => 'The {field} must be ' . PHONE_LENGTH . ' digits, numbers only.']);
+                    $this->form_validation->set_rules('u_phone', 'Company Contact No.', ['required', 'regex_match[' . PHONE_PATTERN . ']'], ['regex_match' => 'The {field} must be ' . PHONE_LENGTH . ' digits, numbers only.']);
                     // The same name rule the public forms apply: letters, spaces
                     // and the punctuation real names contain. Without it the back
                     // office accepted digits and symbols the rest of the site
@@ -2756,16 +2756,6 @@ class Sadmin extends BaseController
 
                 $this->data['jobs'] = $jobs;
 
-                // Which shifts already have a booked applicant - they lose
-                // their Edit and Delete buttons. One query for the whole set:
-                // the list asked this per row, which was a COUNT per shift and
-                // by far the most expensive thing on the screen.
-                $booked = $this->custom->query(
-                    'SELECT DISTINCT p_id FROM stu_saved_applied_jobs WHERE sj_is_approved = 1'
-                );
-
-                $this->data['bookedShiftIds'] = array_flip(array_column($booked ?: [], 'p_id'));
-
                 $this->load->admin_view('postjobs/index', $this->data);
                 break;
 
@@ -2850,12 +2840,12 @@ class Sadmin extends BaseController
                             // e-mails that go instead are sent from here.
                             $this->bookApplicant((int) $id, $applicant, (string) $this->input->post('sj_admin_comment'));
                         } elseif ((int) ($rowData['p_approved'] ?? 0) === 1) {
-                            // A shift saved straight to Live is live now, so it
-                            // is announced now. Approving one later does the
+                            // A shift saved straight to Open is live now, so
+                            // it is announced now. Approving one later does the
                             // same from the edit branch; between them the
                             // e-mail follows the shift going live rather than
                             // which screen it happened on. Before this, a shift
-                            // added as Live was never announced at all.
+                            // added as Open was never announced at all.
                             $this->sendShiftPostedEmail(
                                 $rowData + ['p_id' => $id, 'p_job_title' => $uData['p_job_title']],
                                 $u_data[0]
@@ -2902,169 +2892,161 @@ class Sadmin extends BaseController
                 // Who is on the shift, if anybody.
                 $booking = $this->shiftBooking((int) $id);
 
-                // A booked or closed shift used to be frozen outright. It is
-                // now editable right up to the day it is worked, because the
-                // booked applicant may drop out and somebody has to be able to
-                // put another one on - see the booking card on the form. On the
-                // day and afterwards it is history and stays frozen.
-                $frozen = ($booking || (int) ($shift_approved['p_approved'] ?? 0) === 3)
-                    && ! shiftIsUpcoming($shift_approved);
+                // Any shift may be edited, whoever is on it and whenever it
+                // runs. A booked shift was frozen from the day it was worked,
+                // which is the hour the swap is most likely to be needed - an
+                // applicant drops out that morning and somebody has to put the
+                // next one on. The agency is trusted with the rest of this
+                // screen; it is trusted with this.
+                if ($this->input->post('savedata')) {
+                    $this->form_validation->set_rules('p_store_id', 'Store', 'required');
 
-                if (! $frozen) {
-                    if ($this->input->post('savedata')) {
-                        $this->form_validation->set_rules('p_store_id', 'Store', 'required');
+                    $rowData = cleanArray($this->input->post());
 
-                        $rowData = cleanArray($this->input->post());
+                    // Same as on add: the store is the only thing asked
+                    // for, and the employer is read off it. Moving a shift
+                    // to another chain's store moves the shift to that
+                    // chain, which is the whole of what the form can do.
+                    $store  = $this->shiftStoreRow((int) $this->input->post('p_store_id'));
+                    $u_data = $store ? $this->custom->get_where('users', ['u_id' => (int) $store->u_id]) : [];
 
-                        // Same as on add: the store is the only thing asked
-                        // for, and the employer is read off it. Moving a shift
-                        // to another chain's store moves the shift to that
-                        // chain, which is the whole of what the form can do.
-                        $store  = $this->shiftStoreRow((int) $this->input->post('p_store_id'));
-                        $u_data = $store ? $this->custom->get_where('users', ['u_id' => (int) $store->u_id]) : [];
+                    if ($store && $u_data) {
+                        $rowData['u_id']       = (int) $store->u_id;
+                        $rowData['p_store_id'] = $store->s_id;
+                        $rowData['p_province'] = $store->s_province ?: $u_data[0]->u_provice;
+                        $rowData['p_city']     = $store->s_city ?: $u_data[0]->u_city;
+                    }
 
-                        if ($store && $u_data) {
-                            $rowData['u_id']       = (int) $store->u_id;
-                            $rowData['p_store_id'] = $store->s_id;
-                            $rowData['p_province'] = $store->s_province ?: $u_data[0]->u_provice;
-                            $rowData['p_city']     = $store->s_city ?: $u_data[0]->u_city;
-                        }
+                    $rowData['p_skills']   = implode(',', (array) $this->input->post('p_skills'));
+                    $rowData['p_services'] = implode(',', (array) $this->input->post('p_services'));
+                    // Unticking the last box has to clear the column, which
+                    // it would not if this were only set when something was
+                    // posted - see the same line on add.
+                    $rowData['p_additional_details'] = implode(',', (array) $this->input->post('p_additional_details'));
+                    $rowData['p_jobinfo']  = $this->input->post('p_jobinfo');
+                    $rowData['p_date_start'] = parseShiftDate($rowData['p_dates'] ?? null);
+                    // Unticking both has to reach the column, same as on
+                    // add - it is the choice that sends to the fallback.
+                    $rowData['p_email_to'] = implode(',', shiftEmailChoice($this->input->post('p_email_to')));
 
-                        $rowData['p_skills']   = implode(',', (array) $this->input->post('p_skills'));
-                        $rowData['p_services'] = implode(',', (array) $this->input->post('p_services'));
-                        // Unticking the last box has to clear the column, which
-                        // it would not if this were only set when something was
-                        // posted - see the same line on add.
-                        $rowData['p_additional_details'] = implode(',', (array) $this->input->post('p_additional_details'));
-                        $rowData['p_jobinfo']  = $this->input->post('p_jobinfo');
-                        $rowData['p_date_start'] = parseShiftDate($rowData['p_dates'] ?? null);
-                        // Unticking both has to reach the column, same as on
-                        // add - it is the choice that sends to the fallback.
-                        $rowData['p_email_to'] = implode(',', shiftEmailChoice($this->input->post('p_email_to')));
+                    $rowData['modified'] = date('Y-m-d H:i:s');
+                    $rowData['p_status'] = 1;
 
-                        $rowData['modified'] = date('Y-m-d H:i:s');
-                        $rowData['p_status'] = 1;
+                    // The booking, which the form may be changing: swapping
+                    // one applicant for another, or taking the shift back
+                    // off somebody so it goes on the board again. Checked
+                    // the same way as on add - the page may have been open
+                    // since before the account was deactivated.
+                    $bookedId    = (int) ($booking['u_id'] ?? 0);
+                    $applicantId = (int) $this->input->post('sj_applicant_id');
+                    $applicant   = $applicantId > 0
+                        ? $this->custom->get_where_row('users', ['u_id' => $applicantId, 'u_usertype' => 2, 'u_status' => 1])
+                        : null;
 
-                        // The booking, which the form may be changing: swapping
-                        // one applicant for another, or taking the shift back
-                        // off somebody so it goes on the board again. Checked
-                        // the same way as on add - the page may have been open
-                        // since before the account was deactivated.
-                        $bookedId    = (int) ($booking['u_id'] ?? 0);
-                        $applicantId = (int) $this->input->post('sj_applicant_id');
-                        $applicant   = $applicantId > 0
-                            ? $this->custom->get_where_row('users', ['u_id' => $applicantId, 'u_usertype' => 2, 'u_status' => 1])
-                            : null;
+                    // Not post_job columns - the booking lives in its own
+                    // table and is written below.
+                    unset($rowData['savedata'], $rowData['files'], $rowData['sj_applicant_id'], $rowData['sj_admin_comment']);
 
-                        // Not post_job columns - the booking lives in its own
-                        // table and is written below.
-                        unset($rowData['savedata'], $rowData['files'], $rowData['sj_applicant_id'], $rowData['sj_admin_comment']);
+                    if (! $store || ! $u_data) {
+                        $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">Choose the store this shift is at.</div>');
+                    } elseif ($applicantId > 0 && ! $applicant) {
+                        // Chosen off a list that has since gone stale. As on
+                        // add, nothing at all is saved rather than saving
+                        // the shift and quietly losing the booking with it.
+                        $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">That applicant is no longer active, so nothing has been saved.</div>');
+                    } elseif (updateQry($table, $rowData, ['p_id' => $id])) {
+                        if ($rowData['p_approved'] == 2 || $rowData['p_approved'] == 3) {
+                            $rejected = $this->db->table($table)
+                                ->whereIn('p_id', [$rowData['p_id']])
+                                ->where('p_approved', 2)
+                                ->countAllResults();
 
-                        if (! $store || ! $u_data) {
-                            $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">Choose the store this shift is at.</div>');
-                        } elseif ($applicantId > 0 && ! $applicant) {
-                            // Chosen off a list that has since gone stale. As on
-                            // add, nothing at all is saved rather than saving
-                            // the shift and quietly losing the booking with it.
-                            $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">That applicant is no longer active, so nothing has been saved.</div>');
-                        } elseif (updateQry($table, $rowData, ['p_id' => $id])) {
-                            if ($rowData['p_approved'] == 2 || $rowData['p_approved'] == 3) {
-                                $rejected = $this->db->table($table)
-                                    ->whereIn('p_id', [$rowData['p_id']])
-                                    ->where('p_approved', 2)
-                                    ->countAllResults();
-
-                                if ($rejected > 0) {
-                                    $this->db->table('stu_saved_applied_jobs')
-                                        ->where('p_id', $id)
-                                        ->update(['sj_is_approved' => 2]);
-                                }
-                            }
-
-                            if ($shift_approved['p_approved'] != 1 && $rowData['p_approved'] == 1) {
-                                // Who this goes to is the form's "Send shift
-                                // e-mail to" boxes, saved on the row above.
-                                $this->sendShiftPostedEmail(
-                                    $rowData + ['p_id' => $id, 'p_job_title' => $shift_approved['p_job_title']],
-                                    $u_data[0]
-                                );
-                            }
-
-                            // The booking itself, after the shift row and after
-                            // the block above: that one rejects every
-                            // application when the shift is made Inactive, and
-                            // would undo a booking written before it.
-                            $shiftClosed = (int) $rowData['p_approved'] === 3;
-
-                            if ($booking && $applicantId !== $bookedId) {
-                                // Swapped or taken off: the person who had the
-                                // shift is told, whichever it was.
-                                $this->cancelBooking($booking);
-                            } elseif ($booking && (int) $rowData['p_approved'] === 2) {
-                                // Same applicant, but the shift has just been
-                                // made Inactive - the block above has already
-                                // rejected their booking row, so they are no
-                                // longer working it and have to hear so.
-                                $this->cancelBooking($booking, false);
-                            }
-
-                            if ($applicant && $applicantId !== $bookedId) {
-                                $this->bookApplicant((int) $id, $applicant, (string) $this->input->post('sj_admin_comment'));
-                            } elseif ($booking && $applicantId === 0 && $shiftClosed) {
-                                // Nobody on it now. It was closed because of the
-                                // booking that has just gone, so it goes back on
-                                // the board - unless the administrator picked a
-                                // status themselves, which is left alone.
-                                $this->db->table($table)
+                            if ($rejected > 0) {
+                                $this->db->table('stu_saved_applied_jobs')
                                     ->where('p_id', $id)
-                                    ->update(['p_approved' => 1, 'modified' => date('Y-m-d H:i:s')]);
+                                    ->update(['sj_is_approved' => 2]);
                             }
-
-                            ci_redirect('sadmin/postjobs', 'refresh');
                         }
 
-                        foreach ($rowData as $ky => $vl) {
-                            $this->data[$ky] = $vl;
+                        if ($shift_approved['p_approved'] != 1 && $rowData['p_approved'] == 1) {
+                            // Who this goes to is the form's "Send shift
+                            // e-mail to" boxes, saved on the row above.
+                            $this->sendShiftPostedEmail(
+                                $rowData + ['p_id' => $id, 'p_job_title' => $shift_approved['p_job_title']],
+                                $u_data[0]
+                            );
                         }
-                    } else {
-                        getTableInfo($this->dbname, $table, ['p_id' => $id]);
+
+                        // The booking itself, after the shift row and after
+                        // the block above: that one rejects every
+                        // application when the shift is made Closed, and
+                        // would undo a booking written before it.
+                        $shiftBooked = (int) $rowData['p_approved'] === 3;
+
+                        if ($booking && $applicantId !== $bookedId) {
+                            // Swapped or taken off: the person who had the
+                            // shift is told, whichever it was.
+                            $this->cancelBooking($booking);
+                        } elseif ($booking && (int) $rowData['p_approved'] === 2) {
+                            // Same applicant, but the shift has just been
+                            // made Closed - the block above has already
+                            // rejected their booking row, so they are no
+                            // longer working it and have to hear so.
+                            $this->cancelBooking($booking, false);
+                        }
+
+                        if ($applicant && $applicantId !== $bookedId) {
+                            $this->bookApplicant((int) $id, $applicant, (string) $this->input->post('sj_admin_comment'));
+                        } elseif ($booking && $applicantId === 0 && $shiftBooked) {
+                            // Nobody on it now. It was closed because of the
+                            // booking that has just gone, so it goes back on
+                            // the board - unless the administrator picked a
+                            // status themselves, which is left alone.
+                            $this->db->table($table)
+                                ->where('p_id', $id)
+                                ->update(['p_approved' => 1, 'modified' => date('Y-m-d H:i:s')]);
+                        }
+
+                        ci_redirect('sadmin/postjobs', 'refresh');
+                    }
+
+                    foreach ($rowData as $ky => $vl) {
+                        $this->data[$ky] = $vl;
                     }
                 } else {
-                    $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">This shift can no longer be modified - its date has arrived or gone by.</div>');
-                    ci_redirect('sadmin/postjobs', 'refresh');
+                    getTableInfo($this->dbname, $table, ['p_id' => $id]);
                 }
 
-                // The booking card, which is on this form for the same reason it
-                // is on add - except that here it may already have somebody in
-                // it. Only for a shift still ahead of us: putting an applicant
-                // on one that has already been worked means nothing.
-                $this->data['shift_upcoming'] = shiftIsUpcoming($shift_approved);
-                $this->data['booking']        = $booking;
+                // The booking card, which is on this form for the same reason
+                // it is on add - except that here it may already have somebody
+                // in it. On every shift, not only the ones still ahead of us:
+                // the swap that matters most is the one made on the day, and a
+                // card that disappears that morning is missing exactly when it
+                // is wanted.
+                $this->data['booking'] = $booking;
 
-                if ($this->data['shift_upcoming']) {
-                    $this->data['applicants'] = $this->custom->get_where_order('users', ['u_usertype' => 2, 'u_status' => 1], 'u_lname, u_fname', 'asc');
+                $this->data['applicants'] = $this->custom->get_where_order('users', ['u_usertype' => 2, 'u_status' => 1], 'u_lname, u_fname', 'asc');
 
-                    // The list is active accounts only, so a booked applicant
-                    // since deactivated would not be in it - and a picker with
-                    // no option for them reads as "nobody is booked", which on
-                    // the next save is exactly what would happen. Put them in.
-                    if ($booking && ! in_array((int) $booking['u_id'], array_map(static fn ($a) => (int) $a->u_id, $this->data['applicants']), true)) {
-                        $bookedUser = $this->custom->get_where('users', ['u_id' => $booking['u_id']]);
+                // The list is active accounts only, so a booked applicant
+                // since deactivated would not be in it - and a picker with
+                // no option for them reads as "nobody is booked", which on
+                // the next save is exactly what would happen. Put them in.
+                if ($booking && ! in_array((int) $booking['u_id'], array_map(static fn ($a) => (int) $a->u_id, $this->data['applicants']), true)) {
+                    $bookedUser = $this->custom->get_where('users', ['u_id' => $booking['u_id']]);
 
-                        if ($bookedUser) {
-                            array_unshift($this->data['applicants'], $bookedUser[0]);
-                        }
+                    if ($bookedUser) {
+                        array_unshift($this->data['applicants'], $bookedUser[0]);
                     }
-
-                    // Not post_job columns, so getTableInfo() knows nothing
-                    // about them. The picker opens on whoever is booked, so
-                    // leaving it alone leaves the booking alone.
-                    $this->data['sj_applicant_id'] = $this->input->post('savedata')
-                        ? (string) $this->input->post('sj_applicant_id')
-                        : (string) ($booking['u_id'] ?? '');
-
-                    $this->data['sj_admin_comment'] = (string) $this->input->post('sj_admin_comment');
                 }
+
+                // Not post_job columns, so getTableInfo() knows nothing
+                // about them. The picker opens on whoever is booked, so
+                // leaving it alone leaves the booking alone.
+                $this->data['sj_applicant_id'] = $this->input->post('savedata')
+                    ? (string) $this->input->post('sj_applicant_id')
+                    : (string) ($booking['u_id'] ?? '');
+
+                $this->data['sj_admin_comment'] = (string) $this->input->post('sj_admin_comment');
 
                 // The store list, with this shift's own store in it even if it
                 // has since been deactivated - the picker is what decides the
@@ -3084,16 +3066,19 @@ class Sadmin extends BaseController
                 break;
 
             case 'delete':
-                $applied_approved = $this->db->table('stu_saved_applied_jobs')
-                    ->where('p_id', $id)
-                    ->where('sj_is_approved', 1)
-                    ->countAllResults();
+                // A booked shift used to refuse to be deleted. It goes now,
+                // like any other - but not silently: the applicant on it was
+                // told the shift was theirs, so they are told it is off before
+                // the row it points at stops existing. Their application is put
+                // back to Not approved first, which is what stops a booking
+                // surviving on a shift that is gone.
+                $booking = $this->shiftBooking((int) $id);
 
-                if ($applied_approved === 0) {
-                    $this->custom->delete_where($table, ['p_id' => $id]);
-                } else {
-                    $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">This Shift cannot be deleted!</div>');
+                if ($booking) {
+                    $this->cancelBooking($booking);
                 }
+
+                $this->custom->delete_where($table, ['p_id' => $id]);
 
                 ci_redirect('sadmin/postjobs', 'refresh');
                 break;
@@ -3293,8 +3278,8 @@ class Sadmin extends BaseController
     /**
      * Send "your shift is live" to whoever the shift says to send it to.
      *
-     * Called from the one moment it means anything: a shift becoming Live,
-     * whether that is a new shift saved as Live or an existing one approved.
+     * Called from the one moment it means anything: a shift becoming Open,
+     * whether that is a new shift saved as Open or an existing one approved.
      * The applicant side of the site is not involved - the booking e-mails are
      * sent from `bookApplicant()` and are not affected by any of this.
      *

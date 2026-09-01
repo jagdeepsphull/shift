@@ -33,6 +33,13 @@
           <div class="row">
             <div class="col-md-12">
               <div class="copyright-content">
+                <?php /* The same two links the public footer carries, so they
+                       are reachable from behind a login as well. */ ?>
+                <p class="ps-footer-legal">
+                  <a href="<?php echo base_url('terms'); ?>">Terms &amp; Conditions</a>
+                  <span class="sep" aria-hidden="true">&middot;</span>
+                  <a href="<?php echo base_url('policy'); ?>">Privacy Policy</a>
+                </p>
                 <p>Copyright &copy; <?php echo date('Y')?> <a rel="nofollow" href="<?php echo $settings[0]->s_path; ?>" ><?php echo $settings[0]->s_sitename; ?></a> All Right Reserved</p>
               </div>
             </div>

@@ -6,7 +6,7 @@
  * different `sj_status` values: 1 when an applicant applied and was approved,
  * and 6 when the administrator placed them on the shift outright. This screen
  * used to ask for status 1 as well, so a shift booked the second way showed
- * Closed with nobody against it, which is exactly what an owner cannot explain.
+ * Booked with nobody against it, which is exactly what an owner cannot explain.
  * Both are seeded below, and both must name the person.
  */
 const { test, expect } = require('@playwright/test');
@@ -78,7 +78,7 @@ test.afterAll(removeShiftFixture);
 
 test('a booking made by the administrator names the applicant', async ({ page }) => {
   await expect(rowOf(page, PLACED)).toContainText('Pharmacist E2E');
-  await expect(rowOf(page, PLACED)).toContainText('Closed');
+  await expect(rowOf(page, PLACED)).toContainText('Booked');
 });
 
 test('so does one the applicant applied for', async ({ page }) => {

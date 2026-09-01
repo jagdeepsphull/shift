@@ -5,7 +5,7 @@
  * is live. On both admin shift forms, so the two cannot drift apart.
  *
  * The e-mail is `shift-posted`, and it is sent at the moment the shift becomes
- * Live: when a new shift is saved as Live, or when an existing one is approved.
+ * Open: when a new shift is saved as Open, or when an existing one is approved.
  * Editing a shift that is already live sends nothing, so changing these boxes
  * afterwards changes who the *next* announcement reaches, not who has already
  * been written to.

@@ -48,7 +48,7 @@
                     <th><?php echo $pageinfo['title']; ?> ID</th>
                     <th>Store Name</th>
                     <th>Store No.</th>
-                    <th>Conatact Person</th>
+                    <th>Contact Person</th>
                     <th>Email ID</th>
                     <th>Mobile No.</th>
 					<?php /* Ahead of Status, not after it: the table script gives the
@@ -98,7 +98,7 @@
 					<th><?php echo $pageinfo['title']; ?> ID</th>
 					<th>Store Name</th>
 					<th>Store No.</th>
-                    <th>Conatact Person</th>
+                    <th>Contact Person</th>
                     <th>Email ID</th>
                     <th>Mobile No.</th>
                     <th>Agreement Done</th>

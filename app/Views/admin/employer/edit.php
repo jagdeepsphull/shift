@@ -237,8 +237,8 @@
                                     <div class="col-sm-3">
                                         <!-- text input -->
                                         <div class="form-group">
-                                            <label>Zipcode</label>
-											<input required class="form-control" placeholder="Enter Zipcode" name="u_pincode" value="<?php echo esc($u_pincode); ?>" >
+                                            <label>Postal Code</label>
+											<input required class="form-control" placeholder="Enter Postal Code" name="u_pincode" value="<?php echo esc($u_pincode); ?>" >
                                         </div>
                                     </div>
                                 </div>

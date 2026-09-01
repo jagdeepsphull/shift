@@ -683,7 +683,7 @@ Two jobs need a daily cron. Both are safe to run more than once a day.
 
 | Job | With SSH | Without SSH |
 |---|---|---|
-| Mark passed shifts Inactive | `php spark jobs:expire` | `GET /cron/expire_jobs` |
+| Mark passed shifts Closed | `php spark jobs:expire` | `GET /cron/expire_jobs` |
 | Remind applicants booked tomorrow | `php spark shifts:remind` | `GET /cron/remind_shifts` |
 
 Run the reminder in the **morning** — it e-mails people about tomorrow, so a
@@ -747,7 +747,7 @@ Then, in a browser:
   Clicking anywhere on a shift card opens it, not only the title.
 - Sign in as admin → dashboard shows the four "new" tabs.
 - Admin → Reports loads and the CSV export downloads.
-- A shift whose date has passed reads **Inactive (Expired)** and the employer
+- A shift whose date has passed reads **Closed (Expired)** and the employer
   has no Edit or Delete button on it.
 - Post a shift: Software and Details are tick boxes, not Ctrl-click lists.
 - Admin → Manage Employers splits into **Owners** and **Managers**, each badged
@@ -793,7 +793,7 @@ New in this release:
   unchanged — the shift keeps its own copy from the moment it is saved.
 - Post a shift with **Book an Applicant** filled in: pick somebody from the
   dropdown, type a message, save. The shift must land in the list reading
-  **Closed**, Admin → Applications → Booked must show it, and two e-mails must
+  **Booked**, Admin → Applications → Booked must show it, and two e-mails must
   go out — one to the applicant carrying your message, one to the employer. Then
   post a second shift leaving that section on *"Nobody yet"*: it must behave
   exactly as before, with the Shift Approval dropdown still deciding its status.
@@ -855,7 +855,7 @@ New in this release:
 - Employer → **Applications** now lists the bookings for every shift the login
   manages, so an owner sees the bookings on their managers' shifts. It was
   scoped to the login's own id, which left an owner able to open a manager's
-  shift and its candidate list but not the booking made on it.
+  shift and its applicant list but not the booking made on it.
 
 Newest changes — **no migration for any of the four**, so there is nothing extra
 to run for them:
@@ -895,7 +895,7 @@ to run for them:
   each shift. It reads `stu_saved_applied_jobs` on `sj_is_approved = 1` alone,
   so an applicant the administrator placed by hand (whose row is written at
   `sj_status = 6`) is named too — before, only a self-applied booking was, and a
-  shift the same screen reported as Closed showed nobody against it. No schema.
+  shift the same screen reported as Booked showed nobody against it. No schema.
 - **The employer's own store list names whoever manages each branch**, so an
   owner can see which of their stores has somebody on it. No schema.
 - **The back-office shift form asks who to tell.** Add Shift and Edit Shift now

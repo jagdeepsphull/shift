@@ -24,7 +24,7 @@ use CodeIgniter\HTTP\ResponseInterface;
 class Cron extends BaseController
 {
     /**
-     * Mark shifts whose date has passed as Inactive (Expired).
+     * Mark shifts whose date has passed as Closed (Expired).
      *
      * The work itself lives in `expire_past_shifts()` so this and the
      * `jobs:expire` command cannot drift apart.

@@ -136,7 +136,7 @@
 						   shown it back here either - see Employer::setup(). */ ?>
 						<?php if ($can_set_rate) { ?>
 							<div class="form-group">
-								<label>Your Shift Rate:</label> <input id="modalShiftRate" class="form-control" readonly>
+								<label>Shift Hourly Rate:</label> <input id="modalShiftRate" class="form-control" readonly>
 							</div>
 						<?php } ?>
 						<div class="form-group">

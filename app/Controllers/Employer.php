@@ -43,7 +43,7 @@ class Employer extends BaseController
                 $this->data['myaccountLink'] = base_url('employer/all_jobs');
                 $this->data['logoutLink']    = base_url('employer/logout');
             } else {
-                $this->data['pageTitle']     = 'Candidate Dashboard';
+                $this->data['pageTitle']     = 'Applicant Dashboard';
                 $this->data['myaccountLink'] = base_url('applicant/applied_jobs');
                 $this->data['logoutLink']    = base_url('applicant/logout');
             }
@@ -378,7 +378,7 @@ class Employer extends BaseController
         // The old lookup also demanded sj_status = 1 ("Applied"), so an
         // applicant the administrator placed on a shift himself, whose row is
         // written at status 6, left Assigned To empty on a shift the very same
-        // screen was reporting as Closed.
+        // screen was reporting as Booked.
         $this->data['bookings'] = $this->shiftBookings($this->jobslist);
 
         $this->load->owner_inner_view('all_jobs', $this->data);
@@ -684,7 +684,7 @@ class Employer extends BaseController
      *
      * @param bool $pendingOnly also require the shift to be still awaiting
      *                          approval, which editing and deleting do and
-     *                          looking at the candidate list does not. Checking
+     *                          looking at the applicant list does not. Checking
      *                          `p_approved` as well as `p_status` stops the
      *                          nightly expiry job, which sets `p_status` to 0,
      *                          from re-opening shifts that have already run.
@@ -746,7 +746,7 @@ class Employer extends BaseController
 
         // By the shift rather than by `agency_id`, so this holds the bookings
         // for every shift this login may manage. Scoping it to their own u_id
-        // left an owner able to open their manager's shift and its candidate
+        // left an owner able to open their manager's shift and its applicant
         // list but not the booking made on it.
         [$scope, $binds] = employerShiftScope($this->userinfo[0], 'pj');
 
@@ -778,7 +778,7 @@ class Employer extends BaseController
         // Who applied for a shift is as much the employer's business as the
         // shift itself, and no more anybody else's: this used to answer for any
         // id at all. Not restricted to pending shifts - the point of the screen
-        // is the candidates on a shift that has been approved.
+        // is the applicants on a shift that has been approved.
         if (! $this->shiftInScope($pid, false)) {
             // The message does not reach All Shifts - flashdata is lost across
             // every redirect on this side of the site, which is a separate

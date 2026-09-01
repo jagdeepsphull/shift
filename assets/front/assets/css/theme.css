@@ -1062,14 +1062,24 @@ footer#footer,
 }
 
 .wz-footer-bottom .wz-social { justify-self: start; }
-.wz-footer-bottom .wz-footer-email { justify-self: center; }
+.wz-footer-bottom .wz-footer-links { justify-self: center; }
 .wz-footer-bottom .wz-copy { justify-self: end; }
 
-.wz-footer-email { margin: 0; font-size: 14.5px; font-weight: 600; }
+/* The address and the two legal pages, one line in the middle of the bar. It
+   wraps rather than pushing the copyright off the end on a narrow window, and
+   the dot between each pair comes from the markup. */
+.wz-footer-links {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 600;
+  text-align: center;
+}
 
-.wz-footer-email a { color: var(--wz-ink-soft); }
+.wz-footer-links a { color: var(--wz-ink-soft); }
 
-.wz-footer-email a:hover { color: var(--wz-purple); }
+.wz-footer-links a:hover { color: var(--wz-purple); }
+
+.wz-footer-links .sep { color: var(--wz-muted); margin: 0 10px; }
 
 /* The rule and the space above it separate this bar from the link columns, so
    they belong to the pair rather than to the bar. With the columns gone the
@@ -1257,8 +1267,8 @@ footer#footer,
   /* One column on a phone - the three would be unreadably narrow side by side.
      Everything lines up left, as this bar always has on small screens. */
   .wz-footer-bottom { grid-template-columns: 1fr; justify-items: start; }
-  .wz-footer-bottom .wz-footer-email,
-  .wz-footer-bottom .wz-copy { justify-self: start; }
+  .wz-footer-bottom .wz-footer-links,
+  .wz-footer-bottom .wz-copy { justify-self: start; text-align: left; }
 
   .dashboard-body { padding: 18px; }
   .side-dashboard { padding: 18px; }

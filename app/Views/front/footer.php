@@ -7,11 +7,20 @@
             <a href="https://x.com/reliefshifts" target="_blank" rel="noopener" aria-label="X"><i class="lni-twitter-filled"></i></a>
             <a href="https://www.instagram.com/reliefshifts?igsh=ZGwydWl5NTg0OXln" target="_blank" rel="noopener" aria-label="Instagram"><i class="lni-instagram-filled"></i></a>
           </div>
-          <?php if (! empty($settings[0]->s_email)) { ?>
-            <p class="wz-footer-email">
+          <?php /* The address and the two legal pages are one line in the
+                 middle of the bar, which keeps it to the three items the grid
+                 is built for. The dots are written into the markup rather than
+                 drawn in CSS, so the line still reads as separate links if the
+                 stylesheet is an old cached copy. */ ?>
+          <p class="wz-footer-links">
+            <?php if (! empty($settings[0]->s_email)) { ?>
               <a href="mailto:<?php echo esc($settings[0]->s_email); ?>"><?php echo esc($settings[0]->s_email); ?></a>
-            </p>
-          <?php } ?>
+              <span class="sep" aria-hidden="true">&middot;</span>
+            <?php } ?>
+            <a href="<?php echo base_url('terms'); ?>">Terms &amp; Conditions</a>
+            <span class="sep" aria-hidden="true">&middot;</span>
+            <a href="<?php echo base_url('policy'); ?>">Privacy Policy</a>
+          </p>
           <p class="wz-copy">
             &copy; <?php echo date('Y'); ?>
             <a rel="nofollow" href="<?php echo base_url(); ?>"><?php echo esc($settings[0]->s_sitename); ?></a>
@@ -261,7 +270,7 @@
 
         $.validator.addMethod('validateCanadianPostalCode', function (value, element) {
           return this.optional(element) || /^[A-Za-z]\d[A-Za-z] \d[A-Za-z]\d$/.test(value);
-        }, 'Please enter a valid zipcode(e.g., M5A 1A1 )');
+        }, 'Please enter a valid postal code (e.g., M5A 1A1)');
 
         $.validator.addMethod('validEmail', function (value, element) {
           return this.optional(element) || /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value);
@@ -296,7 +305,7 @@
           },
           messages: {
             reg_type: 'Please select user type.',
-            u_usersubtype: 'Please select Candidate type.',
+            u_usersubtype: 'Please select Applicant type.',
             u_comp_name: 'This name is required.',
             u_parent_id: 'Please choose the corporate group you belong to.',
             u_store_id: 'Please choose the store you run.',

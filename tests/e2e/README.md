@@ -171,15 +171,18 @@ Add Shift form, for a shift already agreed off the site:
 
 `specs/admin-book-on-edit.spec.js` — changing the booking on a shift that already
 has one, for the applicant who rings up to say they cannot make it:
-* the shift list offers **Edit** on a booked shift while its date is ahead, and
-  never offers Delete
+* the shift list offers **Edit** and **Delete** on a booked shift whatever its
+  date — the call saying "I cannot make it" comes on the morning as often as the
+  week before
 * the form opens on whoever is booked, and leaving the picker alone leaves the
   booking alone
 * choosing somebody else moves the booking: the first applicant's row is
-  rejected, the second holds the only approved one, and the shift stays closed
-* clearing the picker takes the shift off them and puts it back to **Live**
-* on the day of the shift and after it nothing may be touched — the URL redirects
-  with the shift unchanged
+  rejected, the second holds the only approved one, and the shift stays booked
+* clearing the picker takes the shift off them and puts it back to **Open**
+* a shift whose date has gone by opens with its booking card on it, and one dated
+  today can still be swapped
+* deleting a booked shift removes it and takes the applicant off it, so nobody is
+  left booked on a shift that no longer exists
 
 `specs/admin-form-parity.spec.js` — the back-office forms accept what the public
 ones accept:

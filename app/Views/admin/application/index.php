@@ -41,7 +41,7 @@
                     <th><?php echo $pageinfo['title']; ?> ID</th>
 					<th>Shift ID</th>
                     <th>Employer</th>
-					<th>Candidate</th>
+					<th>Applicant</th>
 					<th>Messages</th>
 					<th>Shift Date</th>
 					<th>Shift Time</th>
@@ -92,7 +92,7 @@
                     <th><?php echo $pageinfo['title']; ?> ID</th>
 					<th>Shift ID</th>
                     <th>Employer</th>
-					<th>Candidate</th>
+					<th>Applicant</th>
 					<th>Applicant Message</th>
 					<th>Shift Date</th>
 					<th>Shift Time</th>

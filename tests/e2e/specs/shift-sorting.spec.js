@@ -200,7 +200,7 @@ test('admin shift list is newest first and sorts its date column chronologically
   expect(order.at(-1), 'a shift with no readable date sorts last, not first').toBe('9999-12-31');
 });
 
-test('the candidate list keeps its name column and does not borrow the shift sort', async ({ page }) => {
+test('the applicant list keeps its name column and does not borrow the shift sort', async ({ page }) => {
   await loginAsAgency(page);
 
   const pid = scalar("SELECT p_id FROM post_job WHERE p_job_title = 'E2E-SHIFT-A';");
@@ -208,10 +208,10 @@ test('the candidate list keeps its name column and does not borrow the shift sor
   await settle(page);
 
   // It used to share the shift list's table id, which hid column 0 - the
-  // candidate's name - and ordered the table by Status.
+  // applicant's name - and ordered the table by Status.
   const header = page.locator('#candidatelist thead th').first();
-  await expect(header, 'the candidate name column is visible').toBeVisible();
-  await expect(header).toHaveText('Candidate');
+  await expect(header, 'the applicant name column is visible').toBeVisible();
+  await expect(header).toHaveText('Applicant');
 
   await expectNoServerError(page);
 });

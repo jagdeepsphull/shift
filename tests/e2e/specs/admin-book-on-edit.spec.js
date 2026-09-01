@@ -6,10 +6,12 @@
  * A booked shift used to be frozen outright, which left no way to deal with the
  * ordinary case of an applicant ringing up to say they cannot make it: the
  * booking could only be rejected on the applications screen, and the shift
- * stayed closed with nobody on it. It is now editable until the day it is
- * worked. What matters here is the pair of writes that every later screen and
- * report reads - who holds the approved row, and whether the shift is closed
- * behind them - plus the cut-off, which is the shift date itself.
+ * stayed closed with nobody on it. Every shift is editable now, whoever is on
+ * it and whenever it runs - the call that says "I cannot make it" comes on the
+ * morning of the shift as often as the week before, and a form that locks at
+ * midnight is shut at exactly the wrong hour. What matters here is the pair of
+ * writes that every later screen and report reads: who holds the approved row,
+ * and whether the shift is closed behind them.
  */
 const { test, expect } = require('@playwright/test');
 const { loginAsAdmin, settle, expectNoServerError, filterTable } = require('../helpers/admin');
@@ -124,7 +126,7 @@ test.beforeEach(async ({ page }) => {
 
 test.afterAll(cleanup);
 
-test('the list offers Edit on a booked shift, but never Delete', async ({ page }) => {
+test('the list offers Edit and Delete on a booked shift, whatever its date', async ({ page }) => {
   const soon = seedShift('2027-09-01', 3);
   const gone = seedShift('2020-09-01', 3);
   seedBooking(soon, ids.first);
@@ -137,12 +139,14 @@ test('the list offers Edit on a booked shift, but never Delete', async ({ page }
   await filterTable(page, `PAS-${soon}`);
   const upcoming = page.locator('#example1 tbody tr', { hasText: `PAS-${soon}` });
   await expect(upcoming.getByRole('link', { name: 'Edit' })).toHaveCount(1);
-  await expect(upcoming.getByRole('link', { name: 'Delete' }),
-    'a booking is a record, and stays').toHaveCount(0);
+  await expect(upcoming.getByRole('link', { name: 'Delete' })).toHaveCount(1);
 
+  // The row that most needs Edit was the one row that did not offer it: a
+  // booked shift on the day it is worked.
   await filterTable(page, `PAS-${gone}`);
   const worked = page.locator('#example1 tbody tr', { hasText: `PAS-${gone}` });
-  await expect(worked.getByRole('link', { name: 'Edit' })).toHaveCount(0);
+  await expect(worked.getByRole('link', { name: 'Edit' })).toHaveCount(1);
+  await expect(worked.getByRole('link', { name: 'Delete' })).toHaveCount(1);
 });
 
 test('the form opens on whoever is booked', async ({ page }) => {
@@ -199,28 +203,46 @@ test('leaving the picker alone leaves the booking alone', async ({ page }) => {
   expect(statusOf(shift)).toBe('3');
 });
 
-test('a shift whose date has gone by cannot be edited at all', async ({ page }) => {
+test('a shift whose date has gone by opens, booking card and all', async ({ page }) => {
   const shift = seedShift('2020-09-01', 3);
   seedBooking(shift, ids.first);
 
-  // The URL first: the page is still redirecting off the frozen shift, and
-  // reading its content mid-navigation is a race.
   await page.goto(`sadmin/postjobs/edit/${shift}`);
-  await expect(page).toHaveURL(/\/sadmin\/postjobs$/);
   await expectNoServerError(page);
 
-  await expect(page.locator('.alert-danger')).toContainText('no longer be modified');
-  expect(approvalOf(shift, ids.first), 'and nothing about it changed').toBe('1');
+  await expect(page, 'no longer redirected off it').toHaveURL(new RegExp(`/edit/${shift}$`));
+  await expect(page.locator('#sj_applicant_id'),
+    'and the card that does the swap is on it').toHaveValue(String(ids.first));
 });
 
-test('today is too late: the shift is being worked', async ({ page }) => {
+test('today is not too late: the booking can still be swapped', async ({ page }) => {
   const shift = seedShift(new Date().toISOString().slice(0, 10), 3);
   seedBooking(shift, ids.first);
 
   await page.goto(`sadmin/postjobs/edit/${shift}`);
+  await page.selectOption('#sj_applicant_id', String(ids.second));
 
+  await submit(page);
+  await expectNoServerError(page);
+
+  expect(approvalOf(shift, ids.first), 'the one who rang in is off it').toBe('2');
+  expect(approvalOf(shift, ids.second), 'the cover holds the booking').toBe('1');
+});
+
+test('deleting a booked shift takes it off the applicant too', async ({ page }) => {
+  const shift = seedShift('2027-09-01', 3);
+  seedBooking(shift, ids.first);
+
+  // Delete answers with a Refresh header, so the list is asserted first -
+  // reading the page mid-navigation is a race.
+  await page.goto(`sadmin/postjobs/delete/${shift}`);
   await expect(page).toHaveURL(/\/sadmin\/postjobs$/);
-  await expect(page.locator('.alert-danger')).toContainText('no longer be modified');
+  await settle(page);
+  await expectNoServerError(page);
+
+  expect(count('post_job', `p_id = ${shift}`), 'the shift is gone').toBe(0);
+  expect(approvalOf(shift, ids.first),
+    'and nobody is left booked on a shift that no longer exists').toBe('2');
 });
 
 test('an open shift with no booking can be booked from the edit form', async ({ page }) => {

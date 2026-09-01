@@ -18,7 +18,7 @@ $site = $settings[0]->s_sitename ?? 'PickAShift';
     posted and is now live on our platform.</p>
 
     <p style="line-height: 1.6;">Applicants can view and apply for it straight away. We will let you know each
-    time a candidate submits an application.</p>
+    time an applicant submits an application.</p>
 
     <p style="line-height: 1.6;">Thank you for choosing <?= esc($site) ?> to fill your shift.</p>
 <?= $this->endSection() ?>

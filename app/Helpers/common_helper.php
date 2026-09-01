@@ -118,33 +118,59 @@ if (! function_exists('shiftDateSortValue')) {
     }
 }
 
-if (! function_exists('shiftIsUpcoming')) {
+if (! function_exists('shiftDatePassed')) {
     /**
-     * Is the shift still ahead of today - that is, can it still be rearranged?
+     * Has the shift's date already gone by?
      *
-     * This is what lets the admin edit a shift somebody is already booked on:
-     * an applicant who says they cannot make it has to be swapped out, and the
-     * only sane cut-off for that is the day the shift is worked. On the day
-     * itself and after it the shift is history and nothing may be touched, so
-     * "today" is deliberately not upcoming.
+     * The public site asks this rather than trusting `p_approved`: a shift is
+     * off the front end the moment its date passes, whether or not the nightly
+     * expiry job has run since. Before this, a site whose cron was never wired
+     * up - which is the default, `/cron/expire_jobs` is 404 without a key -
+     * listed last month's shifts on the home page indefinitely.
      *
-     * A shift whose date cannot be read at all counts as not upcoming: the
-     * frozen side is the safe side, and `php spark shifts:backfill-dates`
+     * Today is not passed. A shift is readable on the morning of the day it is
+     * worked, which is the line `expire_past_shifts()` draws too.
+     *
+     * Read off `p_date_start` alone, exactly as the SQL twin below does, so the
+     * list and the shift page never disagree about one row. A shift whose date
+     * could not be parsed into that column counts as not passed - it is left
+     * showing rather than silently dropped, and `php spark shifts:backfill-dates`
      * lists those rows so they can be given a date.
      *
      * @param array<string, mixed>|object $row a `post_job` row
      */
-    function shiftIsUpcoming($row): bool
+    function shiftDatePassed($row): bool
     {
         $date = is_object($row) ? ($row->p_date_start ?? null) : ($row['p_date_start'] ?? null);
         $date = $date === null ? '' : substr((string) $date, 0, 10);
 
         if ($date === '' || $date === '0000-00-00') {
-            $raw  = is_object($row) ? ($row->p_dates ?? '') : ($row['p_dates'] ?? '');
-            $date = (string) parseShiftDate($raw);
+            return false;
         }
 
-        return $date !== '' && $date > date('Y-m-d');
+        return $date < date('Y-m-d');
+    }
+}
+
+if (! function_exists('shiftNotPassedSql')) {
+    /**
+     * `shiftDatePassed()` as a WHERE fragment, for the public shift queries.
+     *
+     * The day comes from PHP and is bound in rather than written as CURDATE():
+     * the database server's clock and PHP's are hours apart on at least one
+     * machine here, and a page that mixes the two would hide a shift on one
+     * side of midnight that it shows on the other. `expire_past_shifts()` binds
+     * the same value for the same reason.
+     *
+     * @param string $alias table alias to qualify the column with, if any
+     *
+     * @return array{0: string, 1: list<string>} the SQL fragment and its binds
+     */
+    function shiftNotPassedSql(string $alias = ''): array
+    {
+        $column = ($alias === '' ? '' : $alias . '.') . 'p_date_start';
+
+        return ['(' . $column . ' IS NULL OR ' . $column . ' >= ?)', [date('Y-m-d')]];
     }
 }
 
@@ -1546,8 +1572,8 @@ if (! function_exists('expire_past_shifts')) {
      * Mark shifts whose date has gone by as expired.
      *
      * Shared by the CLI command and its web-triggered twin so the two cannot
-     * drift apart. Only Pending (0) and Live (1) shifts are touched: a Closed
-     * shift (3) has been booked and keeps its status, and an already-expired
+     * drift apart. Only Pending (0) and Open (1) shifts are touched: a Booked
+     * shift (3) has somebody on it and keeps its status, and an already-expired
      * shift (4) is skipped - which is what stops the job rewriting every past
      * row on every run, as it used to.
      *

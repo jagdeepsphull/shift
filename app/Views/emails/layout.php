@@ -12,7 +12,7 @@
  * @var array|null  $settings  rows from `settings`; [0] is the live one
  */
 $site      = $settings[0]->s_sitename ?? 'PickAShift';
-$supportTo = $settings[0]->s_email ?? 'info@reliefshifts.com';
+$supportTo = $settings[0]->s_email ?? 'team@pickashift.ca';
 ?>
 <!DOCTYPE html>
 <html lang="en">

@@ -206,7 +206,7 @@ test('a narrow window does not shrink the export', async ({ page }) => {
   const { buffer } = await downloadFrom(page, excelButton(page));
   const sheet = await sheetXml(page, buffer);
 
-  for (const header of ['Store Name', 'Store No.', 'Conatact Person', 'Email ID', 'Mobile No.', 'Status']) {
+  for (const header of ['Store Name', 'Store No.', 'Contact Person', 'Email ID', 'Mobile No.', 'Status']) {
     expect(sheet, `narrow window keeps "${header}"`).toContain(header);
   }
 

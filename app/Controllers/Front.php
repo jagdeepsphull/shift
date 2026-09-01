@@ -52,13 +52,17 @@ class Front extends BaseController
     {
         $this->setup();
 
-        // Soonest shift first - ordered on the real date column, not the text one.
-        $this->data['jobs'] = $this->custom->get_where_order(
-            'post_job',
-            ['p_status' => 1, 'p_approved' => 1],
-            shiftDateOrderBy(),
-            '',
-            false
+        // Soonest shift first - ordered on the real date column, not the text
+        // one - and only shifts whose date has not gone by. The status columns
+        // alone are not enough: they are moved by the nightly expiry job, so a
+        // site whose cron is not wired up listed yesterday's shifts for ever.
+        [$notPassed, $binds] = shiftNotPassedSql();
+
+        $this->data['jobs'] = $this->custom->query(
+            'SELECT * FROM post_job'
+            . ' WHERE p_status = 1 AND p_approved = 1 AND ' . $notPassed
+            . ' ORDER BY ' . shiftDateOrderBy(),
+            $binds
         );
 
         $this->data['agencylist'] = $this->custom->get_where('users', ['u_usertype' => 1, 'u_status' => 1]);
@@ -244,17 +248,29 @@ class Front extends BaseController
             [$id]
         );
 
+        // A shift whose date has gone by is not on the public site at all, so
+        // a link to one - a stale bookmark, a search result, the e-mail that
+        // announced it - lands on the shift list rather than on a page for a
+        // shift nobody can work any more.
+        if (! empty($this->data['jobdetail']) && shiftDatePassed($this->data['jobdetail'][0])) {
+            ci_redirect('/');
+        }
+
         $this->data['appliedjob'] = $this->custom->get_where('stu_saved_applied_jobs', ['p_id' => $id, 'u_id' => $uid]);
         // "Related shifts" in the sidebar - soonest first, as elsewhere. The
-        // shift being read is left out, and the list is capped: it used to
-        // print every approved shift on the site down the side of the page.
+        // shift being read is left out, the list is capped - it used to print
+        // every approved shift on the site down the side of the page - and a
+        // shift whose date has gone by is left out on the same rule as the
+        // home page, so the sidebar cannot offer what the list will not.
+        [$relatedNotPassed, $relatedBinds] = shiftNotPassedSql('pj');
+
         $this->data['relatedjobs'] = $this->custom->query(
             'Select pj.*,pr.p_name, cit.c_name ,u.u_comp_name,u.u_company_logo,u.u_licence_no '
             . 'from post_job pj, province pr, city cit, users u '
             . 'where pj.p_province= pr.p_id and p_city=cit.c_id and  pj.u_id=u.u_id and pj.p_approved=1 '
-            . 'and pj.p_id != ? '
+            . 'and pj.p_id != ? and ' . $relatedNotPassed . ' '
             . 'ORDER BY ' . shiftDateOrderBy('pj') . ' LIMIT 6',
-            [$id]
+            array_merge([$id], $relatedBinds)
         );
 
         $this->data['applied'] = 0;

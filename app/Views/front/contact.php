@@ -8,7 +8,7 @@
               <p align="left">
 			  <ul class="address">
                  <li>
-                  <a href="mailto:info@reliefshifts.com"><i class="lni-envelope"></i> Email: info@reliefshifts.com</a>
+                  <a href="mailto:team@pickashift.ca"><i class="lni-envelope"></i> Email: team@pickashift.ca</a>
                 </li>
 				<li>
                   <i class="lni-phone"></i> +1 (905) 304-7303</a>

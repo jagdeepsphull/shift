@@ -100,7 +100,7 @@
               </div>
               <div class="services-content">
                 <h3><a href="#">Ongoing Support</a></h3>
-                <p>Our commitment doesn’t end with the placement. We offer continuous support to both clients and candidates, ensuring that every staffing arrangement is successful and long-lasting.</p>
+                <p>Our commitment doesn’t end with the placement. We offer continuous support to both clients and applicants, ensuring that every staffing arrangement is successful and long-lasting.</p>
               </div>
             </div>
           </div>

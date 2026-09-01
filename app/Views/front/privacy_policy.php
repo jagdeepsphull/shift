@@ -1,8 +1,20 @@
+<?php
+
+/**
+ * Privacy Policy.
+ *
+ * The document itself, marked up as one: headings, clauses and definitions.
+ * Presentation lives in partials/legal_doc_styles.php, scoped to
+ * `.wz-legal-doc`, which the Terms page wears too - so the two pages the footer
+ * links side by side read as one pair rather than two.
+ */
+?>
+<?= view('partials/legal_doc_styles') ?>
+
 <!-- Services Section Start -->
     <section id="services" class="section-padding  section-gap">
       <div class="container">
-            <div class="col-12">
-				  <!--<div class="dropdown-divider bg-info-pink"></div>-->
+            <article class="wz-legal-doc">
 				<h2>Privacy Policy</h2>
 
         <h3>1. Introduction</h3>
@@ -52,14 +64,14 @@
         </ul>
 
         <h3>7. Contact Us</h3>
-        <p>If you have any questions or concerns about this Privacy Policy or our data practices, please contact us at:</p>
-        <p><strong>Pick-A-Shift</strong><br>
-            Email: <a href="mailto:info@reliefshifts.com">info@reliefshifts.com</a><br>
-            Phone: 905-304-7303
-        </p>
-			</div>
-
-        
-    </div>	
+        <div class="wz-legal-contact">
+            <p>If you have any questions or concerns about this Privacy Policy or our data practices, please contact us at:</p>
+            <p><strong>Pick-A-Shift</strong><br>
+                Email: <a href="mailto:team@pickashift.ca">team@pickashift.ca</a><br>
+                Phone: <a href="tel:9053047303">905-304-7303</a>
+            </p>
+        </div>
+			</article>
+    </div>
     </section>
     <!-- Services Section End -->

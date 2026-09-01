@@ -410,14 +410,14 @@ test('the shortlist endpoint refuses a shift that is not the caller\'s', async (
   ).toBe(before);
 });
 
-test('the candidate list answers only for a shift the login may see', async ({ page }) => {
+test('the applicant list answers only for a shift the login may see', async ({ page }) => {
   const shift = seedShifts();
 
   await loginAsFrontUser(page, OUTSIDER);
   await page.goto(`employer/applied_applicants/${shift.byManager}`);
   await settle(page);
 
-  await expect(page, 'turned away rather than shown the candidates').toHaveURL(/employer\/all_jobs/);
+  await expect(page, 'turned away rather than shown the applicants').toHaveURL(/employer\/all_jobs/);
   await page.goto('front/logout');
 
   // The people it is for still get in.
@@ -425,6 +425,6 @@ test('the candidate list answers only for a shift the login may see', async ({ p
   await page.goto(`employer/applied_applicants/${shift.byManager}`);
   await settle(page);
 
-  await expect(page, "the owner reaches their manager's candidates").not.toHaveURL(/employer\/all_jobs/);
+  await expect(page, "the owner reaches their manager's applicants").not.toHaveURL(/employer\/all_jobs/);
   await expectNoServerError(page);
 });

@@ -211,7 +211,7 @@
 										<div class="form-group">
 											<label>Message to the applicant</label>
 											<textarea class="form-control" name="sj_admin_comment" id="sj_admin_comment" rows="3" placeholder="Anything they should know about the booking"><?php echo esc($sj_admin_comment);?></textarea>
-											<small class="form-text text-muted">Choosing somebody books them the moment this shift is saved: it is set to <strong>Closed</strong>, and the booking e-mail goes to both them and the employer. Whatever is written here is included in their copy.</small>
+											<small class="form-text text-muted">Choosing somebody books them the moment this shift is saved: it is set to <strong>Booked</strong>, and the booking e-mail goes to both them and the employer. Whatever is written here is included in their copy.</small>
 										</div>
 									</div>
 								</div>
@@ -242,7 +242,7 @@
                                         <div class="form-group">
                                             <label>Shift Approval</label>
                                             <select   class="form-control " name="p_approved" id="p_approved">
-                                                <?php /* Hand-set statuses only - "Inactive (Expired)" belongs
+                                                <?php /* Hand-set statuses only - "Closed (Expired)" belongs
                                                    to the nightly job, never to a new shift. */ ?>
                                                 <?php foreach($approvedSelectable as $ky=>$vl){ ?>
                                                 <option value="<?php echo $ky; ?>"

@@ -181,11 +181,9 @@
 					<?php /* Booking from the shift form, the same card as on add -
 					   except that here it may already have somebody in it. This
 					   is how an applicant who drops out is swapped for another,
-					   which is why a booked shift is editable at all; it is
-					   shown only while the shift is still ahead of us, because
-					   booking somebody onto a shift already worked means
-					   nothing. `shiftIsUpcoming()` decides both. */ ?>
-					<?php if (! empty($shift_upcoming)) { ?>
+					   which is why a booked shift is editable at all. On every
+					   shift, whatever its date: the swap that matters most is
+					   the one made on the morning of the shift itself. */ ?>
 					<!-- left column -->
 					<div class="col-md-12">
 
@@ -227,9 +225,9 @@
 											<label>Message to the applicant</label>
 											<textarea class="form-control" name="sj_admin_comment" id="sj_admin_comment" rows="3" placeholder="Anything they should know about the booking"><?php echo esc($sj_admin_comment);?></textarea>
 											<?php if (! empty($booking)) { ?>
-											<small class="form-text text-muted">Choosing somebody else takes the shift off the applicant booked on it now and books the new one instead; choosing <strong>-- Nobody yet --</strong> takes it off them and puts the shift back to <strong>Live</strong>. Either way the applicant losing the shift is e-mailed that their booking is cancelled. Whatever is written here goes to the applicant being booked, not to them.</small>
+											<small class="form-text text-muted">Choosing somebody else takes the shift off the applicant booked on it now and books the new one instead; choosing <strong>-- Nobody yet --</strong> takes it off them and puts the shift back to <strong>Open</strong>. Either way the applicant losing the shift is e-mailed that their booking is cancelled. Whatever is written here goes to the applicant being booked, not to them.</small>
 											<?php } else { ?>
-											<small class="form-text text-muted">Choosing somebody books them the moment this shift is saved: it is set to <strong>Closed</strong>, and the booking e-mail goes to both them and the employer. Whatever is written here is included in their copy.</small>
+											<small class="form-text text-muted">Choosing somebody books them the moment this shift is saved: it is set to <strong>Booked</strong>, and the booking e-mail goes to both them and the employer. Whatever is written here is included in their copy.</small>
 											<?php } ?>
 										</div>
 									</div>
@@ -240,7 +238,6 @@
 						</div>
 
 					</div>
-					<?php } ?>
 
 					<!-- left column -->
 					<div class="col-md-12">
@@ -262,7 +259,7 @@
                                         <div class="form-group">
                                             <label>Shift Approval</label>
                                             <select   class="form-control " name="p_approved" id="p_approved">
-                                                <?php /* Only the statuses an agency may set by hand. "Inactive
+                                                <?php /* Only the statuses an agency may set by hand. "Closed
                                                    (Expired)" is set by the nightly job; if this shift already
                                                    carries it, it is shown so that saving does not silently
                                                    revive the shift as Pending. */ ?>

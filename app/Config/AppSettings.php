@@ -79,7 +79,7 @@ class AppSettings extends BaseConfig
         3 => ['label' => 'Applicant', 'userType' => 2, 'empRole' => null],
     ];
 
-    /** Sub types of Candidate/Job seekers. */
+    /** Sub types of Applicant/Job seekers. */
     public array $usersubtype = [
         1 => 'Pharmacist',
         2 => 'Pharmacy Assistant',
@@ -97,27 +97,29 @@ class AppSettings extends BaseConfig
     /**
      * Shift status.
      *
-     * 2 was "Rejected"; it reads "Inactive" now. 4 is set by the nightly expiry
-     * job and never chosen by hand - it is kept as its own code rather than
-     * reusing 2 so the monthly reports can still tell "nobody wanted it" apart
-     * from "the date went by", which one shared code would have thrown away.
+     * 1, 2 and 3 were "Live", "Rejected" and "Closed"; they read "Open",
+     * "Closed" and "Booked" now - so the word "Closed" is 2, and a booked
+     * shift is 3. 4 is set by the nightly expiry job and never chosen by hand -
+     * it is kept as its own code rather than reusing 2 so the monthly reports
+     * can still tell "nobody wanted it" apart from "the date went by", which
+     * one shared code would have thrown away.
      *
      * Anything the agency may pick from a dropdown is in `$approvedSelectable`.
      */
     public array $approved = [
         0 => 'Pending',
-        1 => 'Live',
-        2 => 'Inactive',
-        3 => 'Closed',
-        4 => 'Inactive (Expired)',
+        1 => 'Open',
+        2 => 'Closed',
+        3 => 'Booked',
+        4 => 'Closed (Expired)',
     ];
 
     /** Statuses the agency may set by hand - excludes the automatic ones. */
     public array $approvedSelectable = [
         0 => 'Pending',
-        1 => 'Live',
-        2 => 'Inactive',
-        3 => 'Closed',
+        1 => 'Open',
+        2 => 'Closed',
+        3 => 'Booked',
     ];
 
     /** Shift statuses that mean "over" - hidden from the public shift list. */
@@ -126,7 +128,7 @@ class AppSettings extends BaseConfig
     public array $application_approved = [
         0 => 'Pending',
         1 => 'Booked',
-        2 => 'Rejected',
+        2 => 'Not approved',
     ];
 
     public array $serchexp = [
@@ -313,7 +315,7 @@ class AppSettings extends BaseConfig
         0 => 'Saved',
         1 => 'Applied',
         2 => 'Shortlisted',
-        3 => 'Rejected',
+        3 => 'Not approved',
         4 => 'Resubmit',
         5 => 'Booked',
         // Where an approved application ends up, and where a booking the
@@ -331,7 +333,7 @@ class AppSettings extends BaseConfig
      * Fallback for the address copied on booking e-mails. The live value is
      * `settings.s_agency_copy_email`, editable at /sadmin/settings.
      */
-    public string $agencyCopyEmail = 'info@reliefshifts.com';
+    public string $agencyCopyEmail = 'team@pickashift.ca';
 
     /**
      * The address on every "your shift is live", whoever else is told.

@@ -265,8 +265,8 @@ body.ps-portal .table td {
 
 /* --------------------------------------------------------------- status --- */
 
-/* Where a row carries a state - Pending, Booked, Rejected - it used to be bold
-   coloured words sitting in a line of plain ones, which reads as emphasis
+/* Where a row carries a state - Pending, Booked, Not approved - it used to be
+   bold coloured words sitting in a line of plain ones, which reads as emphasis
    rather than as a value. A pill says the same thing in the space of a word,
    and the eye finds the column without reading it. */
 body.ps-portal .ps-status {
@@ -466,6 +466,24 @@ body.ps-portal table.dataTable > tbody > tr > td.child span.dtr-title {
     font-weight: 700;
     margin-right: 10px;
 }
+
+/* --------------------------------------------------------------- footer --- */
+
+/* Terms and Privacy above the copyright line. `#copyright p` sets a 42px line
+   height for the copyright itself, which is far too much for a line of links
+   sitting on top of it, so this one carries its own. */
+body.ps-portal #copyright .ps-footer-legal {
+    line-height: 1.6;
+    margin-bottom: 6px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+body.ps-portal #copyright .ps-footer-legal a { color: var(--ps-ink-soft); }
+
+body.ps-portal #copyright .ps-footer-legal a:hover { color: var(--ps-accent); }
+
+body.ps-portal #copyright .ps-footer-legal .sep { color: var(--ps-muted); margin: 0 10px; }
 
 /* ------------------------------------------------------------- phones --- */
 

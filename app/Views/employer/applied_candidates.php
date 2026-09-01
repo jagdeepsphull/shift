@@ -4,7 +4,7 @@
         <div class="dashboard-caption">
 
             <div class="dashboard-caption-header">
-                <h4><i class="ti-briefcase"></i>Applied Candidates for <?php echo esc($job[0]->p_job_title); ?></h4>
+                <h4><i class="ti-briefcase"></i>Applicants for <?php echo esc($job[0]->p_job_title); ?></h4>
             </div>
 
             <div class="dashboard-caption-wrap">
@@ -20,7 +20,7 @@
                     <table id="candidatelist" class="table table-hover">
                         <thead>
                             <tr>
-                                <th>Candidate</th>
+                                <th>Applicant</th>
                                 <th>Mobile</th>
                                 <th>Email Id</th>
                                 <th>Applied Date</th>

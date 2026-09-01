@@ -4,7 +4,7 @@
 <!-- Title Header Start -->
 <section class="inner-header-title" style="background-image:url(<?php echo base_url('assets/front/img/account.jpg'); ?>);">
     <div class="container">
-        <h1>Candidate Account</h1>
+        <h1>Applicant Account</h1>
     </div>
 </section>
 <div class="clearfix"></div>

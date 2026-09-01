@@ -14,7 +14,7 @@ class ExpireJobs extends BaseCommand
 {
     protected $group       = 'Maintenance';
     protected $name        = 'jobs:expire';
-    protected $description = 'Marks shifts (post_job) whose date has already passed as Inactive (Expired).';
+    protected $description = 'Marks shifts (post_job) whose date has already passed as Closed (Expired).';
 
     public function run(array $params)
     {

@@ -74,6 +74,18 @@
 							<div class="card-body">
 
 
+								<?php /* The shift's own number, which is what a shift is
+								   called everywhere else - in the list, in the e-mails, and
+								   between whoever is on the phone about it. Read-only: it is
+								   the row's identity, not a field. */ ?>
+								<div class="row">
+									<div class="col-sm-4">
+										<div class="form-group">
+											<label class="mb-0">Shift ID: <span class="h5 mb-0">#<?php echo esc($p_id); ?></span></label>
+										</div>
+									</div>
+								</div>
+
 								<div class="row">
 									<?php /* <div class="col-sm-4">
 										<!-- text input -->
@@ -102,7 +114,7 @@
 									<div class="col-sm-4">
 										<div class="form-group">
 											<label>Hourly Rate</label>
-											<input type="number" required min="10" max="200" class="form-control" name="p_hourly_rate"  placeholder="Enter Hourly Rate" value="<?php echo esc($p_hourly_rate); ?>">
+											<input type="number" required min="<?= RATE_MIN ?>" max="<?= RATE_MAX ?>" step="<?= RATE_STEP ?>" inputmode="decimal" data-rate-input class="form-control" name="p_hourly_rate"  placeholder="Enter Hourly Rate" value="<?php echo esc($p_hourly_rate); ?>">
 											
 										   
 										</div>
@@ -110,7 +122,7 @@
 									<div class="col-sm-4">
 										<div class="form-group">
 											<label>Actual Hourly Rate (to be visible on the website)</label>
-											<input type="number" required min="10" max="200" class="form-control" name="p_ac_hourly_rate"  placeholder="Enter Hourly Rate" value="<?php echo esc($p_ac_hourly_rate); ?>">
+											<input type="number" required min="<?= RATE_MIN ?>" max="<?= RATE_MAX ?>" step="<?= RATE_STEP ?>" inputmode="decimal" data-rate-input class="form-control" name="p_ac_hourly_rate"  placeholder="Enter Hourly Rate" value="<?php echo esc($p_ac_hourly_rate); ?>">
 											
 										  
 										</div>

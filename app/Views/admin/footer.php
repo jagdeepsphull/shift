@@ -603,36 +603,57 @@
 	});
 	
 	  
-	$('.date').datepicker({
-		multidate: false,
-		startDate: new Date(),
-		minDate: 0, // Restrict past dates, allowing only today and future dates
-		format: 'dd-mm-yyyy'
-	});
-	
-	// Get prepopulated value from the input
-	let prePopulatedValue = $('.timePicker').val(); 
+	/**
+	 * The date and hours pickers, on every `.date` and `.timePicker` box
+	 * inside `root` - the whole page when called with nothing.
+	 *
+	 * A function rather than run once inline, for the same reason as
+	 * applySelect2 below: the admin's Add Shift form adds date-and-hours
+	 * rows after load ("Add More"), and each needs its pickers. Safe on a
+	 * box already dressed - bootstrap-datepicker leaves it alone, and
+	 * daterangepicker replaces its own.
+	 *
+	 * Each hours box opens on its own value. This used to read the first
+	 * box's value and open every box on it, which with one box on the page
+	 * made no difference.
+	 */
+	window.applyShiftPickers = function (root) {
+		var $root = $(root || document);
 
-	// Split the prepopulated value into start and end times
-	let startTime = prePopulatedValue ? prePopulatedValue.split(' - ')[0] : moment().format('HH:mm');
-	let endTime = prePopulatedValue ? prePopulatedValue.split(' - ')[1] : moment().add(1, 'hours').format('HH:mm');
+		$root.find('.date').datepicker({
+			multidate: false,
+			startDate: new Date(),
+			minDate: 0, // Restrict past dates, allowing only today and future dates
+			format: 'dd-mm-yyyy'
+		});
 
-	
-	$('.timePicker').daterangepicker({
-		timePicker: true,
-		timePicker24Hour: true, // Use 24-hour format
-		timePickerIncrement: 15, // Time intervals (e.g., 30 minutes)
-		locale: {
-			format: 'HH:mm', // Format for time display only
-		},
-		startDate: startTime, // Use parsed start time or default
-		endDate: endTime, // Use parsed end time or default
-		singleDatePicker: false, // Enable range selection
-		autoApply: true // Automatically close on selection
-	}, function(start, end, label) {
-		console.log("Selected time range: " + start.format('HH:mm') + ' - ' + end.format('HH:mm'));
-	});
-	
+		$root.find('.timePicker').each(function () {
+			// Get prepopulated value from the input
+			var prePopulatedValue = $(this).val();
+
+			// Split the prepopulated value into start and end times
+			var startTime = prePopulatedValue ? prePopulatedValue.split(' - ')[0] : moment().format('HH:mm');
+			var endTime = prePopulatedValue ? prePopulatedValue.split(' - ')[1] : moment().add(1, 'hours').format('HH:mm');
+
+			$(this).daterangepicker({
+				timePicker: true,
+				timePicker24Hour: true, // Use 24-hour format
+				timePickerIncrement: 15, // Time intervals (e.g., 30 minutes)
+				locale: {
+					format: 'HH:mm', // Format for time display only
+				},
+				startDate: startTime, // Use parsed start time or default
+				endDate: endTime, // Use parsed end time or default
+				singleDatePicker: false, // Enable range selection
+				autoApply: true // Automatically close on selection
+			}, function(start, end, label) {
+				console.log("Selected time range: " + start.format('HH:mm') + ' - ' + end.format('HH:mm'));
+			});
+		});
+	};
+
+	window.applyShiftPickers();
+
 	
 
 		
@@ -755,5 +776,8 @@ let user_country_code = "IN";
 </script>
 
 <?= view('partials/phone_input_script') ?>
+<?= view('partials/rate_input_script') ?>
+<?= view('partials/select2_focus_script') ?>
+<?= view('partials/shift_more_rows_script') ?>
 </body>
 </html>

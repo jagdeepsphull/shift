@@ -113,3 +113,40 @@ defined('NAME_PATTERN') || define('NAME_PATTERN', "/^[\p{L}\s'’\-().,]+$/u");
  */
 defined('PHONE_LENGTH')  || define('PHONE_LENGTH', 10);
 defined('PHONE_PATTERN') || define('PHONE_PATTERN', '/^[0-9]{' . PHONE_LENGTH . '}$/');
+
+/*
+ | An hourly rate is dollars and cents: at least one digit, then at most two
+ | after a single decimal point. That rejects the shapes a number box will
+ | otherwise hand over or hold - ".334" with no dollars in front, "42.555" with
+ | more cents than exist, and "3.4.3.4" with a point in every gap.
+ |
+ | The two decimals are the column: `post_job.p_hourly_rate` is DECIMAL(6,2), so
+ | a third one is not refused by MySQL, it is rounded away silently - which is a
+ | rate nobody typed being saved as if they had.
+ |
+ | The bounds are the ones the shift forms have always shown. They were only
+ | ever `min` and `max` attributes, which is to say only ever a suggestion: the
+ | server took whatever was posted. Kept here, next to PHONE_PATTERN and for the
+ | same reason - the browser rule and the server rule are driven from the same
+ | four values, so they cannot drift apart.
+ */
+defined('RATE_MIN')      || define('RATE_MIN', 10);
+defined('RATE_MAX')      || define('RATE_MAX', 200);
+defined('RATE_DECIMALS') || define('RATE_DECIMALS', 2);
+defined('RATE_STEP')     || define('RATE_STEP', '0.01');
+defined('RATE_PATTERN')  || define('RATE_PATTERN', '/^[0-9]{1,4}(\.[0-9]{1,' . RATE_DECIMALS . '})?$/');
+
+/*
+ | What the Shift Time box opens on when a shift is being added - a nine to six
+ | day, which is what most of them are. Only a starting point: the picker is
+ | still there, and whatever it is left showing is what gets posted.
+ |
+ | The shape matters as much as the hours. `p_shift_time` is free text, and the
+ | daterangepicker on both add forms splits the box back apart on ' - ' in
+ | 24-hour HH:mm to decide where to open - so anything else written here is a
+ | value the picker cannot read, and it would quietly open on the current hour.
+ |
+ | Adding only. An edit form shows the hours the shift was saved with, and a
+ | default there would stand in for hours somebody actually chose.
+ */
+defined('SHIFT_TIME_DEFAULT') || define('SHIFT_TIME_DEFAULT', '09:00 - 18:00');

@@ -323,9 +323,9 @@ class Sadmin extends BaseController
 
         $this->data['jobs'] = $this->custom->get_where('post_job', []);
 
-        $this->data['applicationslist'] = $this->custom->query('select ssa.*, u.u_comp_name, pj.p_shift_time, pj.p_dates, pj.p_job_title, ap.u_fname AS applicant_fname, ap.u_lname AS applicant_lname from stu_saved_applied_jobs ssa join users u on u.u_id = ssa.agency_id join post_job pj on pj.p_id = ssa.p_id left join users ap on ap.u_id = ssa.u_id where 1 = 1 ');
+        $this->data['applicationslist'] = $this->applicationRows();
 
-        $this->data['booked_applications'] = $this->custom->query('select ssa.*, u.u_comp_name, pj.p_shift_time, pj.p_dates, pj.p_job_title, ap.u_fname AS applicant_fname, ap.u_lname AS applicant_lname from stu_saved_applied_jobs ssa join users u on u.u_id = ssa.agency_id join post_job pj on pj.p_id = ssa.p_id left join users ap on ap.u_id = ssa.u_id where 1 = 1 and ssa.sj_is_approved = 1 ');
+        $this->data['booked_applications'] = $this->applicationRows(true);
 
         // "What's new" panel. The window is a plain number of days rather than
         // "since you last looked": a per-admin last-seen marker needs a column,
@@ -2756,12 +2756,22 @@ class Sadmin extends BaseController
 
                 $this->data['jobs'] = $jobs;
 
+                // Who is booked on each of those shifts. The list names the
+                // applicant, their type and their licence number, and that is
+                // one lookup for the whole page rather than one per row.
+                $this->data['bookings'] = $this->shiftBookings($jobs);
+
                 $this->load->admin_view('postjobs/index', $this->data);
                 break;
 
             case 'add':
                 if ($this->input->post('savedata')) {
                     $this->form_validation->set_rules('p_store_id', 'Store', 'required');
+
+                    // Both rates, checked rather than trusted: the boxes carry a
+                    // step and a range, and neither survives the trip over HTTP.
+                    setRateRule('p_hourly_rate', 'Hourly Rate');
+                    setRateRule('p_ac_hourly_rate', 'Actual Hourly Rate');
 
                     $rowData = cleanArray($this->input->post());
 
@@ -2781,6 +2791,17 @@ class Sadmin extends BaseController
                         $rowData['p_province'] = $store->s_province ?: $u_data[0]->u_provice;
                         $rowData['p_city']     = $store->s_city ?: $u_data[0]->u_city;
                     }
+
+                    // The rows "Add More" put under the first date and hours.
+                    // Each is one more shift, the same as the first in
+                    // everything but when it runs: they come off the row here,
+                    // since neither is a post_job column, and go in as rows of
+                    // their own once the first is written. Kept for the form
+                    // as well, so a save that comes back does not lose them.
+                    $moreShifts = moreShiftRows($rowData['p_more_dates'] ?? [], $rowData['p_more_shift_time'] ?? []);
+                    unset($rowData['p_more_dates'], $rowData['p_more_shift_time']);
+
+                    $this->data['more_shifts'] = $moreShifts;
 
                     $rowData['p_skills']   = implode(',', (array) $this->input->post('p_skills'));
                     $rowData['p_services'] = implode(',', (array) $this->input->post('p_services'));
@@ -2827,29 +2848,87 @@ class Sadmin extends BaseController
                         // Nothing is saved: a shift meant to be booked that came
                         // out unbooked is worse than one that was never created.
                         $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">That applicant is no longer active, so the shift has not been saved.</div>');
+                    } elseif (array_filter($moreShifts, static fn ($row) => $row['date'] === '' || $row['time'] === '') !== []) {
+                        // An added row with its date or its hours missing. Both
+                        // boxes are `required`, so this is a hand-edited form -
+                        // and nothing at all is saved, rather than the rows that
+                        // were complete with one shift quietly missing from
+                        // among them.
+                        $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">Every added row needs both a date and the hours, so nothing has been saved.</div>');
                     } elseif (insertQry($table, $rowData, 'newjob')) {
-                        $id = $this->db->insertID();
+                        // The first shift is in. The "Add More" rows go in the
+                        // same way, one post_job row each, differing from the
+                        // first only in when they run. Validation has already
+                        // run on the form as a whole above, and there is
+                        // nothing on these rows it did not see.
+                        $shifts = [(int) $this->db->insertID() => $rowData];
 
-                        $uData['p_job_title'] = 'PAS-' . $id;
+                        foreach ($moreShifts as $more) {
+                            $extra = array_merge($rowData, [
+                                'p_dates'      => $more['date'],
+                                'p_shift_time' => $more['time'],
+                                'p_date_start' => parseShiftDate($more['date']),
+                            ]);
 
-                        updateQry($table, $uData, ['p_id' => $id]);
+                            $extraId = $this->custom->insert($table, $extra);
 
-                        if ($applicant) {
-                            // Booking closes the shift, so it never goes live
-                            // and there is nothing to announce - the booking
-                            // e-mails that go instead are sent from here.
-                            $this->bookApplicant((int) $id, $applicant, (string) $this->input->post('sj_admin_comment'));
-                        } elseif ((int) ($rowData['p_approved'] ?? 0) === 1) {
-                            // A shift saved straight to Open is live now, so
-                            // it is announced now. Approving one later does the
-                            // same from the edit branch; between them the
-                            // e-mail follows the shift going live rather than
-                            // which screen it happened on. Before this, a shift
-                            // added as Open was never announced at all.
-                            $this->sendShiftPostedEmail(
-                                $rowData + ['p_id' => $id, 'p_job_title' => $uData['p_job_title']],
-                                $u_data[0]
-                            );
+                            if ($extraId) {
+                                $shifts[(int) $extraId] = $extra;
+                            } else {
+                                // The same columns as the row that just went
+                                // in, so this is the database refusing it -
+                                // named below, so it can be added again.
+                                log_message('error', 'Add More shift on ' . $more['date'] . ' (' . $more['time'] . ') was not written.');
+                            }
+                        }
+
+                        // Every shift is titled after its own id, as before.
+                        // Straight through the builder rather than updateQry():
+                        // that runs the form's validation again on every pass,
+                        // and writes its own message over the one below.
+                        foreach (array_keys($shifts) as $id) {
+                            $this->db->table($table)->where('p_id', $id)->update(['p_job_title' => 'PAS-' . $id]);
+                        }
+
+                        $titles = array_map(static fn ($id) => 'PAS-' . $id, array_keys($shifts));
+                        $asked  = 1 + count($moreShifts);
+
+                        // Says what was written, which with several rows is
+                        // the thing to check - and, if fewer than asked, which
+                        // are missing. Set before the bookings below: those
+                        // have their own message to give if one fails, and it
+                        // has to be the one that survives.
+                        if (count($shifts) < $asked) {
+                            $this->session->set_flashdata('error_msg', '<div class="alert alert-warning">' . count($shifts) . ' of ' . $asked . ' shifts have been added (' . implode(', ', $titles) . '). The rest were not saved - add them again.</div>');
+                        } elseif (count($shifts) > 1) {
+                            $this->session->set_flashdata('error_msg', '<div class="alert alert-success">' . count($shifts) . ' shifts have been added: ' . implode(', ', $titles) . '.</div>');
+                        } else {
+                            $this->session->set_flashdata('error_msg', '<div class="alert alert-success">Shift ' . $titles[0] . ' has been added.</div>');
+                        }
+
+                        foreach ($shifts as $id => $shift) {
+                            if ($applicant) {
+                                // Booking closes the shift, so it never goes
+                                // live and there is nothing to announce - the
+                                // booking e-mails that go instead are sent from
+                                // here. The one applicant named on the form is
+                                // booked on every shift it made: the rows are
+                                // one agreement, on several days.
+                                $this->bookApplicant($id, $applicant, (string) $this->input->post('sj_admin_comment'));
+                            } elseif ((int) ($shift['p_approved'] ?? 0) === 1) {
+                                // A shift saved straight to Open is live now, so
+                                // it is announced now - one e-mail per shift, as
+                                // if each had been added on its own. Approving
+                                // one later does the same from the edit branch;
+                                // between them the e-mail follows the shift going
+                                // live rather than which screen it happened on.
+                                // Before this, a shift added as Open was never
+                                // announced at all.
+                                $this->sendShiftPostedEmail(
+                                    $shift + ['p_id' => $id, 'p_job_title' => 'PAS-' . $id],
+                                    $u_data[0]
+                                );
+                            }
                         }
 
                         ci_redirect('sadmin/postjobs', 'refresh');
@@ -2868,6 +2947,17 @@ class Sadmin extends BaseController
                     // the form on - it would quietly send every new shift's
                     // announcement to the fallback address.
                     $this->data['p_email_to'] = implode(',', shiftEmailSides());
+
+                    // Same idea for the hours: a blank box made every shift a
+                    // trip through the picker, and the picker opened on
+                    // whatever time it happened to be. Set here rather than in
+                    // the view so a shift that comes back from a failed save
+                    // keeps the hours that were typed.
+                    $this->data['p_shift_time'] = SHIFT_TIME_DEFAULT;
+
+                    // No "Add More" rows yet. Not a column, so getTableInfo()
+                    // above gave the view nothing to read for it.
+                    $this->data['more_shifts'] = [];
                 }
 
                 // Every store on the site, under the employer that owns it -
@@ -2900,6 +2990,11 @@ class Sadmin extends BaseController
                 // screen; it is trusted with this.
                 if ($this->input->post('savedata')) {
                     $this->form_validation->set_rules('p_store_id', 'Store', 'required');
+
+                    // Both rates, checked rather than trusted: the boxes carry a
+                    // step and a range, and neither survives the trip over HTTP.
+                    setRateRule('p_hourly_rate', 'Hourly Rate');
+                    setRateRule('p_ac_hourly_rate', 'Actual Hourly Rate');
 
                     $rowData = cleanArray($this->input->post());
 
@@ -3062,6 +3157,12 @@ class Sadmin extends BaseController
                     ? ($owner['u_comp_name'] !== '' ? $owner['u_comp_name'] : trim($owner['u_fname'] . ' ' . $owner['u_lname']))
                     : 'no employer on record';
 
+                // Shown on the form. Set from the URL rather than left to
+                // getTableInfo(): a save that fails validation comes back
+                // through the posted row, which has no p_id in it, and the
+                // number would go missing on exactly the screen being read.
+                $this->data['p_id'] = $id;
+
                 $this->load->admin_view('postjobs/edit', $this->data);
                 break;
 
@@ -3099,11 +3200,9 @@ class Sadmin extends BaseController
 
         switch ($action) {
             default:
-                if ($this->input->get('filter') && $this->input->get('filter') === 'booked') {
-                    $applicationslist = $this->custom->query('select ssa.*, u.u_comp_name, pj.p_shift_time, pj.p_dates, pj.p_job_title, ap.u_fname AS applicant_fname, ap.u_lname AS applicant_lname from stu_saved_applied_jobs ssa join users u on u.u_id = ssa.agency_id join post_job pj on pj.p_id = ssa.p_id left join users ap on ap.u_id = ssa.u_id where 1 = 1 and ssa.sj_is_approved = 1 ');
-                } else {
-                    $applicationslist = $this->custom->query('select ssa.*, u.u_comp_name, pj.p_shift_time, pj.p_dates, pj.p_job_title, ap.u_fname AS applicant_fname, ap.u_lname AS applicant_lname from stu_saved_applied_jobs ssa join users u on u.u_id = ssa.agency_id join post_job pj on pj.p_id = ssa.p_id left join users ap on ap.u_id = ssa.u_id where 1 = 1 ');
-                }
+                $applicationslist = $this->applicationRows(
+                    $this->input->get('filter') && $this->input->get('filter') === 'booked'
+                );
 
                 $this->data['applicationslist'] = $applicationslist;
 
@@ -3182,7 +3281,7 @@ class Sadmin extends BaseController
                 }
 
                 $application = $this->custom->query(
-                    'select ssa.*, phrmcist.*, pj.p_job_title, pj.p_hourly_rate, pj.p_ac_hourly_rate, pj.p_dates, pj.p_shift_time '
+                    'select ssa.*, phrmcist.*, pj.p_job_title, pj.p_hourly_rate, pj.p_ac_hourly_rate, pj.p_dates, pj.p_shift_time, pj.p_store_id '
                     . 'from stu_saved_applied_jobs ssa, users phrmcist, post_job pj '
                     . 'where sj_id = ? and ssa.u_id = phrmcist.u_id and ssa.p_id = pj.p_id',
                     [$id]
@@ -3191,6 +3290,20 @@ class Sadmin extends BaseController
                 $this->data['application'] = $application[0];
 
                 getTableInfo($this->dbname, 'users', ['u_id' => $application[0]->agency_id]);
+
+                // The branch the applicant would be working at, and the account
+                // that holds it. `agency_id` names whoever posted the shift -
+                // for a chain that is the head office or a manager, so on its
+                // own it never said which location, or whose phone to call
+                // when the store's own line is not answering.
+                $this->data['shift_store'] = shiftStore((object) [
+                    'p_store_id' => $application[0]->p_store_id,
+                    'u_id'       => $application[0]->agency_id,
+                ]);
+
+                $this->data['store_owner'] = $this->custom->get_where_row('users', [
+                    'u_id' => $this->data['shift_store']->u_id ?? $application[0]->agency_id,
+                ]);
 
                 $this->load->admin_view('application/view', $this->data);
                 break;
@@ -3391,6 +3504,80 @@ class Sadmin extends BaseController
            ORDER BY u.u_comp_name ASC, s.s_name ASC",
             [$keepStoreId]
         ) ?: [];
+    }
+
+    /**
+     * The applications list - every row the applications screen and the
+     * dashboard both read.
+     *
+     * One query in one place: the same select was written out four times, and
+     * a column added for the screen reached whichever copies were remembered.
+     *
+     * The store, the applicant's licence and the shift's requested type come
+     * down with it, as the shift title and the applicant's name already did.
+     * The list shows all of them on every row, and looking each one up from
+     * inside the view is another query per application.
+     *
+     * `pj.u_id` is aliased: `ssa.*` already carries a `u_id`, and that one is
+     * the applicant, not the employer.
+     *
+     * @param bool $bookedOnly only the applicant who got the shift
+     *
+     * @return array<int, object>
+     */
+    private function applicationRows(bool $bookedOnly = false): array
+    {
+        return $this->custom->query(
+            'select ssa.*, u.u_comp_name,'
+            . ' pj.p_shift_time, pj.p_dates, pj.p_job_title, pj.p_store_id,'
+            . ' pj.u_id AS employer_id, pj.p_shift_for,'
+            . ' ap.u_fname AS applicant_fname, ap.u_lname AS applicant_lname,'
+            . ' ap.u_licence_no AS applicant_licence'
+            . ' from stu_saved_applied_jobs ssa'
+            . ' join users u on u.u_id = ssa.agency_id'
+            . ' join post_job pj on pj.p_id = ssa.p_id'
+            . ' left join users ap on ap.u_id = ssa.u_id'
+            . ' where 1 = 1'
+            . ($bookedOnly ? ' and ssa.sj_is_approved = 1' : '')
+        ) ?: [];
+    }
+
+    /**
+     * The booked applicant for each of the given shifts, keyed by shift id.
+     *
+     * At most one row per shift: booking one applicant rejects the rest, so
+     * `sj_is_approved = 1` is unique per `p_id`. Not `sj_status` as well - an
+     * applicant the administrator placed on a shift himself has a row written
+     * at status 6, and demanding status 1 ("Applied") would leave the shift
+     * list blank about a shift it is itself reporting as Booked.
+     *
+     * @param array<int, object>|null $shifts `post_job` rows
+     *
+     * @return array<int, object>
+     */
+    private function shiftBookings(?array $shifts): array
+    {
+        $ids = array_map(static fn ($shift) => (int) $shift->p_id, $shifts ?: []);
+
+        if (! $ids) {
+            return [];
+        }
+
+        $rows = $this->custom->query(
+            'SELECT ssa.p_id, u.u_fname, u.u_lname, u.u_usersubtype, u.u_licence_no'
+            . ' FROM stu_saved_applied_jobs ssa'
+            . ' JOIN users u ON u.u_id = ssa.u_id'
+            // Cast to int above, so the list is digits and nothing else.
+            . ' WHERE ssa.sj_is_approved = 1 AND ssa.p_id IN (' . implode(',', $ids) . ')'
+        );
+
+        $bookings = [];
+
+        foreach ($rows ?: [] as $row) {
+            $bookings[(int) $row->p_id] = $row;
+        }
+
+        return $bookings;
     }
 
     /**

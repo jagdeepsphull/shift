@@ -42,11 +42,12 @@
                   <tr>
                     <th>ID</th>
                     <th>Shift ID</th>
-                    <th>Employer</th>
-                    <th>City</th>
-                    <th>Province</th>
-                    <th>Shift Requested For</th>
+                    <th>Store Address</th>
+                    <th>Applicant type</th>
+                    <th>Applicant</th>
+                    <th>Lic. No.</th>
                     <th>Shift Date</th>
+                    <th>Shift Time</th>
                     <th>Shift Status</th>
                     <th>Action</th>
                   </tr>
@@ -63,15 +64,56 @@
 						// one row that did not offer it. Sadmin::postjobs()
 						// lets the same two actions through, so a typed URL and
 						// these buttons agree.
+
+						// The branch the shift is at. City and province are
+						// part of the address, so the two columns that used to
+						// carry them on their own are gone. A shift from before
+						// the stores existed falls back to the employer's login
+						// columns, which is where its address has always come
+						// from.
+						$store = shiftStore($job);
+
+						// Stacked - street, then town, then province - rather
+						// than run together on one line: the column is read
+						// down the page looking for a branch, and three short
+						// lines are quicker to scan than one long one that
+						// wraps where the column happens to end. Only the parts
+						// actually filled, or a store with no town or postcode
+						// leaves blank lines behind it.
+						$storeAddress = $store ? array_values(array_filter([
+							trim((string) $store->s_address),
+							trim((string) getCityName($store->s_city)),
+							trim((string) implode(' ', array_filter([
+								trim((string) getProvinceName($store->s_province)),
+								trim((string) $store->s_pincode),
+							], static fn ($part) => $part !== ''))),
+						], static fn ($part) => $part !== '')) : [];
+
+						// Who is working the shift, looked up for the whole
+						// list at once in the controller. Null while nobody is
+						// on it, which is every shift still on the board.
+						$booked     = $bookings[(int) $job->p_id] ?? null;
+						$bookedName = $booked ? trim($booked->u_fname.' '.$booked->u_lname) : '';
+
+						// The type of the person on the shift once there is
+						// one, and until then the type the shift is asking for
+						// - the same answer either way in the ordinary case,
+						// since an applicant applies for their own type, and
+						// the truthful one when an administrator has placed
+						// somebody of another type on it himself.
+						$applicantType = $booked
+							? getShiftForName($booked->u_usersubtype)
+							: getShiftForName($job->p_shift_for);
 					?>
                   <tr class="<?php echo ($job->p_approved==1) ? 'bg-gradient-success'  : '' ;?> <?php echo ($job->p_approved==3) ? 'bg-gradient-warning'  : '' ;?>" >
                     <td><?php echo $job-> p_id ; ?></td>
                     <td><?php echo esc($job->p_job_title); ?></td>
-                    <td><?php echo getPharmacyName($job-> u_id ); ?></td>
-                    <td><?php echo getCityName($job->p_city); ?></td>
-                    <td><?php echo getProvinceName($job->p_province); ?></td>
-                    <td><?php echo getShiftForName($job->p_shift_for); ?></td>
+                    <td><?php if($storeAddress){ foreach($storeAddress as $line){ ?><span class="d-block"><?php echo esc($line); ?></span><?php } } else { echo '-'; } ?></td>
+                    <td><?php echo ($applicantType !== '') ? esc($applicantType) : '-'; ?></td>
+                    <td><?php echo ($bookedName !== '') ? esc($bookedName) : '-'; ?></td>
+                    <td><?php echo ($booked && trim((string) $booked->u_licence_no) !== '') ? esc($booked->u_licence_no) : '-'; ?></td>
                     <td data-order="<?php echo shiftDateSortValue($job); ?>"><?php echo dateFormat($job->p_dates); ?></td>
+                    <td><?php echo esc($job->p_shift_time); ?></td>
 					<td><?php echo $approved[$job->p_approved];?></td>
                     <td>
 					<a href="<?php echo base_url($adminpath.'/'.$link.'/edit/'.$job->p_id);?>" class="btn btn-success"><i class="fas fa-edit"></i> Edit</a>
@@ -90,11 +132,12 @@
                   <tr>
                     <th>ID</th>
                     <th>Shift ID</th>
-                    <th>Employer</th>
-                    <th>City</th>
-                    <th>Province</th>
-                    <th>Shift Requested For</th>
+                    <th>Store Address</th>
+                    <th>Applicant type</th>
+                    <th>Applicant</th>
+                    <th>Lic. No.</th>
                     <th>Shift Date</th>
+                    <th>Shift Time</th>
                     <th>Shift Status</th>
                     <th>Action</th>
                   </tr>

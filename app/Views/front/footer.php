@@ -346,6 +346,7 @@
     </script>
 
     <?= view('partials/phone_input_script') ?>
+    <?= view('partials/select2_focus_script') ?>
 
   </body>
 </html>

@@ -181,6 +181,13 @@ class Employer extends BaseController
             $this->form_validation->set_rules('p_shift_for', 'Shift Requested For', 'required');
             $this->form_validation->set_rules('p_store_id', 'Store', 'required');
 
+            // Only where the form asks for one. A manager has no rate box -
+            // the group prices their shifts - so requiring it here would
+            // refuse every save they make.
+            if (! $this->isManager()) {
+                setRateRule('p_hourly_rate', 'Hourly Rate');
+            }
+
             $rowData = $this->shiftRowFromPost();
 
             // The shift belongs to a chosen store (location) - one this login
@@ -213,12 +220,24 @@ class Employer extends BaseController
 
                 ci_redirect('employer/all_jobs');
             } else {
+                // Say why. The form used to come back filled in and silent,
+                // which reads as the site having lost the shift rather than
+                // as one field being wrong.
+                $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">' . validation_errors() . '</div>');
+
                 foreach ($rowData as $ky => $vl) {
                     $this->data[$ky] = $vl;
                 }
             }
         } else {
             getTableInfo($this->dbname, 'post_job');
+
+            // The hours a new shift opens on, so the common case is one the
+            // employer confirms rather than one they have to pick. Only on a
+            // form being opened fresh: a save that came back with an error
+            // still shows the hours that were typed, and `edit_job` shows the
+            // hours the shift was saved with.
+            $this->data['p_shift_time'] = SHIFT_TIME_DEFAULT;
         }
 
         $this->data['shift_for']       = $this->custom->get_where_order('shift_for', ['sf_status' => 1], 'sf_name', 'asc');
@@ -263,6 +282,12 @@ class Employer extends BaseController
                 $this->form_validation->set_rules('p_shift_for', 'Shift Requested For', 'required');
                 $this->form_validation->set_rules('p_store_id', 'Store', 'required');
 
+                // Same as on create: a manager is not asked for a rate, so
+                // there is none of theirs to check.
+                if (! $this->isManager()) {
+                    setRateRule('p_hourly_rate', 'Hourly Rate');
+                }
+
                 $rowData = $this->shiftRowFromPost();
 
                 // Same as on create: the location comes off the chosen store.
@@ -294,6 +319,10 @@ class Employer extends BaseController
                 } elseif (updateQry('post_job', $rowData, ['p_id' => $id, 'p_status' => 0, 'p_approved' => 0])) {
                     ci_redirect('employer/all_jobs');
                 } else {
+                    // Same as on create: a silent redisplay reads as the edit
+                    // having been thrown away rather than refused.
+                    $this->session->set_flashdata('error_msg', '<div class="alert alert-danger">' . validation_errors() . '</div>');
+
                     foreach ($rowData as $ky => $vl) {
                         $this->data[$ky] = $vl;
                     }

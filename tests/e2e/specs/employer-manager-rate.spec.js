@@ -27,6 +27,13 @@ const MANAGER = { user: `${PREFIX}manager@example.com`, pass: PASSWORD };
 /** The rate the group set, which a manager's edit must not touch. */
 const RATE = 47;
 
+/**
+ * The same rate as it reads back. `post_job.p_hourly_rate` is DECIMAL(6,2) - it
+ * has held cents since shift rates stopped being whole dollars - so a rate
+ * seeded as 47 comes out of the column, and onto every screen, as "47.00".
+ */
+const RATE_SHOWN = RATE.toFixed(2);
+
 /** The administrator's note on a booking, which a manager is not shown either. */
 const MESSAGE = 'Agreed at $52 for this one.';
 
@@ -167,7 +174,7 @@ test('the edit form drops the rate for a manager and keeps it for the owner', as
   await loginAsFrontUser(page, OWNER);
   await page.goto(`employer/edit_job/${pid}`);
   await settle(page);
-  await expect(rateField(page)).toHaveValue(String(RATE));
+  await expect(rateField(page)).toHaveValue(RATE_SHOWN);
 
   await page.goto('employer/logout');
   await loginAsFrontUser(page, MANAGER);
@@ -214,7 +221,7 @@ test("a manager's save leaves the rate the group set alone", async ({ page }) =>
   expect(
     scalar(`SELECT p_hourly_rate FROM post_job WHERE p_id = ${pid};`),
     'the rate is untouched',
-  ).toBe(String(RATE));
+  ).toBe(RATE_SHOWN);
 });
 
 test('a shift a manager posts carries no rate until the group sets one', async ({ page }) => {
@@ -267,7 +274,7 @@ test('the details panel shows the rate to the owner, not to the manager', async 
   await page.locator('#joblist tbody tr', { hasText: 'E2E-RATE-SHIFT' }).getByRole('button', { name: 'View' }).click();
 
   await expect(page.locator('#modalShiftRate')).toBeVisible();
-  await expect(page.locator('#modalShiftRate')).toHaveValue(`$${RATE}`);
+  await expect(page.locator('#modalShiftRate')).toHaveValue(`$${RATE_SHOWN}`);
 
   // Every box in the panel only reports; none of them takes a keystroke. This
   // is what the empty-looking Shift Date and Shift Time boxes used to invite.

@@ -62,6 +62,39 @@ if (! function_exists('parseShiftDate')) {
     }
 }
 
+if (! function_exists('moreShiftRows')) {
+    /**
+     * The extra date-and-hours rows from "Add More" on the admin's Add Shift
+     * form, paired up by position: the first date with the first hours, and so
+     * on. Each pair is one more shift.
+     *
+     * Paired here rather than trusted to arrive paired: the dates and the hours
+     * are posted as two separate arrays, and a hand-edited form can send three
+     * of one and two of the other. The odd one out comes back as a row with one
+     * half blank - which the caller refuses - rather than being quietly dropped.
+     *
+     * @param mixed $dates what was posted as `p_more_dates[]`
+     * @param mixed $times what was posted as `p_more_shift_time[]`
+     *
+     * @return array<int, array{date: string, time: string}> as typed, trimmed
+     */
+    function moreShiftRows($dates, $times): array
+    {
+        $dates = array_values((array) $dates);
+        $times = array_values((array) $times);
+        $rows  = [];
+
+        for ($i = 0, $n = max(count($dates), count($times)); $i < $n; $i++) {
+            $rows[] = [
+                'date' => trim((string) ($dates[$i] ?? '')),
+                'time' => trim((string) ($times[$i] ?? '')),
+            ];
+        }
+
+        return $rows;
+    }
+}
+
 if (! function_exists('shiftDateOrderBy')) {
     /**
      * The ORDER BY expression every shift list sorts on: soonest shift first,
@@ -282,6 +315,49 @@ if (! function_exists('cleanArray')) {
         }
 
         return $cleanarray;
+    }
+}
+
+if (! function_exists('setRateRule')) {
+    /**
+     * Put the hourly-rate rules on a field, on whichever form is asking.
+     *
+     * Four screens collect a rate - the back office adds and edits a shift, and
+     * an employer does the same on their own form - and until this existed not
+     * one of them checked it. The `min`, `max` and `step` on the input were the
+     * whole of the rule, so anything that reached the controller without a
+     * browser in front of it was written as posted: ".334", "3.4.3.4", a rate
+     * of 5000, or a third decimal that MySQL then rounded off to something
+     * nobody had typed.
+     *
+     * One function rather than four copies of the rule string, so a rate means
+     * the same thing on every screen that asks for one.
+     *
+     * @param string $field the POST field, e.g. `p_hourly_rate`
+     * @param string $label how the field is named back in an error message
+     */
+    function setRateRule(string $field, string $label): void
+    {
+        $decimals = RATE_DECIMALS === 1 ? 'one decimal place' : RATE_DECIMALS . ' decimal places';
+
+        get_instance()->form_validation->set_rules(
+            $field,
+            $label,
+            [
+                'required',
+                // Shape first, so a rate that is not a number at all is told
+                // what a rate looks like rather than that it is too small.
+                'regex_match[' . RATE_PATTERN . ']',
+                'greater_than_equal_to[' . RATE_MIN . ']',
+                'less_than_equal_to[' . RATE_MAX . ']',
+            ],
+            [
+                'regex_match'           => 'The {field} must be an amount in dollars, with at most ' . $decimals
+                    . ' after a single decimal point - 42, 42.5 or 42.50.',
+                'greater_than_equal_to' => 'The {field} must be at least CAD$ ' . RATE_MIN . '.',
+                'less_than_equal_to'    => 'The {field} cannot be more than CAD$ ' . RATE_MAX . '.',
+            ]
+        );
     }
 }
 
@@ -798,21 +874,19 @@ if (! function_exists('shiftStore')) {
      */
     function shiftStore($job)
     {
+        // Through lookupRow rather than straight at the table, so a listing
+        // that calls this once per shift asks for the same store once: the
+        // back-office shift list shows an address on every row, and most of
+        // those rows are the same handful of branches.
         if (! empty($job->p_store_id)) {
-            $store = ci_db()->table('store')
-                ->where('s_id', $job->p_store_id)
-                ->get()
-                ->getRow();
+            $store = lookupRow('store', 's_id', $job->p_store_id);
 
             if ($store) {
                 return $store;
             }
         }
 
-        $owner = ci_db()->table('users')
-            ->where('u_id', $job->u_id)
-            ->get()
-            ->getRow();
+        $owner = lookupRow('users', 'u_id', $job->u_id);
 
         if (! $owner) {
             return null;

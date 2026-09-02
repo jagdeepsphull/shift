@@ -30,6 +30,13 @@ const BRANCH_PHONE = '4165552222';
 /** What the applicant is paid - `p_ac_hourly_rate`, not the employer's rate. */
 const RATE = 30;
 
+/**
+ * The same rate as the page shows it. `p_ac_hourly_rate` is DECIMAL(6,2), and
+ * the shift page stopped trimming the cents off when rates stopped being whole
+ * dollars - "30.5" is not how money reads.
+ */
+const RATE_SHOWN = RATE.toFixed(2);
+
 /** @type {Record<string, number>} */
 const ids = {};
 let PROVINCE = '0';
@@ -212,7 +219,7 @@ test('signing in reveals the rate but still not the pharmacy', async ({ page }) 
 
   const body = page.locator('body');
 
-  await expect(body).toContainText(`CAD$ ${RATE}/hour`);
+  await expect(body).toContainText(`CAD$ ${RATE_SHOWN}/hour`);
   await expect(body).toContainText(CITY_NAME);
   await expect(body).toContainText(/once your booking .* is confirmed/i);
 
@@ -241,7 +248,7 @@ test('a confirmed booking shows the branch name, address, phone and pasted pin',
 
   // 45 is `p_hourly_rate`, what the employer is billed. It is not the
   // applicant's business and must never reach this page at any tier.
-  await expect(body).toContainText(`CAD$ ${RATE}/hour`);
+  await expect(body).toContainText(`CAD$ ${RATE_SHOWN}/hour`);
   await expect(body).not.toContainText('CAD$ 45');
 
   await expect(page.locator(`a[href="${MAP_URL}"]`)).toHaveText(/get directions/i);

@@ -73,7 +73,7 @@
 								<div class="col-lg-4 col-md-4 col-sm-2">
 									<div class="form-group">
 										<label>Hourly Rate</label>
-										<input type="number" required min="10" max="200" class="form-control" name="p_hourly_rate"  placeholder="Enter Hourly Rate" value="<?php echo esc($p_hourly_rate); ?>">
+										<input type="number" required min="<?= RATE_MIN ?>" max="<?= RATE_MAX ?>" step="<?= RATE_STEP ?>" inputmode="decimal" data-rate-input class="form-control" name="p_hourly_rate"  placeholder="Enter Hourly Rate" value="<?php echo esc($p_hourly_rate); ?>">
 									</div>
 								</div>
 							<?php } ?>

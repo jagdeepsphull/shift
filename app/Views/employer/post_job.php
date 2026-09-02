@@ -145,7 +145,7 @@
 												<div class="input-group-prepend">
 													<span class="input-group-text">$</span>
 												</div>
-												<input type="number" required min="10" max="200" class="form-control" name="p_hourly_rate" placeholder="Enter Hourly Rate" value="<?php echo esc($p_hourly_rate); ?>">
+												<input type="number" required min="<?= RATE_MIN ?>" max="<?= RATE_MAX ?>" step="<?= RATE_STEP ?>" inputmode="decimal" data-rate-input class="form-control" name="p_hourly_rate" placeholder="Enter Hourly Rate" value="<?php echo esc($p_hourly_rate); ?>">
 												<div class="input-group-append">
 													<span class="input-group-text">/ hr</span>
 												</div>

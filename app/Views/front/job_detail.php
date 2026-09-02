@@ -78,8 +78,11 @@ $wz_phone = ($wz_booked && $shift_store) ? trim((string) $shift_store->s_phone) 
 // employer's own form carry no applicant rate at all - that form asks for one
 // number - so those keep reading "To be disclosed" rather than "CAD$ 0/hour".
 $wz_rate = (float) ($wz_shift->p_ac_hourly_rate ?? 0);
+// Both decimals kept. The zeros used to be trimmed off, back when the column
+// was an int and every rate was a whole number of dollars - now that a rate can
+// be 42.50, trimming turns it into "42.5", which is not how money reads.
 $wz_rate = ($wz_signedIn && $wz_rate > 0)
-    ? 'CAD$ ' . rtrim(rtrim(number_format($wz_rate, 2, '.', ''), '0'), '.') . '/hour'
+    ? 'CAD$ ' . number_format($wz_rate, 2, '.', '') . '/hour'
     : 'To be disclosed';
 
 $wz_extra = $wz_signedIn ? trim(strip_tags((string) $wz_shift->p_jobinfo)) : '';

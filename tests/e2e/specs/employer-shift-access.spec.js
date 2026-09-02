@@ -259,7 +259,9 @@ test('saving somebody else\'s shift keeps its owner and its posted date', async 
 
   expect(row[0], 'the shift still belongs to the manager who raised it').toBe(String(user.manager));
   expect(row[1], 'and is still at their branch').toBe(String(store.branch));
-  expect(row[2], 'the edit took').toBe('44');
+  // '44.00', not '44': p_hourly_rate is DECIMAL(6,2) since rates started
+  // carrying cents, so a whole-dollar rate reads back with them on.
+  expect(row[2], 'the edit took').toBe('44.00');
   expect(row[3], 'an edit is not a posting, so the posted date stands').toBe('2020-01-01 10:00:00');
   await expectNoServerError(page);
 });
@@ -340,7 +342,7 @@ test('a hand-made post cannot set columns the shift form does not show', async (
   expect(
     scalar(`SELECT p_hourly_rate FROM post_job WHERE p_id = ${shift.byManager};`),
     'and the save really did go through',
-  ).toBe('52');
+  ).toBe('52.00');
   await expectNoServerError(page);
 });
 

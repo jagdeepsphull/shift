@@ -69,16 +69,55 @@
 										</div>
 										<div class="card border-0 shadow">
 											<div class="card-body">
+												<?php
+												// The branch this shift is at. A shift posted before stores
+												// existed has none of its own, and $shift_store then carries
+												// the owner's login columns - the address that shift has
+												// always shown.
+												$store      = $shift_store;
+												$storeName  = $store ? trim((string) $store->s_name) : '';
+												$storePhone = $store ? trim((string) $store->s_phone) : '';
+												?>
 												<div class="mb-4">
-													<h3 class="h4 mb-0"><?php echo esc($u_comp_name);?> (<?php echo esc($u_fname).' '. $u_lname; ?>) </h3>
-													<h5 class="mt-2"><span class="mb-0 text-primary">Store No. - </span><?php echo esc($u_licence_no); ?></h5>
-													<h5 class="mt-2"><span class="mb-0 text-primary">Store Licence Province - </span><?php echo getProvinceName($u_l_provice); ?></h5>
+													<h3 class="h4 mb-0"><?php echo esc($storeName !== '' ? $storeName : $u_comp_name); ?></h3>
+													<h5 class="mt-2"><span class="mb-0 text-primary">Store No. - </span><?php echo esc($store ? $store->s_number : $u_licence_no); ?></h5>
+													<h5 class="mt-2"><span class="mb-0 text-primary">Store Licence Province - </span><?php echo getProvinceName($store ? $store->s_province : $u_l_provice); ?></h5>
 												</div>
 												<ul class="list-unstyled mb-4">
-													<li class="mb-3"><a href="mailto:<?php echo esc($u_email); ?>"><i class="far fa-envelope display-25 mr-1 text-secondary"></i><?php echo esc($u_email); ?></a></li>
-													<li class="mb-3"><?php echo whatsappPhoneLink($u_phone, 'Message ' . $u_comp_name . ' on WhatsApp'); ?></li>
-													<li><a href="#!"><i class="fas fa-map-marker-alt display-25 mr-1 text-secondary"></i><?php echo esc($u_address1).', '.getCityName($u_city).', '.getProvinceName($u_provice). ', '.$u_pincode ; ?></a></li>
+													<?php if ($storePhone !== '') { ?>
+													<li class="mb-3"><?php echo whatsappPhoneLink($storePhone, 'Message ' . ($storeName !== '' ? $storeName : $u_comp_name) . ' on WhatsApp'); ?></li>
+													<?php } ?>
+													<li><a href="#!"><i class="fas fa-map-marker-alt display-25 mr-1 text-secondary"></i><?php
+														echo $store
+															? esc($store->s_address . ', ' . getCityName($store->s_city) . ', ' . getProvinceName($store->s_province) . ', ' . $store->s_pincode)
+															: esc($u_address1 . ', ' . getCityName($u_city) . ', ' . getProvinceName($u_provice) . ', ' . $u_pincode);
+													?></a></li>
 												</ul>
+
+												<?php
+												// Who holds the store. Its own line is a counter phone that
+												// goes unanswered out of hours, so the account behind it is
+												// worth a second number rather than a name on its own.
+												$owner = $store_owner;
+
+												if ($owner) {
+													$ownerName = trim(($owner['u_fname'] ?? '') . ' ' . ($owner['u_lname'] ?? ''));
+												?>
+												<hr>
+												<div class="mb-3">
+													<span class="mb-0 text-primary">Store belongs to</span>
+													<h3 class="h5 mt-1 mb-0"><?php echo esc($owner['u_comp_name']); ?><?php echo $ownerName !== '' ? ' (' . esc($ownerName) . ')' : ''; ?></h3>
+												</div>
+												<ul class="list-unstyled mb-0">
+													<?php if (trim((string) $owner['u_email']) !== '') { ?>
+													<li class="mb-3"><a href="mailto:<?php echo esc($owner['u_email']); ?>"><i class="far fa-envelope display-25 mr-1 text-secondary"></i><?php echo esc($owner['u_email']); ?></a></li>
+													<?php } ?>
+													<?php if (trim((string) $owner['u_phone']) !== '') { ?>
+													<li class="mb-3"><?php echo whatsappPhoneLink($owner['u_phone'], 'Message ' . ($ownerName !== '' ? $ownerName : $owner['u_comp_name']) . ' on WhatsApp'); ?></li>
+													<?php } ?>
+													<li><a href="#!"><i class="fas fa-map-marker-alt display-25 mr-1 text-secondary"></i><?php echo esc($owner['u_address1'] . ', ' . getCityName($owner['u_city']) . ', ' . getProvinceName($owner['u_provice']) . ', ' . $owner['u_pincode']); ?></a></li>
+												</ul>
+												<?php } ?>
 											</div>
 										</div>
 									</div>

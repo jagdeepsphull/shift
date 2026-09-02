@@ -9,7 +9,7 @@
  *   https://reliefshifts.com/staging/migrate.php?key=b7f4c1e93a2d6058
  *
  * `php spark migrate` is the right way to do this and needs a command line.
- * This does the same eighteen migrations over mysqli, reading credentials from the
+ * This does the same twenty migrations over mysqli, reading credentials from the
  * .env beside it, and writes the same rows into `migrations` that spark would -
  * so a later `spark migrate` sees them as done rather than re-running them into
  * a "duplicate column" error.
@@ -102,6 +102,29 @@ function columnExists(mysqli $db, string $table, string $column): bool
     );
 
     return $res !== false && $res->num_rows > 0;
+}
+
+/**
+ * A column's data type, lower case and without its size - 'int', 'decimal',
+ * 'varchar' - or '' when the column is not there.
+ *
+ * For the steps that change a column rather than add one: those cannot be
+ * guarded by columnExists(), which is true both before and after, and a second
+ * run has to leave a converted column alone.
+ */
+function columnType(mysqli $db, string $table, string $column): string
+{
+    $res = $db->query(
+        'SELECT `DATA_TYPE` FROM `INFORMATION_SCHEMA`.`COLUMNS`'
+        . " WHERE `TABLE_SCHEMA` = DATABASE() AND `TABLE_NAME` = '" . $db->real_escape_string($table) . "'"
+        . " AND `COLUMN_NAME` = '" . $db->real_escape_string($column) . "'"
+    );
+
+    if ($res === false || $res->num_rows === 0) {
+        return '';
+    }
+
+    return strtolower((string) $res->fetch_assoc()['DATA_TYPE']);
 }
 
 function indexExists(mysqli $db, string $table, string $index): bool
@@ -934,6 +957,49 @@ $migrations = [
             $notes[] = $filled > 0
                 ? "gave {$filled} existing account(s) an unsubscribe token"
                 : 'every account already has an unsubscribe token';
+
+            return $notes;
+        },
+    ],
+    [
+        'version' => '2026-09-02-090000',
+        'class'   => 'App\Database\Migrations\ShiftRatesTakeCents',
+        'label'   => 'ShiftRatesTakeCents',
+        'apply'   => static function (mysqli $db): array {
+            $notes = [];
+
+            // Both rate columns were INT, so a shift could only be posted at a
+            // whole number of dollars. DECIMAL and not FLOAT: these are money,
+            // and 42.10 has no exact binary fraction.
+            //
+            // Every rate on file is a whole number and converts to the same
+            // number with .00 after it, so nothing is rounded and no rate
+            // changes - which is why no backfill goes with this one.
+            $columns = [
+                'p_hourly_rate'    => 'What the employer is billed, per hour.',
+                'p_ac_hourly_rate' => 'What the applicant is paid, per hour. The rate shown publicly.',
+            ];
+
+            foreach ($columns as $column => $comment) {
+                if (! columnExists($db, 'post_job', $column)) {
+                    $notes[] = "post_job.{$column} is not there to change";
+
+                    continue;
+                }
+
+                // Guarded on the type rather than on the column, so a second
+                // run leaves an already-converted column alone.
+                if (columnType($db, 'post_job', $column) === 'decimal') {
+                    $notes[] = "post_job.{$column} already holds cents";
+
+                    continue;
+                }
+
+                run($db, 'ALTER TABLE `post_job`
+                          MODIFY COLUMN `' . $column . '` DECIMAL(6,2) NULL DEFAULT NULL
+                          COMMENT ' . quoted($comment));
+                $notes[] = "post_job.{$column} now holds cents";
+            }
 
             return $notes;
         },

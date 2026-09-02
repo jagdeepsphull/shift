@@ -93,7 +93,7 @@
 									<div class="col-sm-4">
 										<div class="form-group">
 											<label>Hourly Rate</label>
-											<input type="number" required min="10" max="200" class="form-control" name="p_hourly_rate"  placeholder="Enter Hourly Rate" value="<?php echo esc($p_hourly_rate); ?>">
+											<input type="number" required min="<?= RATE_MIN ?>" max="<?= RATE_MAX ?>" step="<?= RATE_STEP ?>" inputmode="decimal" data-rate-input class="form-control" name="p_hourly_rate"  placeholder="Enter Hourly Rate" value="<?php echo esc($p_hourly_rate); ?>">
 											
 										  
 										</div>
@@ -101,7 +101,7 @@
 									<div class="col-sm-4">
 										<div class="form-group">
 											<label>Actual Hourly Rate (to be visible on the website)</label>
-											<input type="number" required min="10" max="200" class="form-control" name="p_ac_hourly_rate"  placeholder="Enter Hourly Rate" value="<?php echo esc($p_ac_hourly_rate); ?>">
+											<input type="number" required min="<?= RATE_MIN ?>" max="<?= RATE_MAX ?>" step="<?= RATE_STEP ?>" inputmode="decimal" data-rate-input class="form-control" name="p_ac_hourly_rate"  placeholder="Enter Hourly Rate" value="<?php echo esc($p_ac_hourly_rate); ?>">
 											
 										  
 										</div>
@@ -121,9 +121,32 @@
 											<input required type="text" class="form-control timePicker" name="p_shift_time" placeholder="Shift Time" value="<?php echo esc($p_shift_time); ?>">
 										</div>
 									</div>
-								   
+									<div class="col-sm-4">
+										<div class="form-group">
+											<label class="d-block">&nbsp;</label>
+											<button type="button" class="btn btn-outline-primary" id="shift_more_add">Add More</button>
+											<small class="form-text text-muted">One more shift per row added - same store, rate and details as this one, on its own date and hours.</small>
+										</div>
+									</div>
 								</div>
-								
+
+								<?php /* The rows "Add More" puts under the first one. Each is
+								   one more shift, written by the controller as its own
+								   post_job row. Rendered here for a save that came back
+								   rejected, so the rows that were filled in are not lost;
+								   a fresh form has none. The script that adds and removes
+								   them is partials/shift_more_rows_script.php, included
+								   from the footer, and it copies from the template below -
+								   the same partial, blank, so the markup is in one place. */ ?>
+								<div id="shift_more_rows">
+									<?php foreach (($more_shifts ?? []) as $more) { ?>
+										<?= view('partials/shift_more_row', ['date' => $more['date'], 'time' => $more['time']]) ?>
+									<?php } ?>
+								</div>
+								<template id="shift_more_row_template">
+									<?= view('partials/shift_more_row', ['date' => '', 'time' => '']) ?>
+								</template>
+
 								<div class="row">	
 									
 									<div class="col-sm-3">
@@ -304,5 +327,5 @@
                 </div>
             </div>
         </section>
-		<form>
+		</form>
 </div>

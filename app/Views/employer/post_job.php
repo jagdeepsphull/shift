@@ -51,7 +51,7 @@
 						<div class="ps-card-header">
 							<span class="ps-step">1</span>
 							<div>
-								<h5>Where and what</h5>
+								<h5>Store Information</h5>
 								<p>The branch this shift is at, and the role you need covered.</p>
 							</div>
 						</div>
@@ -109,7 +109,7 @@
 						<div class="ps-card-header">
 							<span class="ps-step">2</span>
 							<div>
-								<h5><?php echo $can_set_rate ? 'When and what it pays' : 'When it runs'; ?></h5>
+								<h5><?php echo $can_set_rate ? 'Date, Time and Compensation' : 'Date and Time'; ?></h5>
 								<p><?php echo $can_set_rate ? 'The date, the hours and the hourly rate you are offering.' : 'The date and the hours you need covered.'; ?></p>
 							</div>
 						</div>
@@ -163,7 +163,7 @@
 						<div class="ps-card-header">
 							<span class="ps-step">3</span>
 							<div>
-								<h5>What this shift needs</h5>
+								<h5>Shift Information</h5>
 								<p>Ticked from the store's own defaults - change them for this shift only.</p>
 							</div>
 						</div>

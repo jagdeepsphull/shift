@@ -35,12 +35,21 @@
               </div>
               <!-- /.card-header -->
               <div class="card-body">
-                <table id="example1" class="table table-bordered table-striped">
+                <!-- data-daterange-col points the toolbar's date filter at the Shift Date
+                     column (index 7, counting the hidden id column at 0), which
+                     carries a sortable YYYY-MM-DD in data-order for it to read.
+                     See partials/shift_date_filter_script.php.
+
+                     Store Number sits beside Store Address, the two together
+                     answering "which branch?" - and the Column visibility menu
+                     offers the columns in the order they are written here. -->
+                <table id="example1" class="table table-bordered table-striped" data-daterange-col="7" data-daterange-label="All shift dates">
                   <thead>
                   <tr>
                     <th><?php echo $pageinfo['title']; ?> ID</th>
 					<th>Shift ID</th>
 					<th>Store Address</th>
+					<th>Store Number</th>
 					<th>Book Shift For</th>
 					<th>Lic. No.</th>
 					<th>Shift Requested For</th>
@@ -68,17 +77,14 @@
 								'u_id'       => $record->employer_id,
 							]);
 
-							/* Stacked - street, then town, then province - as on the shift
-							   list, and only the parts actually filled, or a store with no
-							   town or postcode leaves blank lines behind it. */
-							$storeAddress = $store ? array_values(array_filter([
-								trim((string) $store->s_address),
-								trim((string) getCityName($store->s_city)),
-								trim((string) implode(' ', array_filter([
-									trim((string) getProvinceName($store->s_province)),
-									trim((string) $store->s_pincode),
-								], static fn ($part) => $part !== ''))),
-							], static fn ($part) => $part !== '')) : [];
+							$storeAddress = storeAddressLines($store);
+
+							/* The branch's number on the chain's books - what a store is
+							   called by on the phone, and what tells two branches on the
+							   same street apart, which the address alone does not. A
+							   pre-store shift falls back to the employer's licence number,
+							   the same column shiftStore() reads its address from. */
+							$storeNumber = $store ? trim((string) $store->s_number) : '';
 
 							$applicantName = trim($record->applicant_fname.' '.$record->applicant_lname);
 							$applicantLic  = trim((string) $record->applicant_licence);
@@ -87,6 +93,7 @@
 							<td><?php echo $record->sj_id;?></td>
 							<td><?php echo esc($record->p_job_title);?></td>
 							<td><?php if($storeAddress){ foreach($storeAddress as $line){ ?><span class="d-block"><?php echo esc($line); ?></span><?php } } else { echo '-'; } ?></td>
+							<td><?php echo ($storeNumber !== '') ? esc($storeNumber) : '-'; ?></td>
 							<td><?php echo ($applicantName !== '') ? esc($applicantName) : '-';?></td>
 							<td><?php echo ($applicantLic !== '') ? esc($applicantLic) : '-';?></td>
 							<td><?php echo esc(getShiftForName($record->p_shift_for));?></td>
@@ -123,6 +130,7 @@
                     <th><?php echo $pageinfo['title']; ?> ID</th>
 					<th>Shift ID</th>
 					<th>Store Address</th>
+					<th>Store Number</th>
 					<th>Book Shift For</th>
 					<th>Lic. No.</th>
 					<th>Shift Requested For</th>

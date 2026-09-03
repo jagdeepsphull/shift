@@ -460,6 +460,17 @@
 	  function exportButtons(lastIndex) {
 		  var columns = exportableColumns(lastIndex);
 
+		  // Which columns the Column visibility menu may switch. Everything but
+		  // column 0: that is the primary key the columnDefs below hide on every
+		  // one of these lists, so offering it back is offering a column of row
+		  // numbers nobody asked for. Indexes rather than a selector string, for
+		  // the same reason the exports use them.
+		  var switchable = [];
+
+		  for (var i = 1; i <= lastIndex; i++) {
+			  switchable.push(i);
+		  }
+
 		  return [
 			  {
 				  extend: 'excelHtml5',
@@ -505,7 +516,10 @@
 					  doc.content[1].layout = 'lightHorizontalLines';
 				  }
 			  },
-			  'colvis'
+			  {
+				  extend: 'colvis',
+				  columns: switchable
+			  }
 		  ];
 	  }
 
@@ -779,5 +793,6 @@ let user_country_code = "IN";
 <?= view('partials/rate_input_script') ?>
 <?= view('partials/select2_focus_script') ?>
 <?= view('partials/shift_more_rows_script') ?>
+<?= view('partials/shift_date_filter_script') ?>
 </body>
 </html>

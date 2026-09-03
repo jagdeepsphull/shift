@@ -357,7 +357,7 @@ test('an employer cannot make themselves the manager of somebody else\'s branch'
   // that never happened would pass this test by leaving everything alone.
   await page.fill('input[name="u_fname"]', 'Renamed');
 
-  // The profile form shows a name, phone and address - not what kind of account
+  // The profile form shows a name and phone - not what kind of account
   // this is, nor which branch it runs. Posting them anyway used to write them,
   // which handed the poster every shift at that branch.
   await page.evaluate((branch) => {

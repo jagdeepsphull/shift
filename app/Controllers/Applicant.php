@@ -10,6 +10,21 @@ namespace App\Controllers;
 class Applicant extends BaseController
 {
     /**
+     * The rows on a shift that are this applicant's own business.
+     *
+     * `sj_status` records where a row came from: 1 is an application they made
+     * themselves, 6 is a booking an administrator made for them - which is also
+     * where an approved application ends up. Both are a shift the applicant
+     * holds, so both belong on their screens.
+     *
+     * Deliberately not 0 or 3. 0 is the never-finished "save for later" feature
+     * (`Front::save_job()`), and 3 is an employer's invitation, which is counted
+     * on its own and has no screen yet; neither is a shift they applied for or
+     * were given.
+     */
+    private const SHIFT_STATUSES = [1, 6];
+
+    /**
      * Shared set-up + access control that CI3 performed in the constructor.
      */
     protected function setup(): void
@@ -136,15 +151,21 @@ class Applicant extends BaseController
             ci_redirect('front/login');
         }
 
-        $this->data['jobapp'] = $this->custom->query("SELECT
-   count( s.sj_id) as tot
-FROM
-    stu_saved_applied_jobs s
-INNER JOIN
-    post_job p ON s.p_id = p.p_id
-WHERE
-    s.u_id = '" . $this->data['uid'] . "'
-    AND s.sj_status = 1;");
+        // Every shift this account holds a row on, applied for or handed to
+        // them - the same rule as applied_jobs(), because this number is the
+        // count of what that screen lists and the two cannot disagree. Asking
+        // for sj_status = 1 alone counted only the applications, so an
+        // applicant the agency had booked onto three shifts, who had never
+        // applied for anything, read 0 beside a list of three.
+        //
+        // Bound rather than pasted into the string, like the query below it.
+        $this->data['jobapp'] = $this->custom->query(
+            'SELECT COUNT(s.sj_id) AS tot'
+            . ' FROM stu_saved_applied_jobs s'
+            . ' INNER JOIN post_job p ON p.p_id = s.p_id'
+            . ' WHERE s.u_id = ? AND s.sj_status IN (' . implode(', ', self::SHIFT_STATUSES) . ')',
+            [$this->data['uid']]
+        );
 
         $this->data['invtot'] = $this->custom->query(
             'select count(sj_id) as tot from stu_saved_applied_jobs where u_id = ? and sj_status = 3',
@@ -284,11 +305,21 @@ WHERE
             ci_redirect('front/login');
         }
 
+        // Shifts the applicant applied for and shifts the agency booked them
+        // onto, which is the whole of what this screen is for: it is the only
+        // place an applicant sees their own shifts. It asked for sj_status = 1,
+        // so a booking made from the admin's shift form - written at 6, since
+        // nobody applied for it - never appeared here at all. The applicant was
+        // sent the booking e-mail, signed in to check it, and found nothing.
+        //
+        // The Status column reads `sj_is_approved`, which is already right for
+        // these rows: 1 shows as Booked, and 2 - set when the booking is moved
+        // to somebody else - as Assigned To Someone Else.
         $this->appliedjobs = $this->custom->query(
             'SELECT ssaj.*, pj.* FROM stu_saved_applied_jobs ssaj '
             . 'JOIN post_job pj ON ssaj.p_id = pj.p_id '
             . 'JOIN users u ON u.u_id = ssaj.u_id '
-            . "WHERE u.u_id = ? AND ssaj.sj_status = '1' "
+            . 'WHERE u.u_id = ? AND ssaj.sj_status IN (' . implode(', ', self::SHIFT_STATUSES) . ') '
             . 'ORDER BY ' . shiftDateOrderBy('pj'),
             [$this->data['uid']]
         );

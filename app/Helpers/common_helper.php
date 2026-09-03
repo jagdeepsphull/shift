@@ -907,6 +907,42 @@ if (! function_exists('shiftStore')) {
     }
 }
 
+if (! function_exists('storeAddressLines')) {
+    /**
+     * A store's address as the lines a listing stacks in one cell - street,
+     * then town, then province with postcode.
+     *
+     * Stacked rather than run together on one line: the column is read down
+     * the page looking for a branch, and three short lines are quicker to
+     * scan than one long one that wraps where the column happens to end.
+     * Only the parts actually filled, or a store with no town or postcode
+     * leaves blank lines behind it.
+     *
+     * Three back-office lists show this same cell - shifts, applications and
+     * the dashboard's new-applications panel - so they read it from here
+     * rather than each building it and drifting apart.
+     *
+     * @param object|null $store a `store` row, or shiftStore()'s stand-in
+     *
+     * @return list<string>
+     */
+    function storeAddressLines($store): array
+    {
+        if (! $store) {
+            return [];
+        }
+
+        return array_values(array_filter([
+            trim((string) $store->s_address),
+            trim((string) getCityName($store->s_city)),
+            trim((string) implode(' ', array_filter([
+                trim((string) getProvinceName($store->s_province)),
+                trim((string) $store->s_pincode),
+            ], static fn ($part) => $part !== ''))),
+        ], static fn ($part) => $part !== ''));
+    }
+}
+
 if (! function_exists('getProvinceName')) {
     function getProvinceName($pid = 0)
     {
@@ -1060,6 +1096,41 @@ if (! function_exists('whatsappPhoneLink')) {
             . ' title="' . esc($title, 'attr') . '">'
             . $icon . esc($shown)
             . '<i class="fab fa-whatsapp ml-2 text-success"></i></a>';
+    }
+}
+
+if (! function_exists('landlinePhoneLink')) {
+    /**
+     * A phone number written as a dialling link and nothing else: a handset
+     * icon in front of it, and no WhatsApp mark after.
+     *
+     * For the numbers that are not somebody's mobile. A store's line is the
+     * counter phone; WhatsApp would resolve those digits as readily as any
+     * other and offer a chat that nobody is ever going to open, so the mark is
+     * left off rather than shown and hoped for.
+     *
+     * As with `whatsappPhoneLink()`, the number shown is the one on file,
+     * punctuation and all - only the one inside the link is reduced to digits -
+     * and a number with no digits in it at all is printed as plain text.
+     */
+    function landlinePhoneLink(?string $phone, string $title = 'Call this number'): string
+    {
+        $shown = trim((string) $phone);
+
+        if ($shown === '') {
+            return '';
+        }
+
+        $icon   = '<i class="fas fa-phone display-25 mr-1 text-secondary"></i>';
+        $dialed = preg_replace('/[^0-9+]/', '', $shown);
+
+        if (preg_replace('/\D+/', '', $dialed) === '') {
+            return '<span class="text-muted">' . $icon . esc($shown) . '</span>';
+        }
+
+        return '<a href="tel:' . esc($dialed, 'attr') . '"'
+            . ' title="' . esc($title, 'attr') . '">'
+            . $icon . esc($shown) . '</a>';
     }
 }
 

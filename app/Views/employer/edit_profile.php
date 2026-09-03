@@ -86,46 +86,6 @@
 							
 
 						</div>
-						
-						
-						<div class="row">
-							<div class="col-sm-3">
-								<!-- text input -->
-								<div class="form-group">
-									<label>Address</label>
-									<textarea required class="form-control" placeholder="Enter Address" name="u_address1"><?php echo esc($u_address1); ?></textarea>
-								</div>
-							</div>
-							<div class="col-sm-3">
-								<div class="form-group">
-									<label>Province</label><input type="hidden" id="hprovince" value="<?php echo $u_provice; ?>" >
-									<select required class="form-control " name="u_provice" onChange="getpcities(this.value);">>
-										<?php if($province){ ?>
-										<?php foreach($province as $record){ ?>
-										<option value="<?php echo $record->p_id; ?>"
-											<?php echo ($u_provice==$record->p_id)?"selected":""; ?>>
-											<?php echo $record->p_name; ?></option>
-										<?php } ?>
-										<?php } ?>
-									</select>
-								</div>
-							</div>
-							<div class="col-sm-3">
-								<div class="form-group">
-									<label>City</label><input type="hidden" id="hcity" value="<?php echo $u_city; ?>" >
-									<select required name="u_city" id="city" class="form-control">
-										<option value="">Select City</option>
-									</select>
-								</div>
-							</div>
-							<div class="col-sm-3">
-								<!-- text input -->
-								<div class="form-group">
-									<label>Postal Code</label><span class="text-danger font-weight-bold ml-1" style="font-size:12px;"> e.g., M5A 1A1</span>
-									<input required class="form-control" placeholder="Enter Postal Code" name="u_pincode" value="<?php echo esc($u_pincode); ?>" >
-								</div>
-							</div>
-						</div>
 
 
 	                    <div class="row mrg-top-30">

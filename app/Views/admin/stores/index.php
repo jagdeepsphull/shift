@@ -42,15 +42,23 @@
               </div>
               <!-- /.card-header -->
               <div class="card-body table-responsive1 p-2">
+				<?php /* The store's own facts first - name, where it is, what it
+				   is called on the chain's books - then the two people questions
+				   about it: which group holds it and who runs it. The Column
+				   visibility menu lists the columns in this order, so the order
+				   here is the order an administrator picks from. Store ID stays
+				   as column 0 for the shared table script, which hides it and
+				   keeps it out of that menu. */ ?>
                 <table id="example1" class="table table-bordered table-striped datatablecss" data-order-col="1" data-order-dir="asc">
                   <thead>
                   <tr>
                     <th>Store ID</th>
                     <th>Store Name</th>
-                    <th>Employer</th>
-                    <th>Store No.</th>
-                    <th>Address</th>
-                    <th>Phone</th>
+                    <th>Store Address</th>
+                    <th>Store Number</th>
+                    <th>Group Name</th>
+                    <th>Store Manager</th>
+                    <th>Store Phone</th>
                     <th>Links</th>
 					<?php /* The employer's answer, not the store's: the agreement is
 					   signed by the account, so every location of one chain shows the
@@ -67,6 +75,7 @@
 				  <?php foreach($stores as $store){
 						$ownerName = getPharmacyName($store->u_id);
 						$mapLink   = storeMapLink($store);
+						$manager   = ($store_managers ?? [])[(int)$store->s_id] ?? null;
 				  ?>
                   <tr>
                     <td><?php echo $store->s_id; ?></td>
@@ -75,9 +84,25 @@
 						<br><small class="text-muted"><?php echo esc($store->s_location_label); ?></small>
 						<?php } ?>
 					</td>
-                    <td><a href="<?php echo base_url($adminpath.'/stores?owner='.(int)$store->u_id);?>"><?php echo esc($ownerName !== '' ? $ownerName : '#'.$store->u_id); ?></a></td>
-                    <td><?php echo esc($store->s_number); ?></td>
                     <td><?php echo esc($store->s_address); ?><br><small class="text-muted"><?php echo esc(getCityName($store->s_city).' '.$store->s_pincode); ?></small></td>
+                    <td><?php echo esc($store->s_number); ?></td>
+                    <td><a href="<?php echo base_url($adminpath.'/stores?owner='.(int)$store->u_id);?>"><?php echo esc($ownerName !== '' ? $ownerName : '#'.$store->u_id); ?></a></td>
+                    <td>
+						<?php /* One store, one manager - storeManagers() picks the
+						   account pointed at this s_id. Their e-mail, because that
+						   is the login an administrator goes looking for; not their
+						   phone, which beside the store's own number in the next
+						   column is two numbers to confuse. An account still
+						   waiting says so, rather than naming somebody who cannot
+						   log in yet. */ ?>
+						<?php if($manager){ ?>
+						<?php echo esc(trim($manager->u_fname.' '.$manager->u_lname)); ?>
+						<?php if($manager->u_email){ ?><br><small class="text-muted"><?php echo esc($manager->u_email); ?></small><?php } ?>
+						<?php if((int)$manager->u_status !== 1){ ?><br><small class="text-danger">Awaiting approval</small><?php } ?>
+						<?php }else{ ?>
+						<small class="text-muted">No manager</small>
+						<?php } ?>
+					</td>
                     <td><?php echo esc($store->s_phone); ?></td>
                     <td>
 						<?php /* The pasted Google link where there is one, otherwise a
@@ -112,10 +137,11 @@
                   <tr>
                     <th>Store ID</th>
                     <th>Store Name</th>
-                    <th>Employer</th>
-                    <th>Store No.</th>
-                    <th>Address</th>
-                    <th>Phone</th>
+                    <th>Store Address</th>
+                    <th>Store Number</th>
+                    <th>Group Name</th>
+                    <th>Store Manager</th>
+                    <th>Store Phone</th>
                     <th>Links</th>
                     <th>Agreement Done</th>
                     <th>Status</th>

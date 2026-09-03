@@ -175,11 +175,15 @@ test('admin shift list is newest first and sorts its date column chronologically
   // unreadable date at the far end of it. The table scrolls sideways, so the
   // header that takes the click is the floating copy above it - the one inside
   // the scrolling body is hidden.
+  //
+  // nth-child counts the cells the browser has: column 0 is the record id,
+  // which the shared table script hides, so Shift Date - column 7 of the
+  // markup - is the seventh cell in the row.
   await page.locator('#example1_wrapper th:visible', { hasText: 'Shift Date' }).first().click();
   await settle(page);
 
   const dates = await page
-    .locator('#example1 tbody tr td:nth-child(6)')
+    .locator('#example1 tbody tr td:nth-child(7)')
     .evaluateAll((cells) => cells.map((c) => c.getAttribute('data-order')));
 
   expect(dates.length).toBeGreaterThan(1);
@@ -194,7 +198,7 @@ test('admin shift list is newest first and sorts its date column chronologically
   await settle(page);
 
   const order = await page
-    .locator('#example1 tbody tr td:nth-child(6)')
+    .locator('#example1 tbody tr td:nth-child(7)')
     .evaluateAll((cells) => cells.map((c) => c.getAttribute('data-order')));
 
   expect(order.at(-1), 'a shift with no readable date sorts last, not first').toBe('9999-12-31');

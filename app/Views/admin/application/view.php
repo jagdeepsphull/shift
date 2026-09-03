@@ -50,6 +50,15 @@
 											<div class="card-body">
 												<div class="mb-4">
 													<h3 class="h4 mb-0"><?php echo esc($application->u_fname . ' ' . $application->u_lname); ?></h3>
+													<?php
+													// What the applicant registered as - pharmacist, assistant,
+													// technician. Their own `u_usersubtype` rather than the type
+													// the shift asked for: the two agree in the ordinary case,
+													// and where they do not it is this one that says who is
+													// actually being booked.
+													$applicantType = getShiftForName($application->u_usersubtype);
+													?>
+													<h5 class="mt-2"><span class="mb-0 text-primary">Applicant Type - </span><?php echo ($applicantType !== '') ? esc($applicantType) : '-'; ?></h5>
 													<h5 class="mt-2"><span class="mb-0 text-primary">Licence No - </span><?php echo esc($application->u_licence_no); ?></h5>
 													<h5 class="mt-2"><span class="mb-0 text-primary">Licence Province - </span><?php echo getProvinceName($application->u_l_provice); ?></h5>
 												</div>
@@ -74,6 +83,12 @@
 												// existed has none of its own, and $shift_store then carries
 												// the owner's login columns - the address that shift has
 												// always shown.
+												//
+												// The number on it is the branch landline - the counter phone,
+												// not anybody's handset - so it is offered to dial and nothing
+												// more. WhatsApp resolves those digits as readily as any other
+												// and would open a chat nobody is going to read; the manager
+												// below is the one to message.
 												$store      = $shift_store;
 												$storeName  = $store ? trim((string) $store->s_name) : '';
 												$storePhone = $store ? trim((string) $store->s_phone) : '';
@@ -85,7 +100,7 @@
 												</div>
 												<ul class="list-unstyled mb-4">
 													<?php if ($storePhone !== '') { ?>
-													<li class="mb-3"><?php echo whatsappPhoneLink($storePhone, 'Message ' . ($storeName !== '' ? $storeName : $u_comp_name) . ' on WhatsApp'); ?></li>
+													<li class="mb-3"><?php echo landlinePhoneLink($storePhone, 'Call ' . ($storeName !== '' ? $storeName : $u_comp_name)); ?></li>
 													<?php } ?>
 													<li><a href="#!"><i class="fas fa-map-marker-alt display-25 mr-1 text-secondary"></i><?php
 														echo $store
@@ -93,6 +108,32 @@
 															: esc($u_address1 . ', ' . getCityName($u_city) . ', ' . getProvinceName($u_provice) . ', ' . $u_pincode);
 													?></a></li>
 												</ul>
+
+												<?php
+												// Whoever runs the branch day to day. The landline above is
+												// answered by whoever is nearest it and only while the store is
+												// open, so the person a booking is actually settled with is this
+												// one - on a mobile of their own, which does take WhatsApp.
+												//
+												// A store with no manager account says so, rather than leaving a
+												// gap that reads as a page which failed to load.
+												$manager     = $store_manager;
+												$managerName = $manager ? trim(($manager->u_fname ?? '') . ' ' . ($manager->u_lname ?? '')) : '';
+												?>
+												<hr>
+												<div class="mb-3">
+													<span class="mb-0 text-primary">Store Manager</span>
+													<?php if ($manager) { ?>
+													<h3 class="h5 mt-1 mb-0"><?php echo $managerName !== '' ? esc($managerName) : '-'; ?></h3>
+													<?php } else { ?>
+													<p class="text-muted mt-1 mb-0">No manager account on this store.</p>
+													<?php } ?>
+												</div>
+												<?php if ($manager && trim((string) $manager->u_phone) !== '') { ?>
+												<ul class="list-unstyled mb-0">
+													<li><?php echo whatsappPhoneLink($manager->u_phone, 'Message ' . ($managerName !== '' ? $managerName : 'the store manager') . ' on WhatsApp'); ?></li>
+												</ul>
+												<?php } ?>
 
 												<?php
 												// Who holds the store. Its own line is a counter phone that
@@ -124,7 +165,7 @@
 									
 									<div class="col-lg-3 ml-5 mt-2">
 										<div class="card-header">
-											<h3 class="card-title">Shift Post Information</h3>
+											<h3 class="card-title">Shift Information</h3>
 										</div>
 										<div class="ps-lg-1-6 ps-xl-5 mt-4 ml-3">
 											<div class="mb-3 wow fadeIn">
@@ -132,6 +173,18 @@
 													<span class="mb-0 text-primary">Shift ID</span>
 												</div>
 												<p><?php echo esc($application->p_job_title);?></p>
+												<hr>
+												<div class="text-start mb-1-6 wow fadeIn">
+													<span class="mb-0 text-primary">Shift Requested For</span>
+												</div>
+												<?php
+												// The type of person the employer asked for. It is what the
+												// applicant is being judged against, and an administrator
+												// booking somebody of another type is doing it deliberately -
+												// so both this and the applicant's own type are on the screen.
+												$shiftFor = getShiftForName($application->p_shift_for);
+												?>
+												<p><?php echo ($shiftFor !== '') ? esc($shiftFor) : '-'; ?></p>
 												<hr>
 												<div class="text-start mb-1-6 wow fadeIn">
 													<span class="mb-0 text-primary">Employer Rate</span>

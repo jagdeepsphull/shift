@@ -51,12 +51,18 @@
     <!-- Responsive Style -->
     <link rel="stylesheet" href="<?php echo base_url('assets/front/assets/css/responsive.css') ; ?>">
 	<style>
-        /* Hide the calendar portion to show only time pickers */
-        .daterangepicker .calendar-table,
-        .daterangepicker .ranges {
+        /* Hide the calendar portion to show only time pickers.
+
+           Every picker in the portal but one: the shift-date filter on All
+           Shifts is a date picker and needs both its calendar and its list of
+           ranges, so it marks its own container and is excused here. The admin
+           header excuses its own filter the same way. See
+           partials/shift_list_filter_script.php. */
+        .daterangepicker:not(.ps-shift-picker) .calendar-table,
+        .daterangepicker:not(.ps-shift-picker) .ranges {
             display: none !important;
         }
-        .daterangepicker .drp-calendar {
+        .daterangepicker:not(.ps-shift-picker) .drp-calendar {
             width: auto !important;
         }
 		/* .daterangepicker {

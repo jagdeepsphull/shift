@@ -36,13 +36,23 @@
               <!-- /.card-header -->
               <div class="card-body table-responsive1 p-2" style="1height: 300px;">
                 <!-- Column 0 is the record id, hidden by the shared table script:
-                     newest shift on top, matching the order the controller sends. -->
-                <table id="example1" class="table table-bordered table-striped datatablecss" data-order-col="0" data-order-dir="desc">
+                     newest shift on top, matching the order the controller sends.
+
+                     data-daterange-col points the toolbar's date filter at the
+                     Shift Date column (index 7), which carries a sortable
+                     YYYY-MM-DD in data-order for it to read. See
+                     partials/shift_date_filter_script.php.
+
+                     Store Number sits beside Store Address, the two together
+                     answering "which branch?" - and the Column visibility menu
+                     offers the columns in the order they are written here. -->
+                <table id="example1" class="table table-bordered table-striped datatablecss" data-order-col="0" data-order-dir="desc" data-daterange-col="7" data-daterange-label="All shift dates">
                   <thead>
                   <tr>
                     <th>ID</th>
                     <th>Shift ID</th>
                     <th>Store Address</th>
+                    <th>Store Number</th>
                     <th>Applicant type</th>
                     <th>Applicant</th>
                     <th>Lic. No.</th>
@@ -73,21 +83,15 @@
 						// from.
 						$store = shiftStore($job);
 
-						// Stacked - street, then town, then province - rather
-						// than run together on one line: the column is read
-						// down the page looking for a branch, and three short
-						// lines are quicker to scan than one long one that
-						// wraps where the column happens to end. Only the parts
-						// actually filled, or a store with no town or postcode
-						// leaves blank lines behind it.
-						$storeAddress = $store ? array_values(array_filter([
-							trim((string) $store->s_address),
-							trim((string) getCityName($store->s_city)),
-							trim((string) implode(' ', array_filter([
-								trim((string) getProvinceName($store->s_province)),
-								trim((string) $store->s_pincode),
-							], static fn ($part) => $part !== ''))),
-						], static fn ($part) => $part !== '')) : [];
+						$storeAddress = storeAddressLines($store);
+
+						// The branch's number on the chain's books - what a store
+						// is called by on the phone, and what tells two branches
+						// on the same street apart, which the address alone does
+						// not. A pre-store shift falls back to the employer's
+						// licence number, the same column shiftStore() reads its
+						// address from.
+						$storeNumber = $store ? trim((string) $store->s_number) : '';
 
 						// Who is working the shift, looked up for the whole
 						// list at once in the controller. Null while nobody is
@@ -109,6 +113,7 @@
                     <td><?php echo $job-> p_id ; ?></td>
                     <td><?php echo esc($job->p_job_title); ?></td>
                     <td><?php if($storeAddress){ foreach($storeAddress as $line){ ?><span class="d-block"><?php echo esc($line); ?></span><?php } } else { echo '-'; } ?></td>
+                    <td><?php echo ($storeNumber !== '') ? esc($storeNumber) : '-'; ?></td>
                     <td><?php echo ($applicantType !== '') ? esc($applicantType) : '-'; ?></td>
                     <td><?php echo ($bookedName !== '') ? esc($bookedName) : '-'; ?></td>
                     <td><?php echo ($booked && trim((string) $booked->u_licence_no) !== '') ? esc($booked->u_licence_no) : '-'; ?></td>
@@ -133,6 +138,7 @@
                     <th>ID</th>
                     <th>Shift ID</th>
                     <th>Store Address</th>
+                    <th>Store Number</th>
                     <th>Applicant type</th>
                     <th>Applicant</th>
                     <th>Lic. No.</th>

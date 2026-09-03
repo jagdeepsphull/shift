@@ -69,13 +69,34 @@
             opacity: 1;
         }
 
-        /* Hide the calendar portion to show only time pickers */
-        .daterangepicker .calendar-table,
-        .daterangepicker .ranges {
+        /* Hide the calendar portion to show only time pickers.
+
+           Every picker on an admin page but one: the shift-date filter on the
+           Manage Shifts listing is a date picker and needs both its calendar
+           and its list of ranges, so it marks its own container and is excused
+           here. See partials/shift_date_filter_script.php. */
+        .daterangepicker:not(.shift-date-picker) .calendar-table,
+        .daterangepicker:not(.shift-date-picker) .ranges {
             display: none !important;
         }
-        .daterangepicker .drp-calendar {
+        .daterangepicker:not(.shift-date-picker) .drp-calendar {
             width: auto !important;
+        }
+
+        /* Wide enough for "03 Sep 2026 - 03 Oct 2026" without the readonly box
+           collapsing to its (empty) content in the toolbar's flex row. */
+        .shift-date-filter__box {
+            width: 15rem;
+        }
+
+        /* The box is readonly because it is a picker, not something to type in
+           - but Bootstrap greys a readonly field to say "you cannot use this",
+           which is the opposite of what this one wants. It reads and clicks
+           like the control it is; the picker still owns what goes in it. */
+        .shift-date-filter__box .form-control[readonly] {
+            background-color: #fff;
+            color: #495057;
+            cursor: pointer;
         }
     </style>
   

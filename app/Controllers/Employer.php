@@ -854,16 +854,17 @@ class Employer extends BaseController
             // name, licence and e-mail) are re-read off the row as before.
             $rowData = [];
 
-            foreach (['u_fname', 'u_lname', 'u_phone', 'u_pincode'] as $field) {
+            foreach (['u_fname', 'u_lname', 'u_phone'] as $field) {
                 $rowData[$field] = strip_tags((string) $this->input->post($field));
             }
 
             // Digits only, PHONE_LENGTH of them - see normalisePhone().
             $rowData['u_phone'] = normalisePhone($rowData['u_phone']);
 
-            foreach (['u_provice', 'u_city'] as $field) {
-                $rowData[$field] = (int) $this->input->post($field);
-            }
+            // The home address (u_address1, u_provice, u_city, u_pincode) is no
+            // longer on this form - an employer is reached at their store, not
+            // at home. Left out of the whitelist rather than written back empty,
+            // so whatever the row already holds stays put.
 
             $rowData['u_comp_name']  = $this->userinfo[0]->u_comp_name;
             $rowData['u_l_provice']  = $this->userinfo[0]->u_l_provice;

@@ -1,10 +1,22 @@
+<?= view('partials/shift_list_filter_styles') ?>
+
 <!-- Content Wrap -->
-<div class="col-lg-9 col-md-9">
+<?php /* `ps-jobs-page` is what the filter's styles hang off, and what keeps
+   them off the other portal listings that share this markup. */ ?>
+<div class="col-lg-9 col-md-9 ps-jobs-page">
     <div class="dashboard-body">
         <div class="dashboard-caption">
 
-            <div class="dashboard-caption-header">
+            <div class="dashboard-caption-header ps-jobs-header">
                 <h4><i class="ti-briefcase"></i>All Jobs</h4>
+                <?php /* One preset of the date filter below rather than a second
+                   filter of its own - partials/shift_list_filter_script.php sets
+                   the same range from here. It starts off: the screen is called
+                   All Shifts, and opening it already filtered would hide a past
+                   shift without ever saying so. */ ?>
+                <button type="button" id="joblist-upcoming" class="ps-upcoming-btn" aria-pressed="false">
+                    <i class="lni lni-calendar" aria-hidden="true"></i> Upcoming Shifts
+                </button>
             </div>
 			<?php  echo session()->getFlashdata('error_msg'); ?>
             <div class="dashboard-caption-wrap">
@@ -17,7 +29,11 @@
                 </div>
                 <!-- row -->
                 <div class="table-responsive">
-                    <table id="joblist" class="table table-hover">
+                    <?php /* Opting in to the date filter, and naming the column
+                       it works on - column 4, counting the hidden internal id at
+                       0. The applicant's list shares this id and carries no such
+                       attribute, so it stays unfiltered. */ ?>
+                    <table id="joblist" class="table table-hover" data-daterange-col="4">
                         <thead>
                             <tr>
                                 <?php /* min-tablet-p: the responsive extension keeps these columns

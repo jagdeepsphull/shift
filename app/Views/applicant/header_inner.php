@@ -210,7 +210,7 @@
 
                             <div class="dashboard-menu collapse ps-menu-panel" id="ps-menu-panel">
                                 <ul>
-                                    <li class="<?php echo $ajcls; ?>"><a href="<?php echo base_url('applicant/applied_jobs'); ?>"><i class="lni-briefcase"></i>Applied Shifts</a></li>
+                                    <li class="<?php echo $ajcls; ?>"><a href="<?php echo base_url('applicant/applied_jobs'); ?>"><i class="lni-briefcase"></i>My Shifts</a></li>
                                     <?php /* <li class="<?php echo $dashcls; ?>"><a href="<?php echo base_url('applicant/dashboard'); ?>"><i class="lni-dashboard"></i>Dashboard</a></li>
                                     <li class="<?php echo $sjcls; ?>"><a href="<?php echo base_url('applicant/saved_jobs'); ?>"><i class="lni-heart"></i>Saved Jobs</a></li>
                                     <li class="<?php echo $alcls; ?>"><a href="<?php echo base_url('applicant/alert_jobs'); ?>"><i class="lni-alarm"></i>Alert Jobs</a></li> */ ?>

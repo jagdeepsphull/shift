@@ -14,7 +14,7 @@
                     <div class="col-lg-3 col-md-6 col-sm-12">
                         <div class="dashboard-stat widget-1">
                             <div class="dashboard-stat-content">
-                                <h4><?php echo $jobapp[0]->tot; ?></h4> <span>Shift Applied</span>
+                                <h4><?php echo $jobapp[0]->tot; ?></h4> <span>My Shifts</span>
                             </div>
                             <div class="dashboard-stat-icon"><i class="lni-map-marker"></i></div>
                         </div>

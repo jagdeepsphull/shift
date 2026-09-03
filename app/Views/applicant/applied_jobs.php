@@ -4,7 +4,11 @@
         <div class="dashboard-caption">
 
             <div class="dashboard-caption-header">
-                <h4><i class="lni-briefcase"></i>Applied Shifts</h4>
+                <?php /* Not "Applied Shifts" any more: the agency books an
+                   applicant onto a shift from the back office without them
+                   applying for anything, and this is the screen where they see
+                   it - see Applicant::SHIFT_STATUSES. */ ?>
+                <h4><i class="lni-briefcase"></i>My Shifts</h4>
             </div>
 			<?php 
 			if(session()->getFlashdata('error_msg')){echo session()->getFlashdata('error_msg');}		
@@ -21,7 +25,7 @@
                         <thead>
                             <tr class="">
                                 <th  class="d-none" ></th>
-                                <th>Applied Shifts</th>
+                                <th>Shift</th>
                                 <th>Employer/Shift</th>
                                 <th>Shift Date</th>
                                 <th>Shift Time</th>
@@ -47,6 +51,17 @@
 										->select('u_comp_name, u_licence_no, u_address1, u_city, u_provice, u_pincode')
 										->getWhere(['u_id' => $jobs->agency_id])
 										->getRow();
+
+									// An employer account deleted since the row was written, which
+									// leaves the shift and the booking behind it. Read straight, the
+									// lines below then take properties off null - a page of warnings
+									// on a row whose only real fault is a blank company name. The
+									// store's own details are looked up separately, just under here,
+									// and are what this screen shows anyway.
+									$employer = $employer ?: (object) [
+										'u_comp_name' => '', 'u_licence_no' => '', 'u_address1' => '',
+										'u_city' => 0, 'u_provice' => 0, 'u_pincode' => '',
+									];
 									
 									// pr($employer);
 									// pr($jobs);

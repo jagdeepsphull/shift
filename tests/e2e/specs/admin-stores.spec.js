@@ -19,6 +19,7 @@ const PASSWORD = 'E2eTest@12345';
 
 const CHAIN = 'e2e.storeadm.chain@example.com';
 const SINGLE = 'e2e.storeadm.single@example.com';
+const MANAGER = 'e2e.storeadm.manager@example.com';
 
 const MAP_URL = 'https://maps.app.goo.gl/e2eExampleLink';
 
@@ -315,4 +316,77 @@ test('an employer edit page links to that employer\'s stores', async ({ page }) 
 
   await Promise.all([page.waitForLoadState('load'), link.click()]);
   await expect(page.locator('h1')).toContainText('E2E Storeadm Chain');
+});
+
+/**
+ * The columns the list is made of, in the order the Column visibility menu
+ * offers them - which is the order they are written in.
+ */
+const COLUMNS = [
+  'Store Name',
+  'Store Address',
+  'Store Number',
+  'Group Name',
+  'Store Manager',
+  'Store Phone',
+  'Links',
+  'Agreement Done',
+  'Status',
+  'Action',
+];
+
+test('the list carries its columns, and offers the same ones to hide', async ({ page }) => {
+  await page.goto('sadmin/stores');
+  await expectNoServerError(page);
+
+  await expect(page.locator('#example1 thead th')).toHaveText(COLUMNS);
+  await expect(page.locator('#example1 tfoot th')).toHaveText(COLUMNS);
+
+  // The same list on the menu. The store id is column 0 of the markup, hidden
+  // by the shared table script and kept off the menu with it - offering it
+  // back would be offering a column of row numbers.
+  await page.locator('button.buttons-colvis').click();
+  await expect(page.locator('.dt-button-collection .dt-button')).toHaveText(COLUMNS);
+});
+
+test('the store manager column names whoever runs the branch', async ({ page }) => {
+  const email = MANAGER;
+
+  query(`
+    INSERT INTO users
+      (u_usertype, u_usersubtype, u_emp_role, u_parent_id, u_store_id, u_userid, u_fname, u_lname,
+       u_pass, u_comp_name, u_l_provice, u_licence_no, u_company_logo, u_photo, u_provice, u_city,
+       u_address1, u_pincode, u_phone, u_email, u_terms, u_status, u_collartype,
+       created, modified, u_login_attempt, u_login_attempt_dt, u_ipaddress, reset_token, token_expiry)
+    VALUES
+      (1, 0, 2, ${ids.chain}, ${ids.chainStore}, '${email}', 'Storeadm', 'Manager',
+       MD5('${PASSWORD}'), 'E2E Storeadm Chain', ${PROVINCE}, 'E2E-LIC', '', '', ${PROVINCE}, ${CITY},
+       '4 Store Road', 'M5A 1A1', '4165550405', '${email}', 1, 1, 0,
+       NOW(), NOW(), 0, NOW(), '127.0.0.1', '', '1970-01-01 00:00:00');
+  `);
+
+  await page.goto(`sadmin/stores?owner=${ids.chain}`);
+  await expectNoServerError(page);
+
+  const branch = page.locator('#example1 tbody tr', { hasText: 'E2E Storeadm Chain Branch One' });
+
+  // Their name and the e-mail they log in with, which is what an administrator
+  // looking for the account would search on.
+  await expect(branch).toContainText('Storeadm Manager');
+  await expect(branch).toContainText(email);
+  await expect(branch).not.toContainText('Awaiting approval');
+
+  // An account still waiting says so: it holds the store, but cannot log in to
+  // it yet, and naming it without that reads as a branch already covered.
+  query(`UPDATE users SET u_status = 0 WHERE u_email = '${email}';`);
+  await page.reload();
+  await expect(branch).toContainText('Awaiting approval');
+});
+
+test('a branch with nobody on it says so, rather than sitting empty', async ({ page }) => {
+  await page.goto(`sadmin/stores?owner=${ids.single}`);
+  await expectNoServerError(page);
+
+  const row = page.locator('#example1 tbody tr', { hasText: 'E2E Storeadm Single Store' });
+  await expect(row).toContainText('No manager');
 });

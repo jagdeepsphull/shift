@@ -281,20 +281,24 @@ class Sadmin extends BaseController
      * and never from a request, and the values are bound.
      *
      * @param array<string, int> $filter
+     * @param string              $alias table alias to qualify the columns
+     *                                   with, for a query that names `users`
+     *                                   more than once
      *
      * @return array{0: string, 1: list<int>} clause and its binds
      */
-    private function kindFilterSql(array $filter): array
+    private function kindFilterSql(array $filter, string $alias = ''): array
     {
         $clauses = [];
         $binds   = [];
+        $prefix  = $alias !== '' ? $alias . '.' : '';
 
         foreach ($filter as $key => $value) {
             // 'u_parent_id >' is column and operator in one key, the way the
             // query builder reads it; a bare key means equality.
             $parts = explode(' ', trim($key), 2);
 
-            $clauses[] = $parts[0] . ' ' . ($parts[1] ?? '=') . ' ?';
+            $clauses[] = $prefix . $parts[0] . ' ' . ($parts[1] ?? '=') . ' ?';
             $binds[]   = $value;
         }
 
@@ -337,25 +341,55 @@ class Sadmin extends BaseController
         $this->data['new_days']  = $days;
         $this->data['new_since'] = $since;
 
+        // The panel shows an application the way the shift list shows a
+        // shift - branch, applicant, licence, type, date, time, status - so
+        // its columns are the shift list's plus when the application came in.
+        // The employer's company name is gone from it: the address of the
+        // branch the shift is at says more, and one name did not distinguish
+        // two shifts of a multi-store employer from each other.
         $this->data['new_applications'] = $this->custom->query(
-            'SELECT ssa.sj_id, ssa.created, ssa.sj_is_approved, pj.p_job_title, pj.p_dates,
-                    ap.u_fname, ap.u_lname, em.u_comp_name
+            'SELECT ssa.sj_id, ssa.created, ssa.sj_is_approved,
+                    pj.p_job_title, pj.p_dates, pj.p_shift_time, pj.p_approved,
+                    pj.p_shift_for, pj.p_store_id, pj.u_id AS employer_id,
+                    ap.u_fname, ap.u_lname, ap.u_licence_no, ap.u_usersubtype
                FROM stu_saved_applied_jobs ssa
                JOIN post_job pj ON pj.p_id = ssa.p_id
                JOIN users ap    ON ap.u_id = ssa.u_id
-          LEFT JOIN users em    ON em.u_id = ssa.agency_id
               WHERE ssa.created >= ?
            ORDER BY ssa.created DESC
               LIMIT 25',
             [$since]
         );
 
-        $newEmployerCols = 'u_id, u_comp_name, u_fname, u_lname, u_email, u_status, created';
+        /* The tabs list an employer the way the employer listing does - who
+           they belong to, what kind of account it is, and how to reach them -
+           so the columns are group, kind, name, phone and e-mail, then the
+           status and the date the panel is about.
+
+           The group is not always the name on the account's own row: an owner
+           is the group, so `u_comp_name` is it, but a manager's row carries a
+           copy of the store they run and the group is their parent's. `g` is
+           that parent - there is no row for an owner, and COALESCE then falls
+           back to the name the account itself carries. */
+        $newEmployerCols = 'u.u_id, u.u_comp_name, u.u_fname, u.u_lname, u.u_email, u.u_phone,'
+            . ' u.u_emp_role, u.u_status, u.created,'
+            . " COALESCE(NULLIF(g.u_comp_name, ''), u.u_comp_name) AS group_name,"
+            . ' s.s_name AS store_name';
+
+        /* `s` is the branch a manager runs, which only they point at. The live
+           name rather than the copy of it on their own row: that copy is a
+           snapshot taken when the store was chosen (`storeSnapshotForManager`)
+           and a store renamed since would still be listed under its old name.
+           The view keeps the snapshot as its fallback, for a manager whose
+           store record has gone. */
+        $newEmployerFrom = ' FROM users u
+              LEFT JOIN users g ON g.u_id = u.u_parent_id
+              LEFT JOIN store s ON s.s_id = u.u_store_id
+             WHERE u.u_usertype = 1 AND u.created >= ?';
 
         $this->data['new_employers'] = $this->custom->query(
-            'SELECT ' . $newEmployerCols . '
-               FROM users WHERE u_usertype = 1 AND created >= ?
-           ORDER BY created DESC LIMIT 25',
+            'SELECT ' . $newEmployerCols . $newEmployerFrom . '
+          ORDER BY u.created DESC LIMIT 25',
             [$since]
         );
 
@@ -367,33 +401,50 @@ class Sadmin extends BaseController
         $newEmployersByKind = [];
 
         foreach ((array) $this->config->item('employerKinds') as $code => $kindDef) {
-            [$clause, $binds] = $this->kindFilterSql($kindDef['filter']);
+            [$clause, $binds] = $this->kindFilterSql($kindDef['filter'], 'u');
 
             $newEmployersByKind[$code] = $this->custom->query(
-                'SELECT ' . $newEmployerCols . '
-                   FROM users WHERE u_usertype = 1 AND created >= ? AND ' . $clause . '
-               ORDER BY created DESC LIMIT 25',
+                'SELECT ' . $newEmployerCols . $newEmployerFrom . ' AND ' . $clause . '
+              ORDER BY u.created DESC LIMIT 25',
                 array_merge([$since], $binds)
             );
         }
 
         $this->data['new_employers_by_kind'] = $newEmployersByKind;
 
+        // The tab lists an applicant the way the applicant listing does - name,
+        // what they are, their licence, and how to reach them - so the licence
+        // and the phone come across with the rest.
         $this->data['new_applicants'] = $this->custom->query(
-            'SELECT u_id, u_fname, u_lname, u_email, u_status, u_usersubtype, created
+            'SELECT u_id, u_fname, u_lname, u_email, u_phone, u_licence_no,
+                    u_status, u_usersubtype, created
                FROM users WHERE u_usertype = 2 AND created >= ?
            ORDER BY created DESC LIMIT 25',
             [$since]
         );
 
+        /* The tab shows a shift the way the shift list shows one - branch,
+           who is on it, their licence and type, then the date, time and
+           status - plus the store's phone and when the shift went up. The
+           employer's name is gone from it: the branch address says which of a
+           multi-store employer's shops the shift is at, and the name did not.
+
+           `p_store_id` and `u_id` are what shiftStore() reads - the second for
+           a shift from before the stores existed, whose address still lives on
+           the owner's login. */
         $this->data['new_shifts'] = $this->custom->query(
-            'SELECT pj.p_id, pj.p_job_title, pj.p_dates, pj.p_approved, pj.created, u.u_comp_name
+            'SELECT pj.p_id, pj.u_id, pj.p_store_id, pj.p_job_title,
+                    pj.p_dates, pj.p_shift_time, pj.p_shift_for,
+                    pj.p_approved, pj.created
                FROM post_job pj
-          LEFT JOIN users u ON u.u_id = pj.u_id
               WHERE pj.created >= ?
            ORDER BY pj.created DESC LIMIT 25',
             [$since]
         );
+
+        // Who is on each of those shifts, in one query for the tab rather than
+        // one per row - the same lookup the shift list uses.
+        $this->data['new_shift_bookings'] = $this->shiftBookings($this->data['new_shifts']);
 
         $this->load->admin_view('dashboard', $this->data);
     }
@@ -2417,6 +2468,11 @@ class Sadmin extends BaseController
                 $this->data['stores']    = $this->custom->get_where_order($table, $where, 's_name', 'asc');
                 $this->data['ownerRow']  = $owner ? $this->custom->get_where_row('users', ['u_id' => $owner]) : null;
 
+                // Who runs each of these branches - one query for the page,
+                // not one per row. A store with nobody on it says so, which
+                // is what an administrator is looking for on this screen.
+                $this->data['store_managers'] = storeManagers(array_column($this->data['stores'], 's_id'));
+
                 $this->load->admin_view($module . '/index', $this->data);
                 break;
 
@@ -3281,7 +3337,7 @@ class Sadmin extends BaseController
                 }
 
                 $application = $this->custom->query(
-                    'select ssa.*, phrmcist.*, pj.p_job_title, pj.p_hourly_rate, pj.p_ac_hourly_rate, pj.p_dates, pj.p_shift_time, pj.p_store_id '
+                    'select ssa.*, phrmcist.*, pj.p_job_title, pj.p_hourly_rate, pj.p_ac_hourly_rate, pj.p_dates, pj.p_shift_time, pj.p_shift_for, pj.p_store_id '
                     . 'from stu_saved_applied_jobs ssa, users phrmcist, post_job pj '
                     . 'where sj_id = ? and ssa.u_id = phrmcist.u_id and ssa.p_id = pj.p_id',
                     [$id]
@@ -3304,6 +3360,15 @@ class Sadmin extends BaseController
                 $this->data['store_owner'] = $this->custom->get_where_row('users', [
                     'u_id' => $this->data['shift_store']->u_id ?? $application[0]->agency_id,
                 ]);
+
+                // Whoever runs that branch day to day. The store's own number
+                // is the counter phone and the owner's is a head office, so
+                // neither is the person a booking is actually settled with -
+                // the manager is, and their mobile is the one to reach for.
+                // None is normal: not every store has a manager account, and
+                // a shift from before the stores existed has no store at all.
+                $storeId                     = (int) ($this->data['shift_store']->s_id ?? 0);
+                $this->data['store_manager'] = storeManagers([$storeId])[$storeId] ?? null;
 
                 $this->load->admin_view('application/view', $this->data);
                 break;
@@ -3521,6 +3586,11 @@ class Sadmin extends BaseController
      * `pj.u_id` is aliased: `ssa.*` already carries a `u_id`, and that one is
      * the applicant, not the employer.
      *
+     * `p_date_start` is the shift's date as a real date, which the screen sorts
+     * and its date-range filter reads. Without it shiftDateSortValue() falls
+     * back to parsing the typed `p_dates`, and anything it cannot read filters
+     * as a shift far in the future.
+     *
      * @param bool $bookedOnly only the applicant who got the shift
      *
      * @return array<int, object>
@@ -3529,7 +3599,7 @@ class Sadmin extends BaseController
     {
         return $this->custom->query(
             'select ssa.*, u.u_comp_name,'
-            . ' pj.p_shift_time, pj.p_dates, pj.p_job_title, pj.p_store_id,'
+            . ' pj.p_shift_time, pj.p_dates, pj.p_date_start, pj.p_job_title, pj.p_store_id,'
             . ' pj.u_id AS employer_id, pj.p_shift_for,'
             . ' ap.u_fname AS applicant_fname, ap.u_lname AS applicant_lname,'
             . ' ap.u_licence_no AS applicant_licence'

@@ -404,5 +404,8 @@
 	<?= view('partials/phone_input_script') ?>
 	<?= view('partials/rate_input_script') ?>
 	<?= view('partials/select2_focus_script') ?>
+	<?php /* After the block above, which is where #joblist is built: this wants
+	   the DataTable instance, not the markup. */ ?>
+	<?= view('partials/shift_list_filter_script') ?>
 	</body>
 </html>

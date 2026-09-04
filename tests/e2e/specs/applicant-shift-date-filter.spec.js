@@ -1,28 +1,29 @@
 // @ts-check
 /**
- * The date filter on the employer's All Shifts screen, and the Upcoming Shifts
- * button that is one preset of it.
+ * The date filter on the applicant's My Shifts screen.
  *
- * The two are one filter with two ways to set it, so what is worth testing is
- * not each on its own but that they cannot contradict each other: the button
- * lights and fills the box, picking a range off the calendar takes the button
- * off, and either way one Clear puts the whole list back.
+ * The same control the owner has on All Shifts, on the same `#joblist` table
+ * and out of the same partial - so what is worth testing here is not the
+ * picker's own behaviour again but that it is wired to this screen's column.
+ * The two lists number their columns differently: the owner's Shift Date is
+ * column 4 and the applicant's is column 3, and a filter pointed one column out
+ * would read a shift time or a store name as a date and empty the table.
  *
- * Four shifts are seeded for the one employer - one already gone, one today,
- * one inside the next week and one years out - so every assertion below has
- * both rows it must keep and rows it must drop. The dates are worked out here
- * in Node rather than by MySQL: the presets are built in the browser with
- * moment, and the two clocks on this machine do not agree (see the shared note
- * about NOW() versus PHP's date()). Node and the browser share one clock, so a
- * shift seeded as "today" here is the same day the picker means by Today.
+ * Four shifts are seeded and booked to the one applicant - one already gone,
+ * one today, one inside the next week and one years out - so every assertion
+ * below has both rows it must keep and rows it must drop. The dates are worked
+ * out here in Node rather than by MySQL: the presets are built in the browser
+ * with moment, and the two clocks on this machine do not agree (see the shared
+ * note about NOW() versus PHP's date()). Node and the browser share one clock,
+ * so a shift seeded as "today" here is the same day the picker means by Today.
  */
 const { test, expect } = require('@playwright/test');
 const { settle, expectNoServerError } = require('../helpers/admin');
 const {
   AGENCY,
+  APPLICANT,
   seedShiftFixture,
   removeShiftFixture,
-  loginAsAgency,
   loginAsApplicant,
 } = require('../helpers/front');
 const { query, scalar } = require('../helpers/db');
@@ -40,7 +41,7 @@ function offsetDay(days) {
   };
 }
 
-const PREFIX = 'E2E-DFILT-';
+const PREFIX = 'E2E-ADFILT-';
 
 /** Title -> the day it falls on, relative to today. */
 const SHIFTS = [
@@ -62,12 +63,13 @@ function removeShifts() {
 test.beforeAll(() => {
   removeShifts();
 
-  // The shared fixture brings both logins and the three applications the
-  // applicant's own list needs rows from; the dated shifts below hang off its
-  // agency, so the employer screen shows those as well as its own three.
+  // The shared fixture brings both logins; the dated shifts below hang off its
+  // agency and are booked to its applicant, so My Shifts lists those as well as
+  // the fixture's own three.
   seedShiftFixture();
 
   const agencyId = Number(scalar(`SELECT u_id FROM users WHERE u_userid = '${AGENCY.user}';`));
+  const applicantId = Number(scalar(`SELECT u_id FROM users WHERE u_userid = '${APPLICANT.user}';`));
   const province = scalar('SELECT p_id FROM province WHERE p_status = 1 LIMIT 1;');
   const city = scalar('SELECT c_id FROM city WHERE c_status = 1 LIMIT 1;');
   const shiftFor = scalar('SELECT sf_id FROM shift_for WHERE sf_status = 1 LIMIT 1;');
@@ -83,6 +85,20 @@ test.beforeAll(() => {
          30, 30, '${shift.day.typed}', '${shift.day.iso}', '09:00 - 17:00',
          '', '', 'Seeded by the end-to-end suite.', 0, 1, 1, NOW(), NOW());
     `);
+
+    const pid = scalar(`SELECT p_id FROM post_job WHERE p_job_title = '${shift.title}';`);
+
+    // Booked, so each row reads the way this screen does for a shift the
+    // applicant is actually on.
+    query(`
+      INSERT INTO stu_saved_applied_jobs
+        (u_id, agency_id, p_id, sj_applied_date, sj_status, sj_is_approved,
+         sj_admin_comment, sj_applied_desc, sj_resubmit_comments, sj_rejected_comments,
+         created, modified)
+      VALUES
+        (${applicantId}, ${agencyId}, ${pid}, NOW(), 1, 1,
+         '', '', '', 0, NOW(), NOW());
+    `);
   }
 });
 
@@ -91,23 +107,29 @@ test.afterAll(() => {
   removeShiftFixture();
 });
 
-/** The seeded shift titles currently on the page, in the order they are shown. */
+/**
+ * The seeded shift titles currently on the page.
+ *
+ * Column 0 is the internal application id, hidden by a class rather than by
+ * DataTables, so its cell is still in the row and the title is the second one.
+ */
 async function shown(page) {
-  const cells = await page.locator('#joblist tbody tr td:nth-child(1)').allInnerTexts();
+  const cells = await page.locator('#joblist tbody tr td:nth-child(2)').allInnerTexts();
 
   return cells.map((t) => t.trim()).filter((t) => t.startsWith(PREFIX));
 }
 
 test('Upcoming Shifts drops what has been and gone, and gives it back', async ({ page }) => {
-  await loginAsAgency(page);
-  await page.goto('employer/all_jobs');
+  await loginAsApplicant(page);
+  await page.goto('applicant/applied_jobs');
   await settle(page);
 
   const box = page.locator('.ps-date-filter__input');
   const upcoming = page.locator('#joblist-upcoming');
   const clear = page.locator('.ps-date-filter__clear');
 
-  // The screen is All Shifts: it opens showing all of them, filter off.
+  // My Shifts is every shift the applicant has ever been on: it opens showing
+  // all of them, filter off.
   await expect(box).toHaveAttribute('placeholder', 'Any shift date');
   await expect(box).toHaveValue('');
   await expect(clear).toBeHidden();
@@ -140,9 +162,9 @@ test('Upcoming Shifts drops what has been and gone, and gives it back', async ({
   await expectNoServerError(page);
 });
 
-test('a range off the calendar takes the button off, and Clear resets both', async ({ page }) => {
-  await loginAsAgency(page);
-  await page.goto('employer/all_jobs');
+test('a range off the calendar reads this screen own shift-date column', async ({ page }) => {
+  await loginAsApplicant(page);
+  await page.goto('applicant/applied_jobs');
   await settle(page);
 
   const box = page.locator('.ps-date-filter__input');
@@ -152,11 +174,10 @@ test('a range off the calendar takes the button off, and Clear resets both', asy
   await upcoming.click();
   await expect(upcoming).toHaveClass(/is-on/);
 
-  // The picker needs its calendar and its range list, which the portal's
-  // time-picker CSS hides on every other daterangepicker - so this also proves
-  // the filter's own container is excused from that rule.
   await box.click();
 
+  // This area's header loads the picker's own stylesheet and hides neither half
+  // of it, so both the range list and the calendar are there to click.
   const picker = page.locator('.daterangepicker.ps-shift-picker');
   await expect(picker.locator('.ranges')).toBeVisible();
   await expect(picker.locator('.calendar-table').first()).toBeVisible();
@@ -167,10 +188,10 @@ test('a range off the calendar takes the button off, and Clear resets both', asy
   // that is not the one it stands for.
   await expect(upcoming).not.toHaveClass(/is-on/);
   await expect(upcoming).toHaveAttribute('aria-pressed', 'false');
-
-  // The preset's own words, which say more at a glance than the two dates.
   await expect(box).toHaveValue('Next 7 Days');
 
+  // The window is read off column 3. Pointed at any other column this would
+  // empty the table rather than keep these two.
   const weekRows = await shown(page);
   expect(weekRows).toEqual(
     expect.arrayContaining([`${PREFIX}TODAY`, `${PREFIX}WEEK`]),
@@ -182,23 +203,6 @@ test('a range off the calendar takes the button off, and Clear resets both', asy
   await expect(clear).toBeHidden();
   await expect(box).toHaveValue('');
   expect(await shown(page)).toContain(`${PREFIX}GONE`);
-
-  await expectNoServerError(page);
-});
-
-test('the applicant list shares the table id and carries the filter too', async ({ page }) => {
-  await loginAsApplicant(page);
-  await page.goto('applicant/applied_jobs');
-  await settle(page);
-
-  // Same `#joblist`, and now the same `data-daterange-col` - on its own column,
-  // which applicant-shift-date-filter.spec.js is what actually holds to
-  // account. Here it is only that the shared partial reaches this screen at
-  // all: the two are one control, and one of them going quiet is the failure
-  // this catches.
-  await expect(page.locator('#joblist')).toHaveAttribute('data-daterange-col', '3');
-  await expect(page.locator('.ps-date-filter__input')).toBeVisible();
-  await expect(page.locator('#joblist-upcoming')).toBeVisible();
 
   await expectNoServerError(page);
 });

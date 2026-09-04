@@ -26,10 +26,7 @@
 		<div class="dashboard-caption">
 
 			<div class="dashboard-caption-header">
-				<div>
-					<h4><i class="lni-briefcase"></i>Post New Shift</h4>
-					<p class="ps-page-sub">Tell us where the shift is, when it runs and what it needs. Applicants see it as soon as it is approved.</p>
-				</div>
+				<h4><i class="lni-briefcase"></i>Post New Shift</h4>
 			</div>
 
 			<?php echo session()->getFlashdata('error_msg'); ?>
@@ -50,10 +47,7 @@
 					<div class="card ps-card">
 						<div class="ps-card-header">
 							<span class="ps-step">1</span>
-							<div>
-								<h5>Store Information</h5>
-								<p>The branch this shift is at, and the role you need covered.</p>
-							</div>
+							<h5>Store Information</h5>
 						</div>
 						<div class="ps-card-body">
 							<div class="row">
@@ -71,7 +65,6 @@
 											<?php }
 											} ?>
 										</select>
-										<small class="ps-hint">Choosing a store ticks what it usually offers, below.</small>
 									</div>
 								</div>
 								<div class="col-12 col-md-6 col-lg-4">
@@ -108,10 +101,7 @@
 					<div class="card ps-card">
 						<div class="ps-card-header">
 							<span class="ps-step">2</span>
-							<div>
-								<h5><?php echo $can_set_rate ? 'Date, Time and Compensation' : 'Date and Time'; ?></h5>
-								<p><?php echo $can_set_rate ? 'The date, the hours and the hourly rate you are offering.' : 'The date and the hours you need covered.'; ?></p>
-							</div>
+							<h5><?php echo $can_set_rate ? 'Date, Time and Compensation' : 'Date and Time'; ?></h5>
 						</div>
 						<div class="ps-card-body">
 							<div class="row">
@@ -150,7 +140,6 @@
 													<span class="input-group-text">/ hr</span>
 												</div>
 											</div>
-											<small class="ps-hint">Between $10 and $200.</small>
 										</div>
 									</div>
 								<?php } ?>
@@ -162,10 +151,7 @@
 					<div class="card ps-card">
 						<div class="ps-card-header">
 							<span class="ps-step">3</span>
-							<div>
-								<h5>Shift Information</h5>
-								<p>Ticked from the store's own defaults - change them for this shift only.</p>
-							</div>
+							<h5>Shift Information</h5>
 						</div>
 						<div class="ps-card-body">
 							<div class="row">

@@ -45,7 +45,12 @@
 	                                <?php if ($manager) { ?>
 	                                    <?php echo esc(trim($manager->u_fname . ' ' . $manager->u_lname)); ?>
 	                                    <?php if ($manager->u_email) { ?><br><small class="text-muted"><?php echo esc($manager->u_email); ?></small><?php } ?>
-	                                    <?php if ($manager->u_phone) { ?><br><small class="text-muted"><?php echo esc($manager->u_phone); ?></small><?php } ?>
+	                                    <?php /* The manager's own mobile. The
+	                                       store's line is the column before this
+	                                       one and stays plain: that is the
+	                                       counter phone, and a WhatsApp mark on
+	                                       it would promise a chat nobody reads. */ ?>
+	                                    <?php if ($manager->u_phone) { ?><br><small><?php echo portalWhatsappPhoneLink($manager->u_phone, 'Message ' . trim($manager->u_fname . ' ' . $manager->u_lname) . ' on WhatsApp'); ?></small><?php } ?>
 	                                    <?php if ((int) $manager->u_status !== 1) { ?><br><small class="text-danger">Awaiting approval</small><?php } ?>
 	                                <?php } else { ?>
 	                                    <small class="text-muted">No manager</small>

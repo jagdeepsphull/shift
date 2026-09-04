@@ -65,7 +65,10 @@
                     <td><?php echo getShiftForName($user->u_usersubtype) ?></td>
                     <td><?php echo esc($user->u_licence_no); ?></td>
                     <td><?php echo esc($user->u_email); ?></td>
-                    <td><?php echo esc($user->u_phone); ?></td>
+                    <?php /* The number is somebody's own handset, so it is
+                       offered as a chat rather than printed to be copied out.
+                       One that cannot be messaged is still shown, as text. */ ?>
+                    <td><?php echo whatsappPhoneLink($user->u_phone, 'Message ' . trim($user->u_fname . ' ' . $user->u_lname) . ' on WhatsApp'); ?></td>
                     <td><?php echo agreementDoneBadge($user->u_agreement_done ?? 0); ?></td>
                     <td><?php if($user->u_status=='1'){?><span class="badge badge-success">Active</span><?php }else{?><span class="badge badge-warning">Pending</span><?php }?></td>
                     <td><a href="<?php echo base_url($adminpath.'/'.$link.'/edit/'.$user->u_id);?>" class="btn btn-success" title="Edit"><i class="fas fa-edit"></i></a>

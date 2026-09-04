@@ -533,6 +533,13 @@
 		  ? [[0, 'desc']]
 		  : [[parseInt(orderCol, 10), orderDir]];
 
+	  // A list the admin orders by hand - Shift For, with its up and down
+	  // arrows. The rows arrive in the order somebody put them in, so there is
+	  // nothing for the client to sort: an automatic sort on arrival would show
+	  // one order while the arrows moved rows about in another, and a heading
+	  // clicked later would do the same. Search and the downloads are untouched.
+	  var manualOrder = $adminTable.data('manual-order') ? true : false;
+
 	  // Read from the markup rather than hard-coded: the eleven screens that
 	  // share this id have between four and ten columns.
 	  var adminLastColumn = $adminTable.find('thead tr').first().find('th').length - 1;
@@ -559,7 +566,8 @@
                 responsivePriority: 2
             }
         ],
-       order: defaultOrder,
+       order: manualOrder ? [] : defaultOrder,
+		  ordering: ! manualOrder,
 		  "responsive": true, "lengthChange": false, "autoWidth": false,
 		  scrollX: true,
 			scrollCollapse: true,

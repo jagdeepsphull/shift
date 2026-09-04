@@ -1,14 +1,27 @@
+<?= view('partials/shift_list_filter_styles') ?>
+
 <!-- Content Wrap -->
-<div class="col-lg-9 col-md-8">
+<?php /* `ps-jobs-page` is what the date filter's styles hang off, and what
+   keeps them off the other portal listings that share this markup. */ ?>
+<div class="col-lg-9 col-md-8 ps-jobs-page">
     <div class="dashboard-body">
         <div class="dashboard-caption">
 
-            <div class="dashboard-caption-header">
+            <div class="dashboard-caption-header ps-jobs-header">
                 <?php /* Not "Applied Shifts" any more: the agency books an
                    applicant onto a shift from the back office without them
                    applying for anything, and this is the screen where they see
                    it - see Applicant::SHIFT_STATUSES. */ ?>
                 <h4><i class="lni-briefcase"></i>My Shifts</h4>
+                <?php /* One preset of the date filter below rather than a second
+                   filter of its own - partials/shift_list_filter_script.php sets
+                   the same range from here, as it does on the owner's All
+                   Shifts. It starts off: this screen is every shift the
+                   applicant has ever been on, and opening it already filtered
+                   would hide a past one without ever saying so. */ ?>
+                <button type="button" id="joblist-upcoming" class="ps-upcoming-btn" aria-pressed="false">
+                    <i class="lni lni-calendar" aria-hidden="true"></i> Upcoming Shifts
+                </button>
             </div>
 			<?php 
 			if(session()->getFlashdata('error_msg')){echo session()->getFlashdata('error_msg');}		
@@ -21,7 +34,11 @@
                
                 <!-- row -->
                 <div class="table-responsive">
-                    <table id="joblist" class="table table-hover">
+                    <?php /* Opting in to the date filter, and naming the column
+                       it works on - column 3, Shift Date, counting the hidden
+                       internal id at 0. The owner's list is the same control on
+                       its own column 4. */ ?>
+                    <table id="joblist" class="table table-hover" data-daterange-col="3">
                         <thead>
                             <tr class="">
                                 <th  class="d-none" ></th>

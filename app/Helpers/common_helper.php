@@ -1088,14 +1088,75 @@ if (! function_exists('whatsappPhoneLink')) {
         $number = whatsappNumber($shown);
 
         if ($number === '') {
-            return '<span class="text-muted">' . $icon . esc($shown) . '</span>';
+            return '<span class="text-muted text-nowrap">' . $icon . esc($shown) . '</span>';
         }
 
-        return '<a href="https://web.whatsapp.com/send?phone=' . esc($number, 'attr') . '"'
+        // `text-nowrap` because the listings put this in a column narrow enough
+        // to break it, and the mark left on a line of its own reads as a stray
+        // green tick rather than as part of the number above it.
+        return '<a class="text-nowrap" href="https://web.whatsapp.com/send?phone=' . esc($number, 'attr') . '"'
             . ' target="_blank" rel="noopener noreferrer"'
             . ' title="' . esc($title, 'attr') . '">'
             . $icon . esc($shown)
             . '<i class="fab fa-whatsapp ml-2 text-success"></i></a>';
+    }
+}
+
+if (! function_exists('whatsappMarkSvg')) {
+    /**
+     * The WhatsApp glyph, drawn rather than pulled out of an icon font.
+     *
+     * The portal behind a login loads line-icons, which has no WhatsApp mark,
+     * and not Font Awesome, which does - so the two places in that area that
+     * need one share this rather than keeping a copy of the path each.
+     */
+    function whatsappMarkSvg(): string
+    {
+        return '<svg viewBox="0 0 32 32" role="img" focusable="false" aria-hidden="true">'
+            . '<path fill="currentColor" d="M16.03 4A11.9 11.9 0 0 0 4.1 15.9c0 2.1.55 4.15 1.6 5.96L4 28l6.32-1.65a11.87 11.87 0 0 0 5.7 1.45h.01A11.9 11.9 0 0 0 27.95 15.9 11.9 11.9 0 0 0 16.03 4Zm0 21.79h-.01a9.9 9.9 0 0 1-5.03-1.38l-.36-.21-3.75.98 1-3.65-.24-.38a9.86 9.86 0 0 1-1.51-5.25 9.9 9.9 0 1 1 9.9 9.89Zm5.43-7.41c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.96-.94 1.16-.17.2-.35.22-.65.07-.3-.15-1.25-.46-2.39-1.47-.88-.79-1.48-1.76-1.65-2.06-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.61-.92-2.21-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.01-1.04 2.47s1.07 2.87 1.22 3.07c.15.2 2.1 3.2 5.08 4.49.71.3 1.26.49 1.69.63.71.22 1.36.19 1.87.12.57-.09 1.76-.72 2-1.41.25-.7.25-1.29.18-1.42-.07-.13-.27-.2-.57-.35Z"/>'
+            . '</svg>';
+    }
+}
+
+if (! function_exists('portalWhatsappPhoneLink')) {
+    /**
+     * `whatsappPhoneLink()` for the screens behind a login rather than the back
+     * office: the same rules about which numbers can be messaged, in the icons
+     * that area actually has.
+     *
+     * The two cannot be one function because the two areas load different icon
+     * fonts. The admin has Font Awesome, which carries both a handset and a
+     * WhatsApp mark; the portal has line-icons, which has the handset and no
+     * WhatsApp mark at all - so that one is drawn, by whatsappMarkSvg(). What
+     * decides whether there is a link at all is whatsappNumber(), which both
+     * call, so the two can never disagree about a number.
+     *
+     * Presentation is `.ps-wa-link` in partials/portal_theme.php.
+     */
+    function portalWhatsappPhoneLink(?string $phone, string $title = 'Send a WhatsApp message'): string
+    {
+        $shown = trim((string) $phone);
+
+        if ($shown === '') {
+            return '';
+        }
+
+        $icon   = '<i class="lni lni-phone-handset" aria-hidden="true"></i>';
+        $number = whatsappNumber($shown);
+
+        // Worth reading even when it cannot be messaged - a number too short to
+        // be real, or the 0000000000 the back office accepts - so it is printed
+        // rather than dropped, and printed as text so nothing opens a chat with
+        // nobody.
+        if ($number === '') {
+            return '<span class="ps-wa-link is-plain">' . $icon . esc($shown) . '</span>';
+        }
+
+        return '<a class="ps-wa-link" href="https://web.whatsapp.com/send?phone=' . esc($number, 'attr') . '"'
+            . ' target="_blank" rel="noopener noreferrer"'
+            . ' title="' . esc($title, 'attr') . '">'
+            . $icon . '<span class="ps-wa-number">' . esc($shown) . '</span>'
+            . '<span class="ps-wa-mark">' . whatsappMarkSvg() . '</span></a>';
     }
 }
 

@@ -1032,7 +1032,9 @@ class Sadmin extends BaseController
 
         $this->data['validation_errors'] = '';
         $this->data['pageinfo']          = ['title' => 'Shift For', 'link' => $module];
-        $this->data['shift_for']         = $this->custom->get_data_order($table, 'sf_name', 'asc');
+        // The order the agency put these in, which is what the arrows on the
+        // list set and what every dropdown offering them reads.
+        $this->data['shift_for']         = $this->custom->get_data_order($table, SHIFT_FOR_ORDER, '', false);
 
         switch ($action) {
             default:
@@ -1137,6 +1139,36 @@ class Sadmin extends BaseController
                 }
                 break;
 
+            case 'moveup':
+            case 'movedown':
+                if ($id) {
+                    $original_row = $this->custom->get_where($table, ['sf_id' => $id]);
+
+                    if ($original_row) {
+                        // A row already at the end has nowhere to go. The list
+                        // does not draw that arrow, so this only answers a
+                        // typed URL or a second tab acting on a stale page.
+                        if (! $this->moveShiftFor((int) $id, $action === 'moveup' ? -1 : 1)) {
+                            $this->session->set_flashdata('error_msg', '<div class="alert alert-warning">That record is already at the ' . ($action === 'moveup' ? 'top' : 'bottom') . ' of the list.</div>');
+                        } else {
+                            $this->session->set_flashdata('error_msg', '<div class="alert alert-success">The order has been updated.</div>');
+                        }
+
+                        ci_redirect('sadmin/' . $module);
+                    } else {
+                        $idnotFound = 1;
+                    }
+
+                    $this->load->admin_view($module . '/index', $this->data);
+                } else {
+                    $idnotFound = 1;
+                }
+
+                if ($idnotFound === 1) {
+                    ci_redirect('sadmin/' . $module);
+                }
+                break;
+
             case 'delete':
                 if ($id) {
                     $original_row = $this->custom->get_where($table, ['sf_id' => $id]);
@@ -1169,6 +1201,48 @@ class Sadmin extends BaseController
                 }
                 break;
         }
+    }
+
+    /**
+     * Move one Shift For row a place up or down the list.
+     *
+     * The whole list is renumbered rather than two rows having their numbers
+     * swapped. A swap only works while every row holds a number of its own, and
+     * these do not have to: rows inserted straight into the table carry 0, an
+     * import can repeat a number, and deleting a row leaves a gap. Renumbering
+     * from the order actually on screen is right whatever state the column is
+     * in, and this list is nine rows - the cost is nothing.
+     *
+     * @param int $step -1 for up the list, 1 for down
+     *
+     * @return bool false when the row is already at that end, and nothing moved
+     */
+    private function moveShiftFor(int $id, int $step): bool
+    {
+        // The same order the list is drawn in, so "the row above" here is the
+        // row an admin sees above it.
+        $rows = $this->custom->get_data_order('shift_for', SHIFT_FOR_ORDER, '', false);
+        $ids  = array_map(static fn ($row) => (int) $row->sf_id, $rows);
+
+        $from = array_search($id, $ids, true);
+
+        if ($from === false) {
+            return false;
+        }
+
+        $to = $from + $step;
+
+        if ($to < 0 || $to >= count($ids)) {
+            return false;
+        }
+
+        [$ids[$from], $ids[$to]] = [$ids[$to], $ids[$from]];
+
+        foreach ($ids as $position => $rowId) {
+            $this->custom->updateData('shift_for', ['sf_order' => $position + 1], ['sf_id' => $rowId]);
+        }
+
+        return true;
     }
 
     public function storeservice()
@@ -2710,7 +2784,7 @@ class Sadmin extends BaseController
                     getTableInfo($this->dbname, 'users');
                 }
 
-                $this->data['shift_for'] = $this->custom->get_where_order('shift_for', ['sf_status' => 1], 'sf_name', 'asc');
+                $this->data['shift_for'] = $this->custom->get_where_order('shift_for', ['sf_status' => 1], SHIFT_FOR_ORDER, '', false);
                 $this->data['province']  = $this->custom->get_data('province');
 
                 $this->load->admin_view($module . '/add', $this->data);
@@ -2757,7 +2831,7 @@ class Sadmin extends BaseController
                 }
 
                 $this->data['province']  = $this->custom->get_data('province');
-                $this->data['shift_for'] = $this->custom->get_where_order('shift_for', ['sf_status' => 1], 'sf_name', 'asc');
+                $this->data['shift_for'] = $this->custom->get_where_order('shift_for', ['sf_status' => 1], SHIFT_FOR_ORDER, '', false);
 
                 $this->load->admin_view($module . '/edit', $this->data);
                 break;
@@ -2788,7 +2862,7 @@ class Sadmin extends BaseController
 
         $this->data['pageinfo']        = ['title' => 'Shifts', 'link' => $this->data['link']];
         $this->data['jobs']            = $this->custom->get_data('post_job');
-        $this->data['shift_for']       = $this->custom->get_where_order('shift_for', ['sf_status' => 1], 'sf_name', 'asc');
+        $this->data['shift_for']       = $this->custom->get_where_order('shift_for', ['sf_status' => 1], SHIFT_FOR_ORDER, '', false);
         $this->data['province']        = $this->custom->get_where('province', ['p_status' => 1]);
         $this->data['city']            = $this->custom->get_where('city', ['c_status' => 1]);
         $this->data['hourly_rate']     = $this->custom->get_where('hourly_rate', ['hr_status' => 1]);

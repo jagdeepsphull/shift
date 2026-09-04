@@ -137,6 +137,24 @@ defined('RATE_STEP')     || define('RATE_STEP', '0.01');
 defined('RATE_PATTERN')  || define('RATE_PATTERN', '/^[0-9]{1,4}(\.[0-9]{1,' . RATE_DECIMALS . '})?$/');
 
 /*
+ | How the Shift For list is ordered, everywhere it is read - the back-office
+ | list, the two shift forms, the applicant forms and the public registration
+ | dropdown.
+ |
+ | `sf_order` is the position the agency put the row in, with the arrows on
+ | /sadmin/shift_for. The name breaks a tie, which is what two rows sharing a
+ | number are: a row inserted straight into the table carries 0 and has never
+ | been placed, and several of those would otherwise come back in whatever order
+ | MySQL felt like. Alphabetical is where they used to sit, so that is where an
+ | unplaced row sits until somebody moves it.
+ |
+ | Passed as one raw ORDER BY fragment rather than a column and a direction, so
+ | it goes to the model with escaping off - it is a literal here, never anything
+ | that came in on a request.
+ */
+defined('SHIFT_FOR_ORDER') || define('SHIFT_FOR_ORDER', 'sf_order ASC, sf_name ASC');
+
+/*
  | What the Shift Time box opens on when a shift is being added - a nine to six
  | day, which is what most of them are. Only a starting point: the picker is
  | still there, and whatever it is left showing is what gets posted.

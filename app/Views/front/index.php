@@ -11,10 +11,16 @@ $wz_today = date('Y-m-d');
 $wz_recent_cutoff = date('Y-m-d', strtotime('-14 days'));
 
 // The "Shift Requested For" types worth offering: those the back office has
-// active AND that at least one shift on this page is posted for. Names and the
-// active flag come from the `shift_for` list, so a type the admin renames or
-// retires follows along; the shifts decide which of them appear, so the filter
-// never offers a choice that would empty the list.
+// active AND that at least one shift on this page is posted for. Names, the
+// active flag and the order all come from the `shift_for` list, so a type the
+// admin renames, retires or moves follows along; the shifts decide which of
+// them appear, so the filter never offers a choice that would empty the list.
+//
+// Left in the order the controller read them in, which is the order the agency
+// put them in - `SHIFT_FOR_ORDER`. This was sorted by name here, which put
+// "Dental Assistant" above "Pharmacist (R Ph)" on the one screen the public
+// sees, whatever the back office had chosen. Keying by name only removes a
+// duplicate; PHP keeps the insertion order.
 $wz_used = [];
 foreach ($jobs ?: [] as $wz_job) {
     $wz_used[(int) $wz_job->p_shift_for] = true;
@@ -27,7 +33,6 @@ foreach (($shift_for ?: []) as $wz_row) {
         $wz_types[$wz_name] = $wz_name;
     }
 }
-asort($wz_types);
 ?>
 
 <section id="browsejobs" class="section-padding">

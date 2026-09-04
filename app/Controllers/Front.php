@@ -40,7 +40,7 @@ class Front extends BaseController
 
         $this->data['lang'] = $this->session->userdata('site_lang');
 
-        $this->data['shift_for'] = $this->custom->get_where_order('shift_for', ['sf_status' => 1], 'sf_name', 'asc');
+        $this->data['shift_for'] = $this->custom->get_where_order('shift_for', ['sf_status' => 1], SHIFT_FOR_ORDER, '', false);
 
         $this->data['usertype']      = $this->config->item('usertype');
         $this->data['usersubtype']   = $this->config->item('usersubtype');

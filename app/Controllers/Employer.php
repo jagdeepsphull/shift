@@ -240,7 +240,7 @@ class Employer extends BaseController
             $this->data['p_shift_time'] = SHIFT_TIME_DEFAULT;
         }
 
-        $this->data['shift_for']       = $this->custom->get_where_order('shift_for', ['sf_status' => 1], 'sf_name', 'asc');
+        $this->data['shift_for']       = $this->custom->get_where_order('shift_for', ['sf_status' => 1], SHIFT_FOR_ORDER, '', false);
         $this->data['province']        = $this->custom->get_where('province', ['p_status' => 1]);
         $this->data['city']            = $this->custom->get_where('city', ['c_status' => 1]);
         $this->data['hourly_rate']     = $this->custom->get_where('hourly_rate', ['hr_status' => 1]);
@@ -335,7 +335,7 @@ class Employer extends BaseController
             ci_redirect('employer/all_jobs');
         }
 
-        $this->data['shift_for']       = $this->custom->get_where_order('shift_for', ['sf_status' => 1], 'sf_name', 'asc');
+        $this->data['shift_for']       = $this->custom->get_where_order('shift_for', ['sf_status' => 1], SHIFT_FOR_ORDER, '', false);
         $this->data['province']        = $this->custom->get_where('province', ['p_status' => 1]);
         $this->data['city']            = $this->custom->get_where('city', ['c_status' => 1]);
         $this->data['hourly_rate']     = $this->custom->get_where('hourly_rate', ['hr_status' => 1]);

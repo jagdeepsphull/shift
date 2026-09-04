@@ -286,7 +286,7 @@ foreach (($employerKinds ?? []) as $kindCode => $kindDef) {
                           <?php if ($tab['showKind']) { ?><td><?php echo esc(employerKindName($r)); ?></td><?php } ?>
                           <?php if ($tab['showStore']) { ?><td><?php echo ($storeName !== '') ? esc($storeName) : '-'; ?></td><?php } ?>
                           <td><?php echo ($employerName !== '') ? esc($employerName) : '-'; ?></td>
-                          <td><?php echo ($employerPhone !== '') ? esc($employerPhone) : '-'; ?></td>
+                          <td><?php echo ($employerPhone !== '') ? whatsappPhoneLink($employerPhone, 'Message ' . ($employerName !== '' ? $employerName : $employerGroup) . ' on WhatsApp') : '-'; ?></td>
                           <td><?php echo esc($r->u_email); ?></td>
                           <td><?php echo $r->u_status ? 'Active' : '<span class="text-warning">Pending</span>'; ?></td>
                           <td><?php echo dateFormat($r->created); ?></td>
@@ -325,7 +325,7 @@ foreach (($employerKinds ?? []) as $kindCode => $kindDef) {
                           <td><?php echo ($applicantName !== '') ? esc($applicantName) : '-'; ?></td>
                           <td><?php echo ($applicantType !== '') ? esc($applicantType) : '-'; ?></td>
                           <td><?php echo ($applicantLic !== '') ? esc($applicantLic) : '-'; ?></td>
-                          <td><?php echo ($applicantPhone !== '') ? esc($applicantPhone) : '-'; ?></td>
+                          <td><?php echo ($applicantPhone !== '') ? whatsappPhoneLink($applicantPhone, 'Message ' . ($applicantName !== '' ? $applicantName : 'this applicant') . ' on WhatsApp') : '-'; ?></td>
                           <td><?php echo esc($r->u_email); ?></td>
                           <td><?php echo $r->u_status ? 'Active' : '<span class="text-warning">Pending</span>'; ?></td>
                           <td><?php echo dateFormat($r->created); ?></td>

@@ -58,12 +58,6 @@ define('SHIFT_FORM_STYLES', true);
     top: 2px;
 }
 
-.ps-shift-page .ps-page-sub {
-    color: var(--ps-muted);
-    font-size: 14px;
-    margin: 0;
-}
-
 /* `min-height: 500px` on the legacy wrapper leaves a tall empty gap under a
    short form; the sections below set the height instead. */
 .ps-shift-page .dashboard-caption-wrap {
@@ -100,12 +94,6 @@ define('SHIFT_FORM_STYLES', true);
     font-weight: 700;
     color: var(--ps-ink);
     margin: 0 0 1px;
-}
-
-.ps-shift-page .ps-card-header p {
-    font-size: 13px;
-    color: var(--ps-muted);
-    margin: 0;
 }
 
 /* The step number. Numbered because the form reads top to bottom and the
@@ -333,7 +321,6 @@ define('SHIFT_FORM_STYLES', true);
 }
 
 @media (max-width: 575.98px) {
-    .ps-shift-page .ps-card-header p { display: none; }
     .ps-shift-page .checkbox-grid { max-height: 200px !important; }
 }
 </style>

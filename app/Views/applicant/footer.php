@@ -90,6 +90,10 @@
 	<script src="<?php echo base_url('assets/front/plugins/datatables-responsive/js/responsive.bootstrap4.min.js');?>"></script>
 	<script src="<?php echo base_url('assets/front/plugins/datatables-buttons/js/dataTables.buttons.min.js');?>"></script>
 	<script src="<?php echo base_url('assets/front/plugins/datatables-buttons/js/buttons.bootstrap4.min.js');?>"></script>
+	<!-- daterangepicker, for the shift-date filter on My Shifts. moment first:
+	     the picker is built on it, and so is the filter's own range arithmetic. -->
+	<script src="<?php echo base_url('assets/front/plugins/moment/moment.min.js');?>"></script>
+	<script src="<?php echo base_url('assets/front/plugins/daterangepicker/daterangepicker.js');?>"></script>
 	<!-- select2, and the shared initialiser -->
 	<script src="<?php echo base_url('assets/front/plugins/select2/js/select2.full.min.js');?>"></script>
 	<script>
@@ -316,6 +320,9 @@
 
 	<?= view('partials/phone_input_script') ?>
 	<?= view('partials/select2_focus_script') ?>
+	<?php /* After the block above, which is where #joblist is built: this wants
+	   the DataTable instance, not the markup. */ ?>
+	<?= view('partials/shift_list_filter_script') ?>
 
 </body>
 

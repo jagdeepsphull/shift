@@ -36,7 +36,11 @@
                             <tr>
                                 <td><?php echo esc($jobuser->u_fname . ' ' . $jobuser->u_lname);?>
                                 </td>
-                                <td><?php echo esc($jobuser->u_phone);?></td>
+                                <?php /* The pharmacist's own mobile, and this
+                                   is the screen an owner is on when they want to
+                                   ask one of them something - so it opens the
+                                   chat rather than waiting to be copied out. */ ?>
+                                <td><?php echo portalWhatsappPhoneLink($jobuser->u_phone, 'Message ' . trim($jobuser->u_fname . ' ' . $jobuser->u_lname) . ' on WhatsApp');?></td>
                                 <td><?php echo esc($jobuser->u_email);?></td>
                                 <td data-order="<?php echo esc($jobuser->sj_applied_date, 'attr');?>"><?php echo dateFormat($jobuser->sj_applied_date);?></td>
                                 <td><?php echo $appliedstatus[$jobuser->sj_status];?></td>

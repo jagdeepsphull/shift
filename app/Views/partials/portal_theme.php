@@ -384,6 +384,42 @@ body.ps-portal .ps-map-link:hover { text-decoration: underline; }
 
 body.ps-portal .ps-map-link i { margin-right: 4px; }
 
+/* ------------------------------------------------------ whatsapp numbers --- */
+
+/* A person's mobile, wherever this area lists one: the number is the link, a
+   handset in front of it and the WhatsApp mark after. Built by
+   portalWhatsappPhoneLink(); the mark is drawn rather than pulled out of an
+   icon font, because line-icons has none and Font Awesome is not loaded here.
+
+   `white-space: nowrap` on the number alone - the parts may wrap away from
+   each other on a narrow column, but a phone number broken across two lines
+   cannot be read back to anybody. */
+body.ps-portal .ps-wa-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--ps-ink);
+    text-decoration: none;
+}
+
+body.ps-portal a.ps-wa-link:hover .ps-wa-number { text-decoration: underline; }
+
+body.ps-portal .ps-wa-link i { color: var(--ps-muted); font-size: 13px; }
+
+body.ps-portal .ps-wa-number { white-space: nowrap; }
+
+/* Only on the numbers that can actually be messaged: whatsappNumber() returns
+   nothing for a number too short to be real, and the link is plain text then -
+   a green mark beside it would promise a chat that opens on nobody. */
+body.ps-portal .ps-wa-mark {
+    display: inline-flex;
+    color: #25d366;
+}
+
+body.ps-portal .ps-wa-mark svg { width: 15px; height: 15px; display: block; }
+
+body.ps-portal .ps-wa-link.is-plain { color: var(--ps-muted); }
+
 /* ----------------------------------------------------------- datatables --- */
 
 /* The furniture DataTables draws around every list in this area - a search box,

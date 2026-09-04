@@ -27,6 +27,21 @@
 			/* The slug, not the code: ?kind= is a URL, and employerKindBySlug()
 			   is what reads it back. */
 			$kindqs = ($kindSlug ?? '') !== '' ? '?kind='.$kindSlug : '';
+
+			/* An owner is a group, not a shop. What they own are the rows in
+			   the stores list, each with its own name and number, and their
+			   own `u_licence_no` is the single store number an account was
+			   signed up with - one shop's number standing for a chain of them,
+			   or blank. So the Owners list names the first column for what it
+			   actually holds and leaves the store number to the screen that
+			   can be right about it.
+
+			   Only that list. All Employers and Managers are still per shop -
+			   a manager runs one - and there the two columns read true. Keyed
+			   on the slug, which is what the config calls this kind, rather
+			   than on the code behind it. */
+			$isOwnerList = ($kindSlug ?? '') === 'owner';
+			$nameHeading = $isOwnerList ? 'Group Name' : 'Store Name';
 		?>
     <!-- Main content -->
     <section class="content">
@@ -46,8 +61,8 @@
                   <thead>
                   <tr>
                     <th><?php echo $pageinfo['title']; ?> ID</th>
-                    <th>Store Name</th>
-                    <th>Store No.</th>
+                    <th><?php echo $nameHeading; ?></th>
+                    <?php if(!$isOwnerList){ ?><th>Store No.</th><?php } ?>
                     <th>Contact Person</th>
                     <th>Email ID</th>
                     <th>Mobile No.</th>
@@ -69,10 +84,13 @@
 					   of its own: the table already fills the width, and one more
 					   column pushed Status and the buttons off the screen. */ ?>
                     <td><?php echo esc($user->u_comp_name); ?><br><small class="text-muted"><?php echo employerKindName($user); ?></small></td>
-                    <td><?php echo esc($user->u_licence_no); ?></td>
+                    <?php if(!$isOwnerList){ ?><td><?php echo esc($user->u_licence_no); ?></td><?php } ?>
                     <td><?php echo esc($user->u_fname . ' ' . $user->u_lname); ?></td>
                     <td><?php echo esc($user->u_email); ?></td>
-                    <td><?php echo esc($user->u_phone); ?></td>
+                    <?php /* An owner's and a manager's alike: it is the
+                       contact person's own mobile, not the shop's counter
+                       phone - that one lives on the store record. */ ?>
+                    <td><?php echo whatsappPhoneLink($user->u_phone, 'Message ' . trim($user->u_fname . ' ' . $user->u_lname) . ' on WhatsApp'); ?></td>
                     <td><?php echo agreementDoneBadge($user->u_agreement_done ?? 0); ?></td>
                     <td><?php if($user->u_status=='1'){?><span class="badge badge-success">Active</span><?php }else{?><span class="badge badge-warning">Pending</span><?php }?></td>
                     <td><a href="<?php echo base_url($adminpath.'/'.$link.'/edit/'.$user->u_id.$kindqs);?>" class="btn btn-success" title="Edit"><i class="fas fa-edit"></i></a>
@@ -96,8 +114,10 @@
                   <tfoot>
                   <tr>
 					<th><?php echo $pageinfo['title']; ?> ID</th>
-					<th>Store Name</th>
-					<th>Store No.</th>
+					<th><?php echo $nameHeading; ?></th>
+					<?php /* DataTables wants the foot to match the head column
+					   for column, so this one goes with it. */ ?>
+					<?php if(!$isOwnerList){ ?><th>Store No.</th><?php } ?>
                     <th>Contact Person</th>
                     <th>Email ID</th>
                     <th>Mobile No.</th>

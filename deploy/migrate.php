@@ -1004,6 +1004,38 @@ $migrations = [
             return $notes;
         },
     ],
+    [
+        'version' => '2026-09-04-090000',
+        'class'   => 'App\Database\Migrations\AddShiftForOrder',
+        'label'   => 'AddShiftForOrder',
+        'apply'   => static function (mysqli $db): array {
+            $notes = [];
+
+            if (columnExists($db, 'shift_for', 'sf_order')) {
+                $notes[] = 'shift_for.sf_order is already there';
+
+                return $notes;
+            }
+
+            // COMMENT before AFTER: MySQL takes the column's attributes and
+            // then its position, and refuses the other way round.
+            run($db, 'ALTER TABLE `shift_for`
+                      ADD COLUMN `sf_order` INT NOT NULL DEFAULT 0
+                      COMMENT ' . quoted('Where this sits in the list. Set by the arrows in /sadmin/shift_for.') . '
+                      AFTER `sf_name`');
+            $notes[] = 'shift_for.sf_order added';
+
+            // Numbered as the list already read - alphabetically - so nothing
+            // moves on the day this runs. One statement rather than a row at a
+            // time: this runs over a web request on shared hosting.
+            run($db, 'SET @position := 0');
+            run($db, 'UPDATE `shift_for` SET `sf_order` = (@position := @position + 1) ORDER BY `sf_name` ASC');
+
+            $notes[] = 'existing rows numbered in the order they were already shown in';
+
+            return $notes;
+        },
+    ],
 ];
 
 $applied = 0;

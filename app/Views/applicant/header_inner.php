@@ -28,6 +28,13 @@
 	
 	<!-- datepicker -->
     <link rel="stylesheet" href="<?php echo base_url('assets/front/plugins/bootstrap/css/bootstrap-datepicker.css') ; ?>">
+
+	<?php /* daterangepicker, for the shift-date filter on My Shifts. The local
+	   copy rather than the CDN the owner's header names: the stylesheet here is
+	   the v3 one that matches the script the footer loads, and this area has no
+	   other reason to reach off the server. */ ?>
+	<!-- daterangepicker -->
+    <link rel="stylesheet" href="<?php echo base_url('assets/front/plugins/daterangepicker/daterangepicker.css') ; ?>">
 	
 	<!-- summernote -->
     <link rel="stylesheet" href="<?php echo base_url('assets/front/plugins/summernote/summernote-bs4.min.css') ; ?>">

@@ -70,6 +70,7 @@ const ALLOW = [
     'index.php',
     'preload.php',
     'spark',
+    'backup-database.php',
     'composer.json',
     'composer.lock',
     'app',
@@ -148,9 +149,11 @@ echo "  vendor: ok\n";
 
 // -------------------------------------------------------------- writable ----
 // Shipped as empty folders. Cache, logs and sessions are per-server state; the
-// local ones are noise at best and a disclosure at worst.
+// local ones are noise at best and a disclosure at worst. `backups/` is where
+// the nightly database backup writes - empty here, and the one folder in this
+// list whose contents would be the entire site to whoever read them.
 
-foreach (['cache', 'logs', 'session', 'debugbar', 'uploads'] as $dir) {
+foreach (['cache', 'logs', 'session', 'debugbar', 'uploads', 'backups'] as $dir) {
     mkdir($out . '/writable/' . $dir, 0775, true);
     file_put_contents($out . '/writable/' . $dir . '/index.html', '');
 }
@@ -277,7 +280,10 @@ if ($split) {
 
     // `preload.php` goes with the application: it is an opcache script that
     // names vendor paths, and it is never requested over the web.
-    $private = ['app', 'vendor', 'writable', '.env', 'composer.json', 'composer.lock', 'spark', 'preload.php'];
+    // `backup-database.php` is a cron job, never a URL, so it goes with the
+    // application rather than into the document root - which is also what puts
+    // it out of reach on a host that stops honouring .htaccess.
+    $private = ['app', 'vendor', 'writable', '.env', 'composer.json', 'composer.lock', 'spark', 'preload.php', 'backup-database.php'];
 
     foreach ([[$public, $pub], [$private, $priv]] as [$entries, $dest]) {
         foreach ($entries as $entry) {
@@ -381,6 +387,11 @@ $mustContain = [
     [$pub,  'uploads/.htaccess',                 'Require all denied'],
     [$priv, 'writable/.htaccess',                'Require all denied'],
     [$pub,  '.htaccess',                         'X-Content-Type-Options'],
+
+    // The backup job e-mails the whole database. It refuses to run over the
+    // web on its own, but the rule that stops a flat bundle serving it at all
+    // is one line in a file somebody edits, so it is checked here too.
+    [$pub,  '.htaccess',                         'backup-database\.php'],
     [$priv, 'app/Config/Security.php',           "csrfProtection = 'session'"],
     [$priv, 'app/Filters/CsrfTokenInjector.php', 'injectIntoForms'],
 

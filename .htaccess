@@ -9,7 +9,7 @@ Options -Indexes +FollowSymlinks
     # Block direct access to the framework/application internals.
     # `plan/` holds internal assessment documents - not for public eyes.
     RewriteRule ^(app|vendor|writable|tests|builds|plan|docs|deploy|_backup_ci3_[0-9]+)/ - [F,L]
-    RewriteRule ^(spark|env|\.env|composer\.(json|lock)|preload\.php|phpunit\.dist\.xml)$ - [F,L]
+    RewriteRule ^(spark|env|\.env|composer\.(json|lock)|preload\.php|phpunit\.dist\.xml|backup-database\.php)$ - [F,L]
 
     # Anything left over from a deploy or an edit: a database dump, an editor's
     # backup, the release notes. None of it is meant to be read by a visitor,

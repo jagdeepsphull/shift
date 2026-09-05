@@ -569,6 +569,10 @@
        order: manualOrder ? [] : defaultOrder,
 		  ordering: ! manualOrder,
 		  "responsive": true, "lengthChange": false, "autoWidth": false,
+		  // Twenty rows a page, not the DataTables default of ten. The
+		  // length menu is off on these lists, so this is the only place it
+		  // can be said.
+		  "pageLength": 20,
 		  scrollX: true,
 			scrollCollapse: true,
 		  "buttons": exportButtons(adminLastColumn)
@@ -587,6 +591,7 @@
         ],
        order: [[0, 'desc']], // Sort by the first column in ascending order
 		  "responsive": false, "lengthChange": false, "autoWidth": false,
+		  "pageLength": 20,
 		  scrollX: true,
 			scrollCollapse: true,
 		  "buttons": exportButtons(resLastColumn)
@@ -594,6 +599,7 @@
     
     $('#example2').DataTable({
       "paging": true,
+      "pageLength": 20,
       "lengthChange": false,
       "searching": false,
       "ordering": true,

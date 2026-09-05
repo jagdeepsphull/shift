@@ -1,3 +1,43 @@
+<?php
+/**
+ * A place on this page, written as a line somebody can open on Google Maps.
+ *
+ * The three addresses here - the applicant's, the store's and the store
+ * owner's - are read beside the shift they belong to, so following one has to
+ * leave this page where it is: each opens in a tab of its own. A store with a
+ * pin pasted on it links to that pin, anything else to a search for the text
+ * printed, which is what every other map link on the site does.
+ *
+ * An account with no address on it gets a dash. The `href="#!"` these lines
+ * carried before gave every one of them a link that went nowhere.
+ *
+ * @param array  $parts address, city, province, postcode - empties dropped
+ * @param string $url   a link to use in place of a search for $parts
+ */
+$addressLine = function (array $parts, string $url = '') {
+	$icon  = '<i class="fas fa-map-marker-alt display-25 mr-1 text-secondary"></i>';
+	$place = '';
+
+	foreach ($parts as $part) {
+		$part = trim((string) $part);
+
+		if ($part !== '') {
+			$place = $place === '' ? $part : $place . ', ' . $part;
+		}
+	}
+
+	if ($place === '') {
+		return $icon . '<span class="text-muted">&ndash;</span>';
+	}
+
+	if ($url === '') {
+		$url = mapSearchLink($place);
+	}
+
+	return '<a href="' . esc($url, 'attr') . '" target="_blank" rel="noopener noreferrer">'
+		. $icon . esc($place) . '</a>';
+};
+?>
 <!-- Content Wrapper. Contains page content -->
 <div class="content-wrapper">
     <!-- Content Header (Page header) -->
@@ -65,7 +105,7 @@
 												<ul class="list-unstyled mb-4">
 													<li class="mb-3"><a href="mailto:<?php echo esc($application->u_email); ?>"><i class="far fa-envelope display-25 mr-1 text-secondary"></i><?php echo esc($application->u_email); ?></a></li>
 													<li class="mb-3"><?php echo whatsappPhoneLink($application->u_phone, 'Message ' . $application->u_fname . ' on WhatsApp'); ?></li>
-													<li><a href="#!"><i class="fas fa-map-marker-alt display-25 mr-1 text-secondary"></i><?php echo esc($application->u_address1 . ', ' . getCityName($application->u_city) . ', ' . getProvinceName($application->u_provice) . ', ' . $application->u_pincode); ?></a></li>
+													<li><?php echo $addressLine([$application->u_address1, getCityName($application->u_city), getProvinceName($application->u_provice), $application->u_pincode]); ?></li>
 												</ul>
 											</div>
 										</div>
@@ -102,11 +142,14 @@
 													<?php if ($storePhone !== '') { ?>
 													<li class="mb-3"><?php echo landlinePhoneLink($storePhone, 'Call ' . ($storeName !== '' ? $storeName : $u_comp_name)); ?></li>
 													<?php } ?>
-													<li><a href="#!"><i class="fas fa-map-marker-alt display-25 mr-1 text-secondary"></i><?php
+													<li><?php
+														// The branch's own pin where somebody pasted one. A shift older than
+														// stores has no branch, and the owner's address stands in for it here
+														// as it does elsewhere on this page.
 														echo $store
-															? esc($store->s_address . ', ' . getCityName($store->s_city) . ', ' . getProvinceName($store->s_province) . ', ' . $store->s_pincode)
-															: esc($u_address1 . ', ' . getCityName($u_city) . ', ' . getProvinceName($u_provice) . ', ' . $u_pincode);
-													?></a></li>
+															? $addressLine([$store->s_address, getCityName($store->s_city), getProvinceName($store->s_province), $store->s_pincode], storeMapLink($store))
+															: $addressLine([$u_address1, getCityName($u_city), getProvinceName($u_provice), $u_pincode]);
+													?></li>
 												</ul>
 
 												<?php
@@ -156,7 +199,7 @@
 													<?php if (trim((string) $owner['u_phone']) !== '') { ?>
 													<li class="mb-3"><?php echo whatsappPhoneLink($owner['u_phone'], 'Message ' . ($ownerName !== '' ? $ownerName : $owner['u_comp_name']) . ' on WhatsApp'); ?></li>
 													<?php } ?>
-													<li><a href="#!"><i class="fas fa-map-marker-alt display-25 mr-1 text-secondary"></i><?php echo esc($owner['u_address1'] . ', ' . getCityName($owner['u_city']) . ', ' . getProvinceName($owner['u_provice']) . ', ' . $owner['u_pincode']); ?></a></li>
+													<li><?php echo $addressLine([$owner['u_address1'], getCityName($owner['u_city']), getProvinceName($owner['u_provice']), $owner['u_pincode']]); ?></li>
 												</ul>
 												<?php } ?>
 											</div>

@@ -89,6 +89,15 @@ function expectedNumber(phone) {
   return digits.length >= 11 ? digits : '';
 }
 
+/** Mirror of safeUrl(), for a map link pasted without a scheme in front of it. */
+function expectedUrl(url) {
+  const raw = String(url || '').trim();
+
+  if (raw === '') return '';
+
+  return /^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : 'https://' + raw.replace(/^\/+/, '');
+}
+
 test.beforeAll(() => {
   removeFixtures();
 
@@ -272,5 +281,59 @@ test('the icon opens WhatsApp in a new tab and leaves the page where it was', as
   expect(page.url(), 'the admin stays on the application').toBe(here);
 
   await opened.close();
+  await expectNoServerError(page);
+});
+
+test('every address opens on Google Maps in a tab of its own', async ({ page }) => {
+  const applicantAddress = scalar(`SELECT a.u_address1${JOINS} WHERE s.sj_id = ${application};`);
+  const storeAddress = scalar(`SELECT st.s_address${JOINS} WHERE s.sj_id = ${application};`);
+  const storeMap = scalar(`SELECT st.s_map_url${JOINS} WHERE s.sj_id = ${application};`);
+  const ownerAddress = scalar(`SELECT o.u_address1${JOINS} WHERE s.sj_id = ${application};`);
+
+  await page.goto(`sadmin/applications/view/${application}`);
+
+  const applicantCard = page.locator('.col-lg-4').nth(0);
+  const employerCard = page.locator('.col-lg-4').nth(1);
+
+  // The address closes every list it belongs to: the applicant's, the branch's,
+  // and the account the branch belongs to.
+  const lines = [
+    { link: applicantCard.locator('ul li').last().locator('a'), address: applicantAddress },
+    { link: employerCard.locator('ul').nth(0).locator('li').last().locator('a'), address: storeAddress },
+    { link: employerCard.locator('ul').last().locator('li').last().locator('a'), address: ownerAddress },
+  ];
+
+  for (const { link } of lines) {
+    await expect(link).toHaveCount(1);
+    await expect(link.locator('i.fa-map-marker-alt')).toHaveCount(1);
+
+    // The back office reads this beside the shift it is checking, so a map has
+    // to arrive somewhere else.
+    await expect(link).toHaveAttribute('target', '_blank');
+    await expect(link).toHaveAttribute('rel', /noopener/);
+  }
+
+  // Every one of these was `href="#!"` - a link that stayed put and did
+  // nothing - so what the href carries is the whole of the point.
+  for (const { link, address } of [lines[0], lines[2]]) {
+    const href = await link.getAttribute('href');
+
+    expect(href).toContain('google.com/maps/search/?api=1&query=');
+    expect(decodeURIComponent(href)).toContain(address);
+  }
+
+  const storeHref = await lines[1].link.getAttribute('href');
+
+  if (expectedUrl(storeMap) !== '') {
+    // A pin somebody chose beats a search for a street address, which will not
+    // reliably find one unit of four in a plaza.
+    expect(storeHref).toBe(expectedUrl(storeMap));
+  } else {
+    expect(storeHref).toContain('google.com/maps/search/?api=1&query=');
+    expect(decodeURIComponent(storeHref)).toContain(storeAddress);
+  }
+
+  await expect(page.locator('a[href="#!"]')).toHaveCount(0);
+
   await expectNoServerError(page);
 });

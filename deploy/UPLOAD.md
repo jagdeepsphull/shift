@@ -679,19 +679,120 @@ screen.
 
 ## Scheduled jobs
 
-Two jobs need a daily cron. Both are safe to run more than once a day.
+Three jobs need a daily cron. All three are safe to run more than once a day.
 
 | Job | With SSH | Without SSH |
 |---|---|---|
 | Mark passed shifts Closed | `php spark jobs:expire` | `GET /cron/expire_jobs` |
 | Remind applicants booked tomorrow | `php spark shifts:remind` | `GET /cron/remind_shifts` |
+| Back up the database and e-mail it | `php backup-database.php --quiet` | — |
 
 Run the reminder in the **morning** — it e-mails people about tomorrow, so a
-09:00 run reads sensibly and a 23:50 run does not.
+09:00 run reads sensibly and a 23:50 run does not. Run the backup in the small
+hours, when a dump costs the site nothing.
 
 The URL versions exist for hosts without command-line cron. They are reachable
 by anyone who knows the address; neither exposes data or is destructive, but if
 that matters, block them by IP in `.htaccess` and use the SSH form.
+
+The backup has no URL version, deliberately. It e-mails the entire database, so
+a URL that produced one would be the whole site to whoever found it — the script
+refuses to run over the web at all, whatever the server does with the request.
+
+---
+
+## The nightly backup
+
+`backup-database.php` dumps every table, zips the dump, e-mails the zip, and
+deletes its own old ones. It stands on its own: nothing else in the application
+calls it, and it reads the database credentials and the SMTP settings out of the
+same `.env` the site uses, so there is no second copy of either to keep in step.
+
+### Setting it up in cPanel
+
+**Cron Jobs → Add New Cron Job.** Common Settings → *Once Per Day (0 0 \* \* \*)*,
+or set the minute and hour by hand — 2am is a good time.
+
+The command, for a **split** production deploy (`app/` in a private folder):
+
+```
+/usr/local/bin/php /home/USERNAME/pickashift_app/backup-database.php --quiet
+```
+
+and for a **flat** one, where the application sits in the document root:
+
+```
+/usr/local/bin/php /home/USERNAME/pickashift.ca/backup-database.php --quiet
+```
+
+Replace `USERNAME` with the cPanel account name. If `/usr/local/bin/php` is not
+the PHP on that server, `which php` over SSH says what is, and cPanel's own
+"Command" examples use whatever the host prefers.
+
+`--quiet` prints nothing on a good run. cPanel e-mails you whatever a cron job
+prints, so without it you get two messages every morning — the backup and a copy
+of its output — and two a day is how people learn to ignore both. With it, cron
+writes to you only when the job itself fails to start; the backup message
+arrives either way, and says so when the backup could not be taken.
+
+### Who it goes to
+
+`backup.to` in `.env`. More than one address, separated by commas:
+
+```
+backup.to = 'pharmacyrelief@gmail.com, someone@example.com'
+```
+
+The first is the `To:`, the rest are bcc, so one administrator's address is not
+shown to all the others every morning.
+
+Two more settings sit with it. `backup.keep` is how many days of zips stay on
+the server before the job deletes its own older ones — it only ever deletes
+files it wrote itself, matched by name, because a backups folder is somewhere
+people also put things by hand. `backup.maxAttachMB` is the most it will attach:
+Gmail refuses a message over 25 MB and counts the base64 encoding, which adds
+about a third, so above this the message says where the file is on the server
+rather than carrying it.
+
+### What it produces
+
+`writable/backups/pickashift-<database>-<date>-<time>.zip`, holding one `.sql`
+file. That folder is closed to the web by the `.htaccess` in `writable/`, and on
+a split deploy it is not under any document root at all.
+
+Restore it the usual way — unzip, then phpMyAdmin's Import, or over SSH:
+
+```
+mysql -u USER -p DATABASE < pickashift-....sql
+```
+
+### If mysqldump is not available
+
+Most cPanel accounts have it. Where `exec()` is disabled or the binary is
+missing, the script dumps in PHP instead and says so in its output — the same
+tables, structure and data, streamed a row at a time so a large table does not
+have to fit in memory. What the PHP dump cannot carry is stored routines,
+triggers and events; this database has none, and if any are ever added the dump
+says out loud that they were left out rather than quietly shipping without them.
+
+To check which one a server will use before you need it:
+
+```
+php backup-database.php --php-dump --no-mail
+```
+
+That forces the PHP dump and sends nothing, so it proves the fallback works
+while the good path is still there to fall back from.
+
+### Other switches
+
+| Switch | What it does |
+|---|---|
+| `--to=a@b.com,c@d.com` | send to these instead of `backup.to` |
+| `--keep=30` | keep 30 days instead of what `.env` says |
+| `--no-mail` | write the zip and send nothing |
+| `--php-dump` | skip mysqldump, to test the fallback |
+| `--quiet` | print only failures |
 
 ---
 

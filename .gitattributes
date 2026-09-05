@@ -1,0 +1,12 @@
+# Line endings.
+#
+# The repository stores LF. What lands in a working tree is up to that
+# checkout's core.autocrlf, which on Windows means CRLF - harmless for a file
+# PHP reads, and not harmless for one the shell runs. A script whose first line
+# is "#!/usr/bin/env php" followed by a CR sends env looking for a program
+# called "php\r", and the error names a file that looks perfectly fine in an
+# editor. Both of these are run as programs, and deploy/build.php copies the
+# working tree into the bundle, so a CRLF checkout here is a CRLF file on the
+# server. They keep Unix endings wherever they are checked out.
+backup-database.php text eol=lf
+spark               text eol=lf

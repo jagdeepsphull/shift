@@ -849,9 +849,9 @@ class Employer extends BaseController
             // This wrote every key the browser sent, straight onto the `users`
             // row - so an employer could post `u_emp_role` and `u_store_id` and
             // make themselves the manager of anybody's branch, which is exactly
-            // what employerShiftScope() then hands them the shifts of. The four
-            // fields the form shows but does not let anyone change (the company
-            // name, licence and e-mail) are re-read off the row as before.
+            // what employerShiftScope() then hands them the shifts of. The one
+            // field the form shows but does not let anyone change (the e-mail)
+            // is re-read off the row as before.
             $rowData = [];
 
             foreach (['u_fname', 'u_lname', 'u_phone'] as $field) {
@@ -863,13 +863,13 @@ class Employer extends BaseController
 
             // The home address (u_address1, u_provice, u_city, u_pincode) is no
             // longer on this form - an employer is reached at their store, not
-            // at home. Left out of the whitelist rather than written back empty,
-            // so whatever the row already holds stays put.
+            // at home. Nor are the store name, registration province and store
+            // number (u_comp_name, u_l_provice, u_licence_no): those describe a
+            // store, not the person, and are edited on the store itself. All of
+            // them are left out of the whitelist rather than written back, so
+            // whatever the row already holds stays put.
 
-            $rowData['u_comp_name']  = $this->userinfo[0]->u_comp_name;
-            $rowData['u_l_provice']  = $this->userinfo[0]->u_l_provice;
-            $rowData['u_licence_no'] = $this->userinfo[0]->u_licence_no;
-            $rowData['u_email']      = $this->userinfo[0]->u_email;
+            $rowData['u_email'] = $this->userinfo[0]->u_email;
 
             $rowData['modified'] = date('Y-m-d H:i:s');
 
@@ -931,8 +931,6 @@ class Employer extends BaseController
         } else {
             getTableInfo($this->dbname, $table, ['u_id' => $this->data['uid']]);
         }
-
-        $this->data['province'] = $this->custom->get_data('province');
 
         $this->users         = $this->custom->get_where($table, ['u_usertype' => 2]);
         $this->data['users'] = $this->users;

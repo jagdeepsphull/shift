@@ -45,8 +45,9 @@ $account = $account ?? '';
                     </form>
 
                     <p class="text-muted mb-0" style="font-size: 14px;">
-                        You will still be sent the things you ask for directly &mdash; a password reset, and
-                        notice that a shift you were booked on has been cancelled. Everything else stops.
+                        You will still receive e-mails for the requests initiated by you &mdash; e.g. a password
+                        reset, and notice that a shift you were booked on has been cancelled. Everything else
+                        will stop.
                     </p>
 
                 <?php } elseif ($state === 'already') { ?>

@@ -4,8 +4,10 @@
  * Sent to the applicant when an admin approves them for a shift. The agency is
  * copied on this one (see `getAgencyCopyEmail()`).
  *
- * Note the rate shown here is `p_ac_hourly_rate` — what the applicant is paid —
- * which is deliberately not the rate on the employer's copy of this booking.
+ * No rate is shown. Both halves of a booking used to carry one - what the
+ * applicant is paid here, what the employer is billed on their copy - and the
+ * spec took them off both: the figure is on the portal, and an e-mail is
+ * forwarded far more casually than a login is shared.
  *
  * The address is the shift's own store, not the employer's login columns: for a
  * multi-store owner those are the head office, and this message is the one
@@ -26,9 +28,9 @@ $mapLink = $store ? storeMapLink($store) : '';
 <?= $this->section('content') ?>
     <h2 style="margin: 0 0 14px; font-size: 18px; color: #222;">Hello, <?= esc($name) ?>!</h2>
 
-    <p style="line-height: 1.6;">We are delighted to tell you that you have been approved for
-    <strong><?= esc($shift['p_job_title']) ?></strong> at
-    <strong><?= esc($employer['u_comp_name']) ?></strong>.</p>
+    <p style="line-height: 1.6;">We are pleased to inform you that the shift
+    <strong><?= esc($shift['p_job_title']) ?></strong> has been booked for you at
+    <strong><?= esc($store->s_name ?? $employer['u_comp_name']) ?></strong>.</p>
 
     <p style="line-height: 1.6;">Here are the details:</p>
 
@@ -49,13 +51,14 @@ $mapLink = $store ? storeMapLink($store) : '';
         <li>Shift requested for: <?= esc(getShiftForName($shift['p_shift_for'])) ?></li>
         <li>Shift date: <?= esc(dateFormat($shift['p_dates'])) ?></li>
         <li>Shift time: <?= esc($shift['p_shift_time']) ?></li>
-        <li>Rate: CAD$ <?= esc($shift['p_ac_hourly_rate']) ?>/hour</li>
         <li>Software: <?= esc(getSoftwareSkills($shift['p_skills'])) ?></li>
         <li>Services: <?= esc(getStoreServices($shift['p_services'])) ?></li>
         <?php if (trim((string) $approval_comment) !== '') { ?>
             <li>Message from the agency: <?= esc($approval_comment) ?></li>
         <?php } ?>
     </ul>
+
+    <p style="line-height: 1.6;">You may log in to your account on our portal for full details.</p>
 
     <?php if ($mapLink !== '') { ?>
     <?php /* The pasted pin where the store has one, otherwise a search for the
@@ -66,5 +69,14 @@ $mapLink = $store ? storeMapLink($store) : '';
     </p>
     <?php } ?>
 
-    <p style="line-height: 1.6;">We wish you all the best for the shift.</p>
+    <p style="line-height: 1.6;"><strong>Note:</strong></p>
+
+    <ul style="line-height: 1.7; padding-left: 20px;">
+        <li>Please ensure you arrive on time for your shift.</li>
+        <li>Review the location and plan your route in advance.</li>
+        <li>Check in with the on-site supervisor or assistant upon arrival (if available).</li>
+    </ul>
+
+    <p style="line-height: 1.6;">We wish you all the best for the shift, and look forward to working with and
+    supporting you on your upcoming shifts.</p>
 <?= $this->endSection() ?>

@@ -16,9 +16,9 @@ $site = $settings[0]->s_sitename ?? 'PickAShift';
     <p style="line-height: 1.6;">Thank you for registering with <?= esc($site) ?>. Your account is currently
     under review and will be activated once it is approved.</p>
 
-    <p style="line-height: 1.6;">As soon as that happens you will get a confirmation e-mail, and you will be
+    <p style="line-height: 1.6;">Once approved you will get a confirmation e-mail, and you will be
     able to sign in with the credentials you chose during registration.</p>
 
     <p style="line-height: 1.6;">We appreciate your patience and look forward to having you as part of our
-    community.</p>
+    platform.</p>
 <?= $this->endSection() ?>

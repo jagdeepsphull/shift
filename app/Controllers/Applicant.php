@@ -292,7 +292,7 @@ class Applicant extends BaseController
             getTableInfo($this->dbname, 'users', ['u_id' => $this->userinfo[0]->u_id]);
         }
 
-        $this->data['province'] = $this->custom->get_data('province');
+        $this->data['province'] = $this->custom->get_data_order('province', PROVINCE_ORDER, '', false);
 
         $this->load->applicant_inner_view('personal_info', $this->data);
     }

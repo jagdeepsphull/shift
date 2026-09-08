@@ -33,7 +33,7 @@
 
       <div class="wz-res-grid accordion" id="dynamicAccordion">
         <?php foreach ($headermenu_parent as $category) {
-            $subcategories = custom()->get_where('headermenu', ['m_parentid' => $category->m_id, 'm_status' => 1]);
+            $subcategories = custom()->get_where_order('headermenu', ['m_parentid' => $category->m_id, 'm_status' => 1], HEADER_MENU_ORDER, '', false);
             $wz_panel      = 'collapse' . (int) $category->m_id;
             $wz_head       = 'heading' . (int) $category->m_id;
         ?>

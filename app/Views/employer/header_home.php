@@ -50,7 +50,7 @@
 							<div class="row">
 							<?php
 							foreach($headermenu_parent as $category){
-								$subcategories = custom()->get_where('headermenu',array('m_parentid'=>$category->m_id,'m_status'=>1));
+								$subcategories = custom()->get_where_order('headermenu',array('m_parentid'=>$category->m_id,'m_status'=>1), HEADER_MENU_ORDER, '', false);
 						?>
 							<div class="col-sm-6 col-lg-3 border-right">
 								<h5 class="text-center p-2 mb-1 bg-light text-dark "><?php echo $category->m_name ; ?></h5>

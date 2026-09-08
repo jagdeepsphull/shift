@@ -241,14 +241,14 @@ class Employer extends BaseController
         }
 
         $this->data['shift_for']       = $this->custom->get_where_order('shift_for', ['sf_status' => 1], SHIFT_FOR_ORDER, '', false);
-        $this->data['province']        = $this->custom->get_where('province', ['p_status' => 1]);
-        $this->data['city']            = $this->custom->get_where('city', ['c_status' => 1]);
+        $this->data['province']        = $this->custom->get_where_order('province', ['p_status' => 1], PROVINCE_ORDER, '', false);
+        $this->data['city']            = $this->custom->get_where_order('city', ['c_status' => 1], CITY_LIST_ORDER, '', false);
         $this->data['hourly_rate']     = $this->custom->get_where('hourly_rate', ['hr_status' => 1]);
-        $this->data['software_skills'] = $this->custom->get_where('software_skills', ['ss_status' => 1]);
-        $this->data['store_service']   = $this->custom->get_where('store_service', ['st_status' => 1]);
+        $this->data['software_skills'] = $this->custom->get_where_order('software_skills', ['ss_status' => 1], SOFTWARE_SKILLS_ORDER, '', false);
+        $this->data['store_service']   = $this->custom->get_where_order('store_service', ['st_status' => 1], STORE_SERVICE_ORDER, '', false);
         // Ordered by name, unlike the two above: this master is maintained by
         // hand and its ids come out in the order they happened to be added.
-        $this->data['additional_details'] = $this->custom->get_where_order('additional_details', ['ad_status' => 1], 'ad_name', 'asc');
+        $this->data['additional_details'] = $this->custom->get_where_order('additional_details', ['ad_status' => 1], ADDITIONAL_DETAILS_ORDER, '', false);
 
         // The login's active stores, for the location picker on the form. A
         // manager owns none - theirs is the group's store they were assigned -
@@ -336,14 +336,14 @@ class Employer extends BaseController
         }
 
         $this->data['shift_for']       = $this->custom->get_where_order('shift_for', ['sf_status' => 1], SHIFT_FOR_ORDER, '', false);
-        $this->data['province']        = $this->custom->get_where('province', ['p_status' => 1]);
-        $this->data['city']            = $this->custom->get_where('city', ['c_status' => 1]);
+        $this->data['province']        = $this->custom->get_where_order('province', ['p_status' => 1], PROVINCE_ORDER, '', false);
+        $this->data['city']            = $this->custom->get_where_order('city', ['c_status' => 1], CITY_LIST_ORDER, '', false);
         $this->data['hourly_rate']     = $this->custom->get_where('hourly_rate', ['hr_status' => 1]);
-        $this->data['software_skills'] = $this->custom->get_where('software_skills', ['ss_status' => 1]);
-        $this->data['store_service']   = $this->custom->get_where('store_service', ['st_status' => 1]);
+        $this->data['software_skills'] = $this->custom->get_where_order('software_skills', ['ss_status' => 1], SOFTWARE_SKILLS_ORDER, '', false);
+        $this->data['store_service']   = $this->custom->get_where_order('store_service', ['st_status' => 1], STORE_SERVICE_ORDER, '', false);
         // Ordered by name, unlike the two above: this master is maintained by
         // hand and its ids come out in the order they happened to be added.
-        $this->data['additional_details'] = $this->custom->get_where_order('additional_details', ['ad_status' => 1], 'ad_name', 'asc');
+        $this->data['additional_details'] = $this->custom->get_where_order('additional_details', ['ad_status' => 1], ADDITIONAL_DETAILS_ORDER, '', false);
 
         // The login's active stores, for the location picker on the form. A
         // manager owns none - theirs is the group's store they were assigned -
@@ -516,7 +516,7 @@ class Employer extends BaseController
             getTableInfo($this->dbname, 'store');
         }
 
-        $this->data['province'] = $this->custom->get_where('province', ['p_status' => 1]);
+        $this->data['province'] = $this->custom->get_where_order('province', ['p_status' => 1], PROVINCE_ORDER, '', false);
         $this->loadShiftDefaultLists();
 
         $this->load->owner_inner_view('add_store', $this->data);
@@ -557,7 +557,7 @@ class Employer extends BaseController
             getTableInfo($this->dbname, 'store', ['s_id' => $id]);
         }
 
-        $this->data['province'] = $this->custom->get_where('province', ['p_status' => 1]);
+        $this->data['province'] = $this->custom->get_where_order('province', ['p_status' => 1], PROVINCE_ORDER, '', false);
         $this->loadShiftDefaultLists();
 
         $this->load->owner_inner_view('edit_store', $this->data);
@@ -606,11 +606,11 @@ class Employer extends BaseController
      */
     private function loadShiftDefaultLists(): void
     {
-        $this->data['software_skills'] = $this->custom->get_where('software_skills', ['ss_status' => 1]);
-        $this->data['store_service']   = $this->custom->get_where('store_service', ['st_status' => 1]);
+        $this->data['software_skills'] = $this->custom->get_where_order('software_skills', ['ss_status' => 1], SOFTWARE_SKILLS_ORDER, '', false);
+        $this->data['store_service']   = $this->custom->get_where_order('store_service', ['st_status' => 1], STORE_SERVICE_ORDER, '', false);
         // Ordered by name, unlike the two above: this master is maintained by
         // hand and its ids come out in the order they happened to be added.
-        $this->data['additional_details'] = $this->custom->get_where_order('additional_details', ['ad_status' => 1], 'ad_name', 'asc');
+        $this->data['additional_details'] = $this->custom->get_where_order('additional_details', ['ad_status' => 1], ADDITIONAL_DETAILS_ORDER, '', false);
     }
 
     /**

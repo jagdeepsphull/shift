@@ -462,8 +462,8 @@ class Sadmin extends BaseController
         $this->data['validation_errors'] = '';
         $this->data['pageinfo']          = ['title' => 'Resources Links', 'link' => $module];
 
-        $this->data['headermenu']        = $this->custom->query('select m.*,mp.m_name as mp_name from ' . $table . ' m left join ' . $table . " mp on m.m_parentid=mp.m_id ");
-        $this->data['headermenu_select'] = $this->custom->query('select * from ' . $table . " where m_parentid = 0  AND (m_link IS NULL OR m_link = '') order by m_name asc; ");
+        $this->data['headermenu']        = $this->custom->query('select m.*,mp.m_name as mp_name from ' . $table . ' m left join ' . $table . ' mp on m.m_parentid=mp.m_id order by ' . HEADER_MENU_LIST_ORDER);
+        $this->data['headermenu_select'] = $this->custom->query('select * from ' . $table . " where m_parentid = 0  AND (m_link IS NULL OR m_link = '') order by " . HEADER_MENU_ORDER);
 
         switch ($action) {
             default:
@@ -560,6 +560,11 @@ class Sadmin extends BaseController
                 }
                 break;
 
+            case 'moveup':
+            case 'movedown':
+                $this->moveAction($module, $id, $action);
+                break;
+
             case 'delete':
                 if ($id) {
                     $original_row = $this->custom->get_where($table, ['m_id' => $id]);
@@ -590,7 +595,7 @@ class Sadmin extends BaseController
 
         $this->data['validation_errors'] = '';
         $this->data['pageinfo']          = ['title' => 'city', 'link' => $module];
-        $this->data['city']              = $this->custom->get_data($table);
+        $this->data['city']              = $this->custom->get_data_order($table, CITY_LIST_ORDER, '', false);
 
         switch ($action) {
             default:
@@ -617,7 +622,7 @@ class Sadmin extends BaseController
                     getTableInfo($this->dbname, $table);
                 }
 
-                $this->data['province'] = $this->custom->get_data_order('province', 'p_name');
+                $this->data['province'] = $this->custom->get_data_order('province', PROVINCE_ORDER, '', false);
 
                 $this->load->admin_view($module . '/add', $this->data);
                 break;
@@ -650,7 +655,7 @@ class Sadmin extends BaseController
                             getTableInfo($this->dbname, $table, ['c_id' => $id]);
                         }
 
-                        $this->data['province'] = $this->custom->get_data('province');
+                        $this->data['province'] = $this->custom->get_data_order('province', PROVINCE_ORDER, '', false);
 
                         $this->load->admin_view($module . '/edit', $this->data);
                     } else {
@@ -698,6 +703,11 @@ class Sadmin extends BaseController
                 if ($idnotFound === 1) {
                     ci_redirect('sadmin/' . $module);
                 }
+                break;
+
+            case 'moveup':
+            case 'movedown':
+                $this->moveAction($module, $id, $action);
                 break;
 
             case 'delete':
@@ -748,7 +758,7 @@ class Sadmin extends BaseController
 
         $this->data['validation_errors'] = '';
         $this->data['pageinfo']          = ['title' => 'Province', 'link' => $module];
-        $this->data['province']          = $this->custom->get_data($table);
+        $this->data['province']          = $this->custom->get_data_order($table, PROVINCE_ORDER, '', false);
 
         switch ($action) {
             default:
@@ -852,6 +862,11 @@ class Sadmin extends BaseController
                 if ($idnotFound === 1) {
                     ci_redirect('sadmin/' . $module);
                 }
+                break;
+
+            case 'moveup':
+            case 'movedown':
+                $this->moveAction($module, $id, $action);
                 break;
 
             case 'delete':
@@ -1141,32 +1156,7 @@ class Sadmin extends BaseController
 
             case 'moveup':
             case 'movedown':
-                if ($id) {
-                    $original_row = $this->custom->get_where($table, ['sf_id' => $id]);
-
-                    if ($original_row) {
-                        // A row already at the end has nowhere to go. The list
-                        // does not draw that arrow, so this only answers a
-                        // typed URL or a second tab acting on a stale page.
-                        if (! $this->moveShiftFor((int) $id, $action === 'moveup' ? -1 : 1)) {
-                            $this->session->set_flashdata('error_msg', '<div class="alert alert-warning">That record is already at the ' . ($action === 'moveup' ? 'top' : 'bottom') . ' of the list.</div>');
-                        } else {
-                            $this->session->set_flashdata('error_msg', '<div class="alert alert-success">The order has been updated.</div>');
-                        }
-
-                        ci_redirect('sadmin/' . $module);
-                    } else {
-                        $idnotFound = 1;
-                    }
-
-                    $this->load->admin_view($module . '/index', $this->data);
-                } else {
-                    $idnotFound = 1;
-                }
-
-                if ($idnotFound === 1) {
-                    ci_redirect('sadmin/' . $module);
-                }
+                $this->moveAction($module, $id, $action);
                 break;
 
             case 'delete':
@@ -1204,25 +1194,100 @@ class Sadmin extends BaseController
     }
 
     /**
-     * Move one Shift For row a place up or down the list.
+     * The lists an admin orders by hand, keyed by the back-office module that
+     * draws them - every list in the Masters block of the sidebar.
+     *
+     * `group` is set on the two that are ordered inside something rather than
+     * end to end: a city holds a position among the cities of its province, a
+     * resources link among the children of its menu. `order` is then the order
+     * within one group, the rows of other groups having been filtered out
+     * before it is applied.
+     */
+    private function orderedList(string $module): ?array
+    {
+        $lists = [
+            'province'          => ['table' => 'province', 'key' => 'p_id', 'column' => 'p_order', 'order' => PROVINCE_ORDER],
+            'city'              => ['table' => 'city', 'key' => 'c_id', 'column' => 'c_order', 'order' => CITY_ORDER, 'group' => 'c_province'],
+            'shift_for'         => ['table' => 'shift_for', 'key' => 'sf_id', 'column' => 'sf_order', 'order' => SHIFT_FOR_ORDER],
+            'softwareskills'    => ['table' => 'software_skills', 'key' => 'ss_id', 'column' => 'ss_order', 'order' => SOFTWARE_SKILLS_ORDER],
+            'storeservice'      => ['table' => 'store_service', 'key' => 'st_id', 'column' => 'st_order', 'order' => STORE_SERVICE_ORDER],
+            'additionaldetails' => ['table' => 'additional_details', 'key' => 'ad_id', 'column' => 'ad_order', 'order' => ADDITIONAL_DETAILS_ORDER],
+            'resources'         => ['table' => 'headermenu', 'key' => 'm_id', 'column' => 'm_order', 'order' => HEADER_MENU_ORDER, 'group' => 'm_parentid'],
+            'testimonials'      => ['table' => 'testimonial', 'key' => 't_id', 'column' => 't_order', 'order' => TESTIMONIAL_ORDER],
+        ];
+
+        return $lists[$module] ?? null;
+    }
+
+    /**
+     * The moveup / movedown action, which every hand-ordered list shares.
+     *
+     * A row already at the end has nowhere to go. The lists do not draw that
+     * arrow, so that only answers a typed URL or a second tab acting on a page
+     * that has since moved on.
+     *
+     * @param string $module the segment the list lives under, which is also its
+     *                       key in `orderedList()`
+     * @param mixed  $id     straight off the URL, so not yet known to be a row
+     */
+    private function moveAction(string $module, $id, string $action): void
+    {
+        $list = $this->orderedList($module);
+
+        if ($list === null || ! $id || ! $this->custom->get_where($list['table'], [$list['key'] => $id])) {
+            ci_redirect('sadmin/' . $module);
+        }
+
+        if ($this->moveListRow($list, (int) $id, $action === 'moveup' ? -1 : 1)) {
+            $this->session->set_flashdata('error_msg', '<div class="alert alert-success">The order has been updated.</div>');
+        } else {
+            $this->session->set_flashdata('error_msg', '<div class="alert alert-warning">That record is already at the ' . ($action === 'moveup' ? 'top' : 'bottom') . ' of the list.</div>');
+        }
+
+        ci_redirect('sadmin/' . $module);
+    }
+
+    /**
+     * Move one row a place up or down its list.
      *
      * The whole list is renumbered rather than two rows having their numbers
      * swapped. A swap only works while every row holds a number of its own, and
      * these do not have to: rows inserted straight into the table carry 0, an
      * import can repeat a number, and deleting a row leaves a gap. Renumbering
      * from the order actually on screen is right whatever state the column is
-     * in, and this list is nine rows - the cost is nothing.
+     * in.
      *
-     * @param int $step -1 for up the list, 1 for down
+     * Only the rows whose number really changes are written. Once a list has
+     * been numbered that is the two rows being swapped, which is what keeps
+     * this honest on the long lists - a province of 351 cities would otherwise
+     * cost 351 updates every time an arrow was clicked.
+     *
+     * @param array $list one entry of `orderedList()`
+     * @param int   $step -1 for up the list, 1 for down
      *
      * @return bool false when the row is already at that end, and nothing moved
      */
-    private function moveShiftFor(int $id, int $step): bool
+    private function moveListRow(array $list, int $id, int $step): bool
     {
+        $key   = $list['key'];
+        $group = $list['group'] ?? null;
+
         // The same order the list is drawn in, so "the row above" here is the
-        // row an admin sees above it.
-        $rows = $this->custom->get_data_order('shift_for', SHIFT_FOR_ORDER, '', false);
-        $ids  = array_map(static fn ($row) => (int) $row->sf_id, $rows);
+        // row an admin sees above it - within its own group where the list has
+        // them, since the arrows only ever move a row among its neighbours.
+        if ($group === null) {
+            $rows = $this->custom->get_data_order($list['table'], $list['order'], '', false);
+        } else {
+            $row = $this->custom->get_where($list['table'], [$key => $id]);
+
+            if (! $row) {
+                return false;
+            }
+
+            $rows = $this->custom->get_where_order($list['table'], [$group => $row[0]->{$group}], $list['order'], '', false);
+        }
+
+        $ids = array_map(static fn ($row) => (int) $row->{$key}, $rows);
 
         $from = array_search($id, $ids, true);
 
@@ -1238,8 +1303,16 @@ class Sadmin extends BaseController
 
         [$ids[$from], $ids[$to]] = [$ids[$to], $ids[$from]];
 
+        $numbered = [];
+
+        foreach ($rows as $row) {
+            $numbered[(int) $row->{$key}] = (int) $row->{$list['column']};
+        }
+
         foreach ($ids as $position => $rowId) {
-            $this->custom->updateData('shift_for', ['sf_order' => $position + 1], ['sf_id' => $rowId]);
+            if (($numbered[$rowId] ?? 0) !== $position + 1) {
+                $this->custom->updateData($list['table'], [$list['column'] => $position + 1], [$key => $rowId]);
+            }
         }
 
         return true;
@@ -1257,7 +1330,7 @@ class Sadmin extends BaseController
 
         $this->data['validation_errors'] = '';
         $this->data['pageinfo']          = ['title' => 'Service', 'link' => $module];
-        $this->data['shift_for']         = $this->custom->get_data_order($table, 'st_service_name', 'asc');
+        $this->data['shift_for']         = $this->custom->get_data_order($table, STORE_SERVICE_ORDER, '', false);
 
         switch ($action) {
             default:
@@ -1361,6 +1434,11 @@ class Sadmin extends BaseController
                 }
                 break;
 
+            case 'moveup':
+            case 'movedown':
+                $this->moveAction($module, $id, $action);
+                break;
+
             case 'delete':
                 if ($id) {
                     $original_row = $this->custom->get_where($table, ['st_id' => $id]);
@@ -1412,7 +1490,7 @@ class Sadmin extends BaseController
 
         $this->data['validation_errors'] = '';
         $this->data['pageinfo']          = ['title' => 'Additional Detail', 'link' => $module];
-        $this->data['additionaldetails'] = $this->custom->get_data_order($table, 'ad_name', 'asc');
+        $this->data['additionaldetails'] = $this->custom->get_data_order($table, ADDITIONAL_DETAILS_ORDER, '', false);
 
         switch ($action) {
             default:
@@ -1504,6 +1582,11 @@ class Sadmin extends BaseController
                 }
                 break;
 
+            case 'moveup':
+            case 'movedown':
+                $this->moveAction($module, $id, $action);
+                break;
+
             case 'delete':
                 if ($id) {
                     $original_row = $this->custom->get_where($table, ['ad_id' => $id]);
@@ -1552,7 +1635,7 @@ class Sadmin extends BaseController
 
         $this->data['validation_errors'] = '';
         $this->data['pageinfo']          = ['title' => 'Testimonial', 'link' => $module];
-        $this->data['testimonials']      = $this->custom->get_data_order($table, 't_id', 'asc');
+        $this->data['testimonials']      = $this->custom->get_data_order($table, TESTIMONIAL_ORDER, '', false);
 
         switch ($action) {
             default:
@@ -1638,6 +1721,11 @@ class Sadmin extends BaseController
                 if ($idnotFound === 1) {
                     ci_redirect('sadmin/' . $module);
                 }
+                break;
+
+            case 'moveup':
+            case 'movedown':
+                $this->moveAction($module, $id, $action);
                 break;
 
             case 'delete':
@@ -1798,7 +1886,7 @@ class Sadmin extends BaseController
 
         $this->data['validation_errors'] = '';
         $this->data['pageinfo']          = ['title' => 'Software', 'link' => $module];
-        $this->data['shift_for']         = $this->custom->get_data_order($table, 'ss_name', 'asc');
+        $this->data['shift_for']         = $this->custom->get_data_order($table, SOFTWARE_SKILLS_ORDER, '', false);
 
         switch ($action) {
             default:
@@ -1900,6 +1988,11 @@ class Sadmin extends BaseController
                 if ($idnotFound === 1) {
                     ci_redirect('sadmin/' . $module);
                 }
+                break;
+
+            case 'moveup':
+            case 'movedown':
+                $this->moveAction($module, $id, $action);
                 break;
 
             case 'delete':
@@ -2144,7 +2237,7 @@ class Sadmin extends BaseController
                     $this->data['emp_kind'] = $kind;
                 }
 
-                $this->data['province']        = $this->custom->get_data('province');
+                $this->data['province']        = $this->custom->get_data_order('province', PROVINCE_ORDER, '', false);
                 $this->data['pharmacy_groups'] = pharmacyGroups();
 
                 $this->load->admin_view($module . '/add', $this->data);
@@ -2294,7 +2387,7 @@ class Sadmin extends BaseController
                     $this->data['emp_kind'] = employerKindCode($employer_status ?: []);
                 }
 
-                $this->data['province']        = $this->custom->get_data('province');
+                $this->data['province']        = $this->custom->get_data_order('province', PROVINCE_ORDER, '', false);
                 $this->data['pharmacy_groups'] = pharmacyGroups();
                 $this->data['store_count']     = $this->custom->get_where_count('store', ['u_id' => $id]);
 
@@ -2531,9 +2624,9 @@ class Sadmin extends BaseController
         // The three lists a store can hold as its shift defaults - the same
         // masters the shift form offers, so the two forms cannot disagree about
         // what is on offer.
-        $this->data['software_skills']    = $this->custom->get_where('software_skills', ['ss_status' => 1]);
-        $this->data['store_service']      = $this->custom->get_where('store_service', ['st_status' => 1]);
-        $this->data['additional_details'] = $this->custom->get_where_order('additional_details', ['ad_status' => 1], 'ad_name', 'asc');
+        $this->data['software_skills']    = $this->custom->get_where_order('software_skills', ['ss_status' => 1], SOFTWARE_SKILLS_ORDER, '', false);
+        $this->data['store_service']      = $this->custom->get_where_order('store_service', ['st_status' => 1], STORE_SERVICE_ORDER, '', false);
+        $this->data['additional_details'] = $this->custom->get_where_order('additional_details', ['ad_status' => 1], ADDITIONAL_DETAILS_ORDER, '', false);
 
         switch ($action) {
             default:
@@ -2785,7 +2878,7 @@ class Sadmin extends BaseController
                 }
 
                 $this->data['shift_for'] = $this->custom->get_where_order('shift_for', ['sf_status' => 1], SHIFT_FOR_ORDER, '', false);
-                $this->data['province']  = $this->custom->get_data('province');
+                $this->data['province']  = $this->custom->get_data_order('province', PROVINCE_ORDER, '', false);
 
                 $this->load->admin_view($module . '/add', $this->data);
                 break;
@@ -2830,7 +2923,7 @@ class Sadmin extends BaseController
                     getTableInfo($this->dbname, $table, ['u_id' => $id]);
                 }
 
-                $this->data['province']  = $this->custom->get_data('province');
+                $this->data['province']  = $this->custom->get_data_order('province', PROVINCE_ORDER, '', false);
                 $this->data['shift_for'] = $this->custom->get_where_order('shift_for', ['sf_status' => 1], SHIFT_FOR_ORDER, '', false);
 
                 $this->load->admin_view($module . '/edit', $this->data);
@@ -2864,13 +2957,13 @@ class Sadmin extends BaseController
         $this->data['jobs']            = $this->custom->get_data('post_job');
         $this->data['shift_for']       = $this->custom->get_where_order('shift_for', ['sf_status' => 1], SHIFT_FOR_ORDER, '', false);
         $this->data['province']        = $this->custom->get_where('province', ['p_status' => 1]);
-        $this->data['city']            = $this->custom->get_where('city', ['c_status' => 1]);
+        $this->data['city']            = $this->custom->get_where_order('city', ['c_status' => 1], CITY_LIST_ORDER, '', false);
         $this->data['hourly_rate']     = $this->custom->get_where('hourly_rate', ['hr_status' => 1]);
-        $this->data['software_skills'] = $this->custom->get_where('software_skills', ['ss_status' => 1]);
-        $this->data['store_service']   = $this->custom->get_where('store_service', ['st_status' => 1]);
+        $this->data['software_skills'] = $this->custom->get_where_order('software_skills', ['ss_status' => 1], SOFTWARE_SKILLS_ORDER, '', false);
+        $this->data['store_service']   = $this->custom->get_where_order('store_service', ['st_status' => 1], STORE_SERVICE_ORDER, '', false);
         // Ordered by name, unlike the two above: this master is maintained by
         // hand and its ids come out in the order they happened to be added.
-        $this->data['additional_details'] = $this->custom->get_where_order('additional_details', ['ad_status' => 1], 'ad_name', 'asc');
+        $this->data['additional_details'] = $this->custom->get_where_order('additional_details', ['ad_status' => 1], ADDITIONAL_DETAILS_ORDER, '', false);
 
         switch ($action) {
             default:
@@ -4049,7 +4142,7 @@ class Sadmin extends BaseController
         $ciid = $this->input->post('ciid');
 
         $cities = $this->db->table('city')
-            ->orderBy('c_name', 'asc')
+            ->orderBy(CITY_ORDER, '', false)
             ->getWhere(['c_province' => $cval, 'c_status' => 1])
             ->getResult();
 

@@ -49,12 +49,6 @@
                   </thead>
                   <tbody>
                   <?php 
-				  /* The arrows move a row one place, so the first row has no up
-				     and the last no down - drawn as a disabled button rather
-				     than left out, so the buttons beside them do not shift
-				     along the row from one line to the next. */
-				  $lastIndex = $shift_for ? count($shift_for) - 1 : 0;
-
 				  if($shift_for){
 					  foreach($shift_for as $index => $record){
 						  ?>
@@ -65,16 +59,7 @@
 							<td><a href="<?php echo base_url('sadmin/'.$pageinfo['link'].'/edit/'.$record->sf_id);?>" class="btn btn-success">Edit</a> 
 							<a href="<?php echo base_url('sadmin/'.$pageinfo['link'].'/delete/'.$record->sf_id);?>" class="btn btn-danger" onclick="return confirm('Are you sure? You want to delete')">Delete</a>
 							<a href="<?php echo base_url('sadmin/'.$pageinfo['link'].'/changestatus/'.$record->sf_id);?>" class="btn btn-warning">Change Status</a>
-							<?php if($index > 0){ ?>
-							<a href="<?php echo base_url('sadmin/'.$pageinfo['link'].'/moveup/'.$record->sf_id);?>" class="btn btn-secondary" title="Move up" aria-label="Move <?php echo esc($record->sf_name, 'attr');?> up the list"><i class="fas fa-arrow-up"></i></a>
-							<?php }else{ ?>
-							<span class="btn btn-secondary disabled" aria-hidden="true"><i class="fas fa-arrow-up"></i></span>
-							<?php } ?>
-							<?php if($index < $lastIndex){ ?>
-							<a href="<?php echo base_url('sadmin/'.$pageinfo['link'].'/movedown/'.$record->sf_id);?>" class="btn btn-secondary" title="Move down" aria-label="Move <?php echo esc($record->sf_name, 'attr');?> down the list"><i class="fas fa-arrow-down"></i></a>
-							<?php }else{ ?>
-							<span class="btn btn-secondary disabled" aria-hidden="true"><i class="fas fa-arrow-down"></i></span>
-							<?php } ?>
+							<?= view('partials/list_order_arrows', ['rows' => $shift_for, 'index' => $index, 'record' => $record, 'idKey' => 'sf_id', 'labelKey' => 'sf_name', 'link' => $pageinfo['link'], 'groupKey' => null]) ?>
 							</td>
 						  </tr>
 						  <?php

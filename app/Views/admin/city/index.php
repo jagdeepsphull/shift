@@ -34,7 +34,12 @@
               </div>
               <!-- /.card-header -->
               <div class="card-body">
-                <table id="example1" class="table table-bordered table-striped">
+                <?php /* `data-manual-order` turns DataTables' own sorting off for
+                   this list - see the footer. The order here is the one the
+                   arrows below set, and a table that re-sorted itself on
+                   arrival would show a different order to the one being
+                   edited. */ ?>
+                <table id="example1" class="table table-bordered table-striped" data-manual-order="1">
                   <thead>
                   <tr>
                     <th>ID</th>
@@ -47,7 +52,7 @@
                   <tbody>
                   <?php 
 				  if($city){
-					  foreach($city as $record){
+					  foreach($city as $index => $record){
 						  ?>
 						  <tr>
 							<td><?php echo $record->c_id;?></td>
@@ -57,6 +62,8 @@
 							<td><a href="<?php echo base_url('sadmin/'.$pageinfo['link'].'/edit/'.$record->c_id);?>" class="btn btn-success">Edit</a> 
 							<a href="<?php echo base_url('sadmin/'.$pageinfo['link'].'/delete/'.$record->c_id);?>" class="btn btn-danger" onclick="return confirm('Are you sure? You want to delete')">Delete</a>
 							<a href="<?php echo base_url('sadmin/'.$pageinfo['link'].'/changestatus/'.$record->c_id);?>" class="btn btn-warning">Change Status</a>
+							<?= view('partials/list_order_arrows', ['rows' => $city, 'index' => $index, 'record' => $record, 'idKey' => 'c_id', 'labelKey' => 'c_name', 'link' => $pageinfo['link'], 'groupKey' => 'c_province']) ?>
+							</td>
 						  </tr>
 						  <?php
 					  }

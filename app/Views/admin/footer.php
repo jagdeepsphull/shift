@@ -533,11 +533,12 @@
 		  ? [[0, 'desc']]
 		  : [[parseInt(orderCol, 10), orderDir]];
 
-	  // A list the admin orders by hand - Shift For, with its up and down
-	  // arrows. The rows arrive in the order somebody put them in, so there is
-	  // nothing for the client to sort: an automatic sort on arrival would show
-	  // one order while the arrows moved rows about in another, and a heading
-	  // clicked later would do the same. Search and the downloads are untouched.
+	  // A list the admin orders by hand, with its up and down arrows - the eight
+	  // in the Masters block of the sidebar. The rows arrive in the order
+	  // somebody put them in, so there is nothing for the client to sort: an
+	  // automatic sort on arrival would show one order while the arrows moved
+	  // rows about in another, and a heading clicked later would do the same.
+	  // Search and the downloads are untouched.
 	  var manualOrder = $adminTable.data('manual-order') ? true : false;
 
 	  // Read from the markup rather than hard-coded: the eleven screens that
@@ -568,6 +569,11 @@
         ],
        order: manualOrder ? [] : defaultOrder,
 		  ordering: ! manualOrder,
+		  // Each arrow is a round trip, and it would otherwise land back on page
+		  // one with the search box empty - which on the 1,092-row City list means
+		  // finding the row again for every single place it moves. Only the
+		  // hand-ordered lists remember, and only in the browser doing the moving.
+		  stateSave: manualOrder,
 		  "responsive": true, "lengthChange": false, "autoWidth": false,
 		  // Twenty rows a page, not the DataTables default of ten. The
 		  // length menu is off on these lists, so this is the only place it
@@ -581,6 +587,11 @@
 	  var $resTable = $("#res-table-ex");
 	  var resLastColumn = $resTable.find('thead tr').first().find('th').length - 1;
 
+	  // The Resources list is ordered by hand too, so it reads the same flag as
+	  // the shared table above. It has an id of its own only because it is drawn
+	  // without the responsive plugin.
+	  var resManualOrder = $resTable.data('manual-order') ? true : false;
+
 	  $resTable.DataTable({
 		  columnDefs: [
             {
@@ -589,7 +600,9 @@
                 searchable: false // Optional: Disable searching on the hidden column
             }
         ],
-       order: [[0, 'desc']], // Sort by the first column in ascending order
+       order: resManualOrder ? [] : [[0, 'desc']],
+		  ordering: ! resManualOrder,
+		  stateSave: resManualOrder,
 		  "responsive": false, "lengthChange": false, "autoWidth": false,
 		  "pageLength": 20,
 		  scrollX: true,

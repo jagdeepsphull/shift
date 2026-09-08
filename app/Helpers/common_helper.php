@@ -1705,6 +1705,7 @@ if (! function_exists('getSoftwareSkills')) {
         $query = ci_db()->table('software_skills')
             ->whereIn('ss_id', $id_array)
             ->where('ss_status', 1)
+            ->orderBy(SOFTWARE_SKILLS_ORDER, '', false)
             ->get();
 
         $skills = [];
@@ -1732,6 +1733,7 @@ if (! function_exists('getStoreServices')) {
         $query = ci_db()->table('store_service')
             ->whereIn('st_id', $id_array)
             ->where('st_status', 1)
+            ->orderBy(STORE_SERVICE_ORDER, '', false)
             ->get();
 
         $skills = [];

@@ -155,6 +155,37 @@ defined('RATE_PATTERN')  || define('RATE_PATTERN', '/^[0-9]{1,4}(\.[0-9]{1,' . R
 defined('SHIFT_FOR_ORDER') || define('SHIFT_FOR_ORDER', 'sf_order ASC, sf_name ASC');
 
 /*
+ | The same thing for the other seven lists the agency keeps - every list in the
+ | Masters block of the sidebar. Each reads the same way as `SHIFT_FOR_ORDER`
+ | above: the position somebody put the row in, then the name to break a tie so
+ | a row that has never been placed sits where it used to.
+ |
+ | Two of these are ordered inside a group rather than end to end, because that
+ | is how they are offered. Cities are only ever picked after a province, so
+ | `c_order` is a position within `c_province` and the back-office list is
+ | grouped by province for the arrows to make sense. Resources links are the
+ | same within `m_parentid`: the top level is ordered among itself, and each
+ | menu's children among themselves. The group column leads the sort so the
+ | rows of one group arrive together.
+ |
+ | Testimonials have no name, so the id breaks the tie - which is the order they
+ | were already shown in.
+ */
+defined('PROVINCE_ORDER')           || define('PROVINCE_ORDER', 'p_order ASC, p_name ASC');
+defined('CITY_ORDER')               || define('CITY_ORDER', 'c_order ASC, c_name ASC');
+defined('CITY_LIST_ORDER')          || define('CITY_LIST_ORDER', 'c_province ASC, c_order ASC, c_name ASC');
+defined('SOFTWARE_SKILLS_ORDER')    || define('SOFTWARE_SKILLS_ORDER', 'ss_order ASC, ss_name ASC');
+defined('STORE_SERVICE_ORDER')      || define('STORE_SERVICE_ORDER', 'st_order ASC, st_service_name ASC');
+defined('ADDITIONAL_DETAILS_ORDER') || define('ADDITIONAL_DETAILS_ORDER', 'ad_order ASC, ad_name ASC');
+defined('HEADER_MENU_ORDER')        || define('HEADER_MENU_ORDER', 'm_order ASC, m_name ASC');
+// The back-office list only. That one joins the table to itself to name each
+// row's parent, so the columns have to say which side they are on, and it reads
+// better grouped by the parent's name than by its id - top-level rows first,
+// their `mp.m_name` being NULL, then each menu's children together.
+defined('HEADER_MENU_LIST_ORDER')   || define('HEADER_MENU_LIST_ORDER', 'mp.m_name ASC, m.m_order ASC, m.m_name ASC');
+defined('TESTIMONIAL_ORDER')        || define('TESTIMONIAL_ORDER', 't_order ASC, t_id ASC');
+
+/*
  | What the Shift Time box opens on when a shift is being added - a nine to six
  | day, which is what most of them are. Only a starting point: the picker is
  | still there, and whatever it is left showing is what gets posted.

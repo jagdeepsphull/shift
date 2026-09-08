@@ -69,7 +69,7 @@ class Front extends BaseController
 
         // The carousel under "What Makes Us Stand Out", oldest first so the
         // running order matches the back-office list.
-        $this->data['testimonials'] = $this->custom->get_where_order('testimonial', ['t_status' => 1], 't_id', 'asc');
+        $this->data['testimonials'] = $this->custom->get_where_order('testimonial', ['t_status' => 1], TESTIMONIAL_ORDER, '', false);
 
         $this->load->front_view('index', $this->data, 1);
     }
@@ -105,7 +105,7 @@ class Front extends BaseController
     {
         $this->setup();
 
-        $this->data['province']        = $this->custom->get_where('province', ['p_status' => 1]);
+        $this->data['province']        = $this->custom->get_where_order('province', ['p_status' => 1], PROVINCE_ORDER, '', false);
         $this->data['pharmacy_groups'] = $this->pharmacyGroups();
         $this->session->set_userdata('site_lang', 'english');
 
@@ -219,8 +219,8 @@ class Front extends BaseController
         // heading in the body instead.
         $this->data['pageTitle'] = 'Resources';
 
-        $this->data['headermenu_parent_only'] = $this->custom->query("select * from headermenu where m_parentid = 0 AND (m_link != '')  AND m_status = 1 order by m_name asc; ");
-        $this->data['headermenu_parent']      = $this->custom->query("select * from headermenu where m_parentid = 0 AND (m_link IS NULL OR m_link = '')  AND  m_status = 1 order by m_name asc; ");
+        $this->data['headermenu_parent_only'] = $this->custom->query("select * from headermenu where m_parentid = 0 AND (m_link != '')  AND m_status = 1 order by " . HEADER_MENU_ORDER);
+        $this->data['headermenu_parent']      = $this->custom->query("select * from headermenu where m_parentid = 0 AND (m_link IS NULL OR m_link = '')  AND  m_status = 1 order by " . HEADER_MENU_ORDER);
 
         $this->session->set_userdata('site_lang', 'english');
 
@@ -456,7 +456,7 @@ class Front extends BaseController
 
         $this->data['pageTitle'] = 'Join Us';
 
-        $this->data['province'] = $this->custom->get_where('province', ['p_status' => 1]);
+        $this->data['province'] = $this->custom->get_where_order('province', ['p_status' => 1], PROVINCE_ORDER, '', false);
         $this->isUserLoggedIn   = $this->session->userdata('isUserLoggedIn');
 
         if (! empty($this->isUserLoggedIn)) {
@@ -550,7 +550,7 @@ class Front extends BaseController
     {
         $this->setup();
 
-        $this->data['province']        = $this->custom->get_where('province', ['p_status' => 1]);
+        $this->data['province']        = $this->custom->get_where_order('province', ['p_status' => 1], PROVINCE_ORDER, '', false);
         $this->data['pharmacy_groups'] = $this->pharmacyGroups();
 
         $userData = [];
@@ -1024,7 +1024,7 @@ class Front extends BaseController
         $ciid = $this->input->post('ciid');
 
         $cities = $this->db->table('city')
-            ->orderBy('c_name', 'asc')
+            ->orderBy(CITY_ORDER, '', false)
             ->getWhere(['c_province' => $cval, 'c_status' => 1])
             ->getResult();
 

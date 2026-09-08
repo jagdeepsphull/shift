@@ -39,7 +39,12 @@
               </div>
               <!-- /.card-header -->
               <div class="card-body table-responsive">
-                <table id="res-table-ex" class="display nowrap table table-bordered table-striped">
+                <?php /* `data-manual-order` turns DataTables' own sorting off for
+                   this list - see the footer. The order here is the one the
+                   arrows below set, and a table that re-sorted itself on
+                   arrival would show a different order to the one being
+                   edited. */ ?>
+                <table id="res-table-ex" class="display nowrap table table-bordered table-striped" data-manual-order="1">
                   <thead>
                   <tr>
                     <th><?php echo $pageinfo['title']; ?> ID</th>
@@ -54,7 +59,7 @@
                   <tbody>
                   <?php 
 				  if($headermenu){
-					  foreach($headermenu as $record){
+					  foreach($headermenu as $index => $record){
 						  ?>
 						  <tr>
 							<td><?php echo $record->m_id;?></td>
@@ -66,7 +71,8 @@
 							<td><a href="<?php echo base_url('sadmin/'.$pageinfo['link'].'/edit/'.$record->m_id);?>" class="btn btn-success">Edit</a> 
 							<a href="<?php echo base_url('sadmin/'.$pageinfo['link'].'/delete/'.$record->m_id);?>" class="btn btn-danger" onclick="return confirm('Are you sure? You want to delete')">Delete</a>
 							<a href="<?php echo base_url('sadmin/'.$pageinfo['link'].'/changestatus/'.$record->m_id);?>" class="btn btn-warning">Change Status</a>
-              
+							<?= view('partials/list_order_arrows', ['rows' => $headermenu, 'index' => $index, 'record' => $record, 'idKey' => 'm_id', 'labelKey' => 'm_name', 'link' => $pageinfo['link'], 'groupKey' => 'm_parentid']) ?>
+							</td>
 						  </tr>
 						  <?php
 					  }

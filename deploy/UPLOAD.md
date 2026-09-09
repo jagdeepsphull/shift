@@ -7,6 +7,10 @@ php deploy/build.php staging      ->  deploy/build/staging/
 php deploy/build.php production   ->  deploy/build/production/
 ```
 
+Both take `--split`, and both build the same shape with it: a `site/` half for
+the document root and a `private/` half for the home directory. The two deploys
+differ only in where those halves land.
+
 Upload the **contents** of the folder, not the folder itself. `deploy/build/` is
 git-ignored and safe to delete and rebuild at any time.
 
@@ -37,9 +41,10 @@ other way — including PHP `mail()` — does not, and gets quarantined. That is
 **There is no screen for this.** The back office has no SMTP page and the
 `settings` table has no SMTP columns — mail configuration lives in `.env` and
 nowhere else. On a split deploy that file is
-`/home/m50dt2r0daoy/pickashift_app/.env`; on a flat one it sits beside
-`index.php`. Edit it in cPanel's File Manager, save, and the next page load uses
-it: nothing to restart, no cache to clear.
+`/home/m50dt2r0daoy/pickashift_app/.env` on production and
+`/home/m50dt2r0daoy/pickashift_staging_app/.env` on staging; on a flat one it
+sits beside `index.php`. Edit it in cPanel's File Manager, save, and the next
+page load uses it: nothing to restart, no cache to clear.
 
 | Line in `.env` | What it changes |
 |---|---|
@@ -73,13 +78,47 @@ connection timeout.
 
 ## Staging → `/staging/`
 
-1. `php deploy/build.php staging`
-2. Fill in `deploy/build/staging/.env`.
-3. Upload the contents to `/staging/` on the server.
+1. `php deploy/build.php staging --split --zip`
+   (drop `--split` for the single-folder layout — see **Where the application
+   files go** below; split is the recommended one, and it is the same shape
+   production ships in)
+2. Fill in the `.env` — database and SMTP. It is at
+   `deploy/build/staging/private/pickashift_staging_app/.env` in a split build,
+   and `deploy/build/staging/.env` in a flat one.
+3. Upload: `pickashift-staging-site.zip` into `/public_html/staging/` and
+   `pickashift-staging-private.zip` into the home directory, extracting each in
+   place. A flat build goes into `/staging/` in one piece instead.
 4. Set permissions: `writable/` and `uploads/` need to be writable by the web
-   server (`755`, or `775` on some hosts).
+   server (`755`, or `775` on some hosts). On a split build those are
+   `pickashift_staging_app/writable/` and `staging/uploads/`.
 5. Run the database migrations (see below).
 6. Visit `https://reliefshifts.com/staging/`.
+
+### Where staging's private half goes
+
+**The home directory, not one level up.** Production's document root is an addon
+domain's own folder, a direct child of the home directory, so `../` from it is
+already outside every document root. Staging is a subfolder of `public_html`,
+which means `../` from *it* is `public_html` itself — the live document root. A
+private half placed there would put `.env`, with the database and SMTP
+credentials in it, at a public URL.
+
+So staging climbs one level further, `../../`, landing in the home directory
+beside production's:
+
+```
+/home/m50dt2r0daoy/
+├── pickashift_app/          production's private half
+├── pickashift_staging_app/  staging's private half
+├── pickashift.ca/           production's document root
+└── public_html/
+    └── staging/             staging's document root
+```
+
+The two private folders have different names on purpose. One name shared would
+mean a staging upload overwriting the live application — the whole site, on an
+upload meant for a test copy. `--private=NAME` renames either; the front
+controller is built to match.
 
 Three things the staging bundle does differently, all of them deliberate:
 
@@ -144,8 +183,9 @@ Once staging is approved:
    `deploy/build/production/.env` in a flat one. `cron.key` is already
    generated; note the value the build prints, the cron entry needs it.
 3. **Back up first** — database export *and* a copy of the current files.
-4. Upload: `pickashift-site.zip` into `/pickashift.ca/` and
-   `pickashift-private.zip` into the home directory, extracting each in place.
+4. Upload: `pickashift-production-site.zip` into `/pickashift.ca/` and
+   `pickashift-production-private.zip` into the home directory, extracting each
+   in place.
 5. Set `pickashift.ca/uploads/` and `pickashift_app/writable/` to 755 (775 on
    some hosts).
 6. Run the migrations.
@@ -176,7 +216,12 @@ makes a second, better layout possible, and `--split` builds it:
 
 ```
 php deploy/build.php production --split --zip
+php deploy/build.php staging    --split --zip
 ```
+
+Both targets build the same two halves. Only the destinations differ, and the
+build works the relative path out for each — see **Where staging's private half
+goes** above.
 
 |  | Flat (default) | Split (`--split`, recommended) |
 |---|---|---|
@@ -197,21 +242,33 @@ The cost is one extra upload. That is the whole trade.
 #### Uploading the split build
 
 ```
-pickashift-site.zip     ->  /home/m50dt2r0daoy/pickashift.ca/   (Extract there)
-pickashift-private.zip  ->  /home/m50dt2r0daoy/                 (Extract there;
-                                                                 it creates pickashift_app/)
+pickashift-production-site.zip     ->  /home/m50dt2r0daoy/pickashift.ca/  (Extract there)
+pickashift-production-private.zip  ->  /home/m50dt2r0daoy/                (Extract there;
+                                                                           creates pickashift_app/)
+```
+
+The staging bundle is the same two files under its own names, extracted in its
+own two places:
+
+```
+pickashift-staging-site.zip     ->  /home/m50dt2r0daoy/public_html/staging/  (Extract there)
+pickashift-staging-private.zip  ->  /home/m50dt2r0daoy/                      (Extract there;
+                                                                              creates pickashift_staging_app/)
 ```
 
 The private zip carries its own folder name inside it, so extracting it in the
-home directory creates `pickashift_app/` rather than scattering the application
-across the home directory. The site zip does not — its contents go straight into
-the document root, which already exists.
+home directory creates `pickashift_app/` (or `pickashift_staging_app/`) rather
+than scattering the application across the home directory. The site zip does
+not — its contents go straight into the document root, which already exists.
 
-**They have to stay siblings.** `index.php` looks for `../pickashift_app/`, and
-nothing else in the application knows or cares where it is: `Config\Paths` is
-written in `__DIR__`-relative terms, so the framework, `writable/` and `.env`
-all follow the folder wherever it goes. `uploads/` and `assets/` deliberately
-stay in the document root, because the browser fetches those by URL.
+**Both halves have to keep the places above.** `index.php` is built knowing how
+far to climb — `../pickashift_app/` on production, where the halves are
+siblings, and `../../pickashift_staging_app/` on staging, where the document
+root is a subfolder and the private half is two levels up. Nothing else in the
+application knows or cares where it is: `Config\Paths` is written in
+`__DIR__`-relative terms, so the framework, `writable/` and `.env` all follow
+the folder wherever it goes. `uploads/` and `assets/` deliberately stay in the
+document root, because the browser fetches those by URL.
 
 If the halves are separated, every page is a **503** saying the application
 files were not found — a clear failure rather than a broken-looking site.
@@ -221,13 +278,14 @@ the front controller is built to match.
 
 #### What changes for the rest of this document
 
-- **Migrations:** `php spark migrate` is run from `pickashift_app/`, not the
-  document root. With no SSH, `deploy/migrate.php` reads the `.env` beside it —
+- **Migrations:** `php spark migrate` is run from `pickashift_app/` (or
+  `pickashift_staging_app/`), not the document root. With no SSH, `deploy/migrate.php` reads the `.env` beside it —
   upload it into `pickashift_app/`, open it via… it has no URL there. So on a
   split deploy without SSH, run the release `.sql` in phpMyAdmin instead, or
   drop `migrate.php` and a copy of `.env` into the document root temporarily and
   **delete both** the moment it has run.
-- **Permissions:** `pickashift_app/writable/` needs to be writable (755, or 775
+- **Permissions:** `pickashift_app/writable/` — `pickashift_staging_app/writable/`
+  on staging — needs to be writable (755, or 775
   on some hosts). `uploads/` stays in the document root and still needs it too.
 - **`.env` checks:** `https://pickashift.ca/.env` returns **404** rather than
   403 on a split deploy. Both are fine — 404 because there is genuinely nothing

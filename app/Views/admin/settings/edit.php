@@ -1,4 +1,3 @@
-<script src="https://cdn.tiny.cloud/1/4i61lqp4mo176sc5mqr7nmxzsqsiz9kivvkuju4f6enap7k9/tinymce/5/tinymce.min.js" referrerpolicy="origin"></script>
 <!-- Content Wrapper. Contains page content -->
 <div class="content-wrapper">
     <!-- Content Header (Page header) -->
@@ -91,41 +90,33 @@
 
                             <div class="card card-info">
                                 <div class="card-header">
-                                    <h3 class="card-title">Other Setings</h3>
+                                    <h3 class="card-title">Social Media Links</h3>
                                 </div>
                                 <!-- /.card-header -->
                                 <div class="card-body">
 
+                                    <?php /* The footer and the contact page both read these, so the two
+                                           pages can no longer disagree about which account is the
+                                           agency's. A box left empty hides its icon rather than
+                                           linking to nowhere, which is what the Facebook one did. */ ?>
                                     <div class="row">
-                                        <div class="col-sm-12">
-                                             <div class="form-group">
-                                                <label>Disclaimer</label>
-                                                <textarea name="s_disclaimer" class="summernote"><?php echo $s_disclaimer; ?></textarea>
+                                        <div class="col-sm-4">
+                                            <div class="form-group">
+                                                <label>Facebook</label> <span>Leave blank to hide the icon</span>
+                                                <input type="text" class="form-control" name="s_facebook_url" placeholder="https://www.facebook.com/yourpage" value="<?php echo esc($s_facebook_url ?? ''); ?>">
                                             </div>
-                                       
-                                        
                                         </div>
-                                    </div>
-                                  
-                                    <div class="row">
-                                        <div class="col-sm-12">
-                                             <div class="form-group">
-                                                <label>Terms And Conditions</label>
-                                                <textarea name="s_terms_conditions" class="summernote" ><?php echo $s_terms_conditions; ?></textarea>
+                                        <div class="col-sm-4">
+                                            <div class="form-group">
+                                                <label>X (Twitter)</label> <span>Leave blank to hide the icon</span>
+                                                <input type="text" class="form-control" name="s_twitter_url" placeholder="https://x.com/yourhandle" value="<?php echo esc($s_twitter_url ?? ''); ?>">
                                             </div>
-                                       
-                                        
                                         </div>
-                                    </div>
-                                  
-                                    <div class="row">
-                                        <div class="col-sm-12">
-                                             <div class="form-group">
-                                                <label>Privacy Policy</label>
-                                                <textarea name="s_privacy_policy" class="summernote" ><?php echo $s_privacy_policy; ?></textarea>
+                                        <div class="col-sm-4">
+                                            <div class="form-group">
+                                                <label>Instagram</label> <span>Leave blank to hide the icon</span>
+                                                <input type="text" class="form-control" name="s_instagram_url" placeholder="https://www.instagram.com/yourhandle" value="<?php echo esc($s_instagram_url ?? ''); ?>">
                                             </div>
-                                       
-                                        
                                         </div>
                                     </div>
                                   

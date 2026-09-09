@@ -260,6 +260,33 @@ if (! function_exists('phoneFields')) {
     }
 }
 
+if (! function_exists('assetUrl')) {
+    /**
+     * A URL for one of our own asset files, stamped with its last-modified time.
+     *
+     * `base_url()` alone gives every visitor's browser a URL that never changes,
+     * and neither Apache nor the app sends a cache header telling it otherwise -
+     * so an edited stylesheet keeps being answered out of the browser cache and
+     * the change appears not to have happened at all. The `?v=` stamp changes
+     * whenever the file does, which makes it a different URL to cache.
+     *
+     * Only for files this project maintains. A vendor build never changes under
+     * the same name, so there is nothing to bust and the plain URL caches for
+     * longer.
+     *
+     * A path that is not on disk is returned unstamped rather than throwing:
+     * a missing stylesheet is already visible, and a fatal error on every page
+     * would be the worse failure.
+     */
+    function assetUrl(string $path): string
+    {
+        $file = FCPATH . ltrim($path, '/');
+        $time = is_file($file) ? filemtime($file) : false;
+
+        return base_url($path) . ($time !== false ? '?v=' . $time : '');
+    }
+}
+
 if (! function_exists('normalisePhone')) {
     /**
      * A mobile number as typed, reduced to the bare digits that get stored.
@@ -286,6 +313,79 @@ if (! function_exists('normalisePhone')) {
         }
 
         return substr($digits, 0, PHONE_LENGTH);
+    }
+}
+
+if (! function_exists('socialUrl')) {
+    /**
+     * Make one of the `settings` social links safe to put in an `href`.
+     *
+     * Whoever fills the box in the admin panel types what they would type into
+     * a browser, so "facebook.com/pickashift" has to work as well as the full
+     * address - a link saved without a scheme is read as a path and sends the
+     * visitor to a page on this site that does not exist. Anything that is not
+     * plainly http or https is treated as a bare address, which is also what
+     * stops a "javascript:" URL from reaching the markup.
+     *
+     * An empty box comes back as an empty string; the views hide the icon.
+     */
+    function socialUrl($url): string
+    {
+        $url = trim(strip_tags((string) $url));
+
+        if ($url === '') {
+            return '';
+        }
+
+        if (preg_match('~^https?://~i', $url) !== 1) {
+            $url = 'https://' . ltrim((string) preg_replace('~^[a-z][a-z0-9+.-]*:~i', '', $url), '/');
+        }
+
+        return $url;
+    }
+}
+
+if (! function_exists('socialLinks')) {
+    /**
+     * The social profiles that have been filled in, ready to render.
+     *
+     * The site footer and the contact page show the same row of icons, and
+     * while the addresses were written into the two views by hand they had
+     * drifted on to different accounts. Building the row from the `settings`
+     * row keeps them the same, and lets a box left empty in the admin panel
+     * take its icon off both pages instead of linking to nowhere.
+     *
+     * `class` is what the stylesheet colours the hover with, so it stays even
+     * though the label is what a screen reader reads out.
+     *
+     * @param object|null $settings the `settings` row
+     *
+     * @return list<array{label: string, class: string, url: string, icon: string}>
+     */
+    function socialLinks($settings): array
+    {
+        $networks = [
+            ['label' => 'Facebook', 'class' => 'facebook', 'column' => 's_facebook_url', 'icon' => 'lni-facebook-filled'],
+            ['label' => 'X', 'class' => 'twitter', 'column' => 's_twitter_url', 'icon' => 'lni-twitter-filled'],
+            ['label' => 'Instagram', 'class' => 'instagram', 'column' => 's_instagram_url', 'icon' => 'lni-instagram-filled'],
+        ];
+
+        $links = [];
+
+        foreach ($networks as $network) {
+            $url = socialUrl($settings->{$network['column']} ?? '');
+
+            if ($url !== '') {
+                $links[] = [
+                    'label' => $network['label'],
+                    'class' => $network['class'],
+                    'url'   => $url,
+                    'icon'  => $network['icon'],
+                ];
+            }
+        }
+
+        return $links;
     }
 }
 
@@ -2437,5 +2537,52 @@ if (! function_exists('shiftPostedRecipients')) {
         }
 
         return ['to' => $to, 'missing' => $missing, 'fellBack' => $fellBack];
+    }
+}
+
+if (! function_exists('testimonialPhoto')) {
+    /**
+     * The URL for a testimonial's uploaded photo, or the stand-in thumb.
+     *
+     * `t_image` holds a bare filename (the convention `users.u_photo` set), so
+     * no caller builds the uploads path itself.
+     *
+     * Always an address, never '': every caller - the home page card, and the
+     * three back-office screens - draws the circle whether or not there is a
+     * photo in it, so returning nothing would put a broken-image icon on all
+     * four rather than saving them anything. The thumb is transparent, so the
+     * card's own accent tint shows through behind the figure.
+     *
+     * The file is checked for on disk, not just in the column: a row can outlive
+     * its upload - a file cleared out of uploads/ by hand, or a database copied
+     * between environments without the images beside it - and a name that no
+     * longer resolves would render as a broken-image icon.
+     */
+    function testimonialPhoto($file): string
+    {
+        $file = trim((string) $file);
+
+        if ($file !== '' && is_file(FCPATH . 'uploads/testimonial/' . $file)) {
+            return base_url('uploads/testimonial/' . $file);
+        }
+
+        return base_url('assets/front/assets/img/testimonial/thumb.svg');
+    }
+}
+
+if (! function_exists('testimonialRating')) {
+    /**
+     * A testimonial's star rating, clamped to the 1-5 the card can draw.
+     *
+     * The column defaults to 5 and the form only offers those five values, but
+     * rows predating both exist, and so do rows written straight into the table
+     * - anything outside the range is read as the full five rather than drawn as
+     * no stars at all or as a row that overflows the card.
+     */
+    function testimonialRating($value): int
+    {
+        $stars = (int) $value;
+
+        return ($stars >= 1 && $stars <= 5) ? $stars : 5;
     }
 }

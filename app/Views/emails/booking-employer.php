@@ -4,8 +4,9 @@
  * Sent to the employer when an admin approves an applicant for their shift. The
  * agency is copied on this one (see `getAgencyCopyEmail()`).
  *
- * The rate here is `p_hourly_rate` — what the employer is billed — which is
- * deliberately not the rate on the applicant's copy of this booking.
+ * It carries no rate. The figures are settled off the platform, and a booking
+ * e-mail quoting one lands in the same inbox as the invoice that has to agree
+ * with it.
  *
  * @var string      $name           the employer's contact name
  * @var string      $applicant_name
@@ -38,7 +39,6 @@ $store = $store ?? null;
         <li>Shift requested for: <?= esc(getShiftForName($shift['p_shift_for'])) ?></li>
         <li>Shift date: <?= esc(dateFormat($shift['p_dates'])) ?></li>
         <li>Shift time: <?= esc($shift['p_shift_time']) ?></li>
-        <li>Rate: CAD$ <?= esc($shift['p_hourly_rate']) ?>/hour</li>
         <li>Software: <?= esc(getSoftwareSkills($shift['p_skills'])) ?></li>
         <li>Services: <?= esc(getStoreServices($shift['p_services'])) ?></li>
     </ul>

@@ -4,8 +4,13 @@
  * Sent to the applicant when an admin approves them for a shift. The agency is
  * copied on this one (see `getAgencyCopyEmail()`).
  *
- * Note the rate shown here is `p_ac_hourly_rate` — what the applicant is paid —
- * which is deliberately not the rate on the employer's copy of this booking.
+ * The pharmacy is named by its store, not by `u_comp_name`: the employer's
+ * company name is the group an owner trades under, and a person told they are
+ * booked at "Independent Pharmacy" has not been told which shop that is.
+ *
+ * It carries no rate. What the applicant is paid is settled with the agency,
+ * and repeating a figure here only invites an argument with the copy the
+ * employer got, which is billed at a different one.
  *
  * The address is the shift's own store, not the employer's login columns: for a
  * multi-store owner those are the head office, and this message is the one
@@ -18,8 +23,9 @@
  * @var string      $approval_comment
  * @var array       $settings
  */
-$store   = $store ?? null;
-$mapLink = $store ? storeMapLink($store) : '';
+$store    = $store ?? null;
+$mapLink  = $store ? storeMapLink($store) : '';
+$pharmacy = $store ? $store->s_name : $employer['u_comp_name'];
 ?>
 <?= $this->extend('emails/layout') ?>
 
@@ -28,16 +34,13 @@ $mapLink = $store ? storeMapLink($store) : '';
 
     <p style="line-height: 1.6;">We are delighted to tell you that you have been approved for
     <strong><?= esc($shift['p_job_title']) ?></strong> at
-    <strong><?= esc($employer['u_comp_name']) ?></strong>.</p>
+    <strong><?= esc($pharmacy) ?></strong>.</p>
 
     <p style="line-height: 1.6;">Here are the details:</p>
 
     <ul style="line-height: 1.7; padding-left: 20px;">
         <?php if ($store) { ?>
         <li>Store: <?= esc($store->s_name) ?><?= $store->s_number !== '' ? ' (no. ' . esc($store->s_number) . ')' : '' ?></li>
-        <?php if (trim((string) ($store->s_location_label ?? '')) !== '') { ?>
-        <li>Where to find it: <?= esc($store->s_location_label) ?></li>
-        <?php } ?>
         <li>Store address: <?= esc($store->s_address) ?>, <?= esc(getCityName($store->s_city)) ?>, <?= esc(getProvinceName($store->s_province)) ?>, <?= esc($store->s_pincode) ?></li>
         <?php if (trim((string) ($store->s_phone ?? '')) !== '') { ?>
         <li>Store phone: <?= esc($store->s_phone) ?></li>
@@ -49,7 +52,6 @@ $mapLink = $store ? storeMapLink($store) : '';
         <li>Shift requested for: <?= esc(getShiftForName($shift['p_shift_for'])) ?></li>
         <li>Shift date: <?= esc(dateFormat($shift['p_dates'])) ?></li>
         <li>Shift time: <?= esc($shift['p_shift_time']) ?></li>
-        <li>Rate: CAD$ <?= esc($shift['p_ac_hourly_rate']) ?>/hour</li>
         <li>Software: <?= esc(getSoftwareSkills($shift['p_skills'])) ?></li>
         <li>Services: <?= esc(getStoreServices($shift['p_services'])) ?></li>
         <?php if (trim((string) $approval_comment) !== '') { ?>

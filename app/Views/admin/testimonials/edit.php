@@ -1,3 +1,17 @@
+<?php
+/**
+ * Edit a testimonial. Same fields as the add screen, plus the two things only
+ * an existing row has: the photo already on file, and a way to take it off
+ * again.
+ *
+ * The file input is never pre-filled - browsers do not allow it - so saving
+ * with it empty has to mean "keep the photo", which is why removing one is a
+ * separate box rather than an empty upload.
+ */
+$t_rating  = ($t_rating ?? '') !== '' ? (int) $t_rating : 5;
+$t_status  = ($t_status ?? '') !== '' ? (int) $t_status : 1;
+$hasPhoto  = trim((string) ($t_image ?? '')) !== '';
+?>
 <!-- Content Wrapper. Contains page content -->
   <div class="content-wrapper">
     <!-- Content Header (Page header) -->
@@ -44,19 +58,92 @@
                   <div class="row">
                     <div class="col-sm-6">
 					  <div class="form-group">
-						<label for="t_title">Title</label>
+						<label for="t_title">Title <span class="text-danger">*</span></label>
 						<input type="text" class="form-control" id="t_title" name="t_title" placeholder="Enter Title" maxlength="150" value="<?php echo esc($t_title);?>" required>
+						<small class="form-text text-muted">The heading on the card, e.g. "A Trusted Name for Exceptional Service".</small>
 					  </div>
 					 </div>
 					</div>
 					<div class="row">
                     <div class="col-sm-12">
 					  <div class="form-group">
-						<label for="t_description">Description</label>
+						<label for="t_description">Description <span class="text-danger">*</span></label>
 						<textarea class="form-control" id="t_description" name="t_description" rows="5" placeholder="Enter Description" required><?php echo esc($t_description);?></textarea>
+						<small class="form-text text-muted">The quote itself. Line breaks are kept on the home page.</small>
 					  </div>
 					 </div>
 
+				</div>
+
+				<?php /* Who said it. Optional throughout - the home page card
+				   leaves out any line it has nothing for, so a quote with no
+				   name still renders rather than showing an empty footer. */ ?>
+				<hr>
+				<h5 class="mb-3">Who said it</h5>
+
+				<div class="row">
+					<div class="col-sm-4">
+					  <div class="form-group">
+						<label for="t_name">Name</label>
+						<input type="text" class="form-control" id="t_name" name="t_name" placeholder="e.g. Sarah M." maxlength="100" value="<?php echo esc($t_name ?? '');?>">
+					  </div>
+					</div>
+					<div class="col-sm-4">
+					  <div class="form-group">
+						<label for="t_role">Role</label>
+						<input type="text" class="form-control" id="t_role" name="t_role" placeholder="e.g. Job Seeker" maxlength="100" value="<?php echo esc($t_role ?? '');?>">
+					  </div>
+					</div>
+					<div class="col-sm-4">
+					  <div class="form-group">
+						<label for="t_location">Location</label>
+						<input type="text" class="form-control" id="t_location" name="t_location" placeholder="e.g. Toronto, ON" maxlength="120" value="<?php echo esc($t_location ?? '');?>">
+					  </div>
+					</div>
+				</div>
+
+				<div class="row">
+					<div class="col-sm-4">
+					  <div class="form-group">
+						<label for="t_image">Photo</label>
+						<input type="file" class="form-control" id="t_image" name="t_image" accept="image/*">
+						<small class="form-text text-muted">JPG, PNG, GIF or WebP, up to 2&nbsp;MB. Leave empty to keep the picture on the right.</small>
+					  </div>
+					  <div class="form-group">
+						<div class="custom-control custom-checkbox">
+						  <input type="checkbox" class="custom-control-input" id="remove_image" name="remove_image" value="1" <?php echo $hasPhoto ? '' : 'disabled';?>>
+						  <label class="custom-control-label" for="remove_image">Remove the current photo</label>
+						</div>
+						<small class="form-text text-muted"><?php echo $hasPhoto ? 'The placeholder thumb is shown instead.' : 'There is no photo to remove.';?></small>
+					  </div>
+					</div>
+					<div class="col-sm-2">
+					  <div class="form-group">
+						<label>Current</label><br>
+						<img src="<?php echo esc(testimonialPhoto($t_image ?? ''), 'attr');?>" alt="<?php echo $hasPhoto ? 'Current photo' : 'No photo';?>" style="width:72px; height:72px; border-radius:50%; object-fit:cover; border:2px solid #e9ecf3;">
+					  </div>
+					</div>
+					<div class="col-sm-3">
+					  <div class="form-group">
+						<label for="t_rating">Rating</label>
+						<select class="form-control" id="t_rating" name="t_rating" required>
+							<?php foreach ($ratings as $value => $label) { ?>
+								<option value="<?php echo (int) $value;?>" <?php if ($t_rating === (int) $value) { echo 'selected="selected"'; }?>><?php echo esc($label);?></option>
+							<?php } ?>
+						</select>
+					  </div>
+					</div>
+					<div class="col-sm-3">
+					  <div class="form-group">
+						<label for="t_status">Status</label>
+						<select class="form-control" id="t_status" name="t_status" required>
+							<?php foreach ($status as $value => $label) { ?>
+								<option value="<?php echo (int) $value;?>" <?php if ($t_status === (int) $value) { echo 'selected="selected"'; }?>><?php echo esc($label);?></option>
+							<?php } ?>
+						</select>
+						<small class="form-text text-muted">Only Active testimonials reach the home page.</small>
+					  </div>
+					</div>
 				</div>
 
                 </div>

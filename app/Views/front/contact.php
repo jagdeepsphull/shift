@@ -15,10 +15,11 @@
                 </li>
               </ul>
 			  </p>
+			  <?php /* The same row the footer shows, from the same setting. */ ?>
 			  <div class="social-icon">
-                  <a class="facebook" href="#"><i class="lni-facebook-filled"></i></a>
-                  <a class="twitter" href="https://x.com/pickashift"target="_blank"><i class="lni-twitter-filled"></i></a>
-                  <a class="instagram" href="https://www.instagram.com/pickashift/" target="_blank"><i class="lni-instagram-filled"></i></a>
+                  <?php foreach (socialLinks($settings[0] ?? null) as $link) { ?>
+                  <a class="<?php echo $link['class']; ?>" href="<?php echo esc($link['url']); ?>" target="_blank" rel="noopener" aria-label="<?php echo esc($link['label']); ?>"><i class="<?php echo $link['icon']; ?>"></i></a>
+                  <?php } ?>
                 </div>
             </div>
 		  <div class="col-lg-7 col-md-12 col-sm-12">

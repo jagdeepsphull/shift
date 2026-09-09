@@ -1622,6 +1622,12 @@ class Sadmin extends BaseController
      *
      * Ordered oldest first, so the carousel opens on the first one added and the
      * admin can predict the running order from the list screen.
+     *
+     * A row is a whole card, not just the two blocks of text: who said it, what
+     * they are, where they are, how many stars and their photo. Only the title
+     * and the quote are compulsory - the rest are what the card shows when they
+     * are filled in and leaves out when they are not, so an existing quote with
+     * nobody's name on it still renders.
      */
     public function testimonials()
     {
@@ -1636,6 +1642,7 @@ class Sadmin extends BaseController
         $this->data['validation_errors'] = '';
         $this->data['pageinfo']          = ['title' => 'Testimonial', 'link' => $module];
         $this->data['testimonials']      = $this->custom->get_data_order($table, TESTIMONIAL_ORDER, '', false);
+        $this->data['ratings']           = [5 => '5 stars', 4 => '4 stars', 3 => '3 stars', 2 => '2 stars', 1 => '1 star'];
 
         switch ($action) {
             default:
@@ -1644,13 +1651,17 @@ class Sadmin extends BaseController
 
             case 'add':
                 if ($this->input->post('savedata')) {
-                    $this->form_validation->set_rules('t_title', 'Title', 'required');
-                    $this->form_validation->set_rules('t_description', 'Description', 'required');
+                    $this->testimonialRules();
 
                     $rowData = cleanArray($this->input->post());
-                    unset($rowData['savedata']);
+                    unset($rowData['savedata'], $rowData['remove_image']);
 
                     if (insertQry_N($table, $rowData)) {
+                        // The photo can only be filed once the row it belongs to
+                        // has an id - `fileupload()` writes the filename back
+                        // itself, and needs somewhere to write it to.
+                        $this->testimonialPhotoUpload((int) $this->custom->db()->insertID());
+
                         ci_redirect('sadmin/' . $module);
                     }
 
@@ -1671,19 +1682,35 @@ class Sadmin extends BaseController
 
                     if ($original_row) {
                         if ($this->input->post('updatedata')) {
-                            $this->form_validation->set_rules('t_title', 'Title', 'required');
-                            $this->form_validation->set_rules('t_description', 'Description', 'required');
+                            $this->testimonialRules();
 
                             $rowData = cleanArray($this->input->post());
-                            unset($rowData['updatedata']);
+                            $remove  = (string) $this->input->post('remove_image') !== '';
+                            unset($rowData['updatedata'], $rowData['remove_image']);
+
+                            // `t_image` is not a form field the browser posts
+                            // back, so the update never touches it and a save
+                            // with no new file leaves the existing photo alone.
+                            // Clearing it is therefore its own instruction.
+                            if ($remove) {
+                                $rowData['t_image'] = '';
+                            }
 
                             if (updateQry($table, $rowData, ['t_id' => $id])) {
+                                $this->testimonialPhotoUpload((int) $id);
+
                                 ci_redirect('sadmin/' . $module);
                             }
 
                             foreach ($rowData as $ky => $vl) {
                                 $this->data[$ky] = $vl;
                             }
+
+                            // The form redraws from `$this->data`, and the
+                            // posted array has no `t_image` in it - without this
+                            // a failed save would show "no photo" for a row that
+                            // has one.
+                            $this->data['t_image'] = $remove ? '' : $original_row[0]->t_image;
                         } else {
                             getTableInfo($this->dbname, $table, ['t_id' => $id]);
                         }
@@ -1750,6 +1777,73 @@ class Sadmin extends BaseController
                     ci_redirect('sadmin/' . $module);
                 }
                 break;
+        }
+    }
+
+    /**
+     * The rules both testimonial forms run, kept in one place so the add screen
+     * and the edit screen cannot drift apart.
+     *
+     * Only the two text blocks are required. The name, role and location are
+     * optional because the card hides each line it has nothing for, and the old
+     * rows carry none of them - making them compulsory would mean the admin
+     * could not save an edit to a quote written before the columns existed
+     * without first inventing an author for it.
+     *
+     * The rating is a fixed list rather than a number: it is drawn as stars, so
+     * `in_list` and a select between them mean the card never has to render a 0
+     * or a 9.
+     */
+    private function testimonialRules(): void
+    {
+        $this->form_validation->set_rules('t_title', 'Title', 'required');
+        $this->form_validation->set_rules('t_description', 'Description', 'required');
+        $this->form_validation->set_rules('t_name', 'Name', 'permit_empty|max_length[100]');
+        $this->form_validation->set_rules('t_role', 'Role', 'permit_empty|max_length[100]');
+        $this->form_validation->set_rules('t_location', 'Location', 'permit_empty|max_length[120]');
+        $this->form_validation->set_rules('t_rating', 'Rating', 'required|in_list[1,2,3,4,5]');
+        $this->form_validation->set_rules('t_status', 'Status', 'required|in_list[0,1]');
+    }
+
+    /**
+     * File the photo posted with a testimonial form, if one was.
+     *
+     * Runs after the row is written, never instead of it: the picture is the
+     * one part of the card that can fail on its own (wrong format, too big),
+     * and a rejected file should leave the text the admin typed saved rather
+     * than throwing the whole save away. The flash message says which happened.
+     */
+    private function testimonialPhotoUpload(int $id): void
+    {
+        if ($id < 1) {
+            return;
+        }
+
+        $file = $this->request->getFile('t_image');
+
+        if ($file === null || ! $file->isValid()) {
+            return;
+        }
+
+        $filestatus = fileupload([
+            'filename' => 't_image',
+            'path'     => 'testimonial',
+            'types'    => 'gif|jpg|jpeg|png|webp',
+            'size'     => '2048',
+            'width'    => '2000',
+            'height'   => '2000',
+            'table'    => 'testimonial',
+            'field'    => 't_image',
+            'pkfield'  => 't_id',
+            'pkval'    => $id,
+        ]);
+
+        if ($filestatus['error'] == 1) {
+            $this->session->set_flashdata(
+                'error_msg',
+                '<div class="alert alert-warning">The testimonial was saved, but the photo was not: '
+                . esc($filestatus['status']['error'] ?? 'the file could not be uploaded.') . '</div>'
+            );
         }
     }
 
@@ -3601,9 +3695,16 @@ class Sadmin extends BaseController
 
             $rowData = cleanArray($this->input->post());
 
-            $rowData['s_disclaimer']       = $this->input->post('s_disclaimer');
-            $rowData['s_terms_conditions'] = $this->input->post('s_terms_conditions');
-            $rowData['s_privacy_policy']   = $this->input->post('s_privacy_policy');
+            // Whoever fills these in types what they would type into a browser,
+            // so they are normalised here rather than trusted as an `href`.
+            foreach (['s_facebook_url', 's_twitter_url', 's_instagram_url'] as $link) {
+                $rowData[$link] = socialUrl($rowData[$link] ?? '');
+            }
+
+            // `s_disclaimer`, `s_terms_conditions` and `s_privacy_policy` are no
+            // longer on the form and so are not in the post. The update writes
+            // only the columns it is given, which leaves that text as it stands
+            // for whenever the editors are wanted back.
             unset($rowData['updatedata'], $rowData['files']);
 
             if (updateQry($table, $rowData, ['s_id' => 1])) {

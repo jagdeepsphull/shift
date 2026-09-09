@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Stand-in photo for a testimonial that has none. Deliberately transparent: on
+  the home page the card paints its own accent tint behind the circle, and this
+  glyph sits on top of whichever tint the card was dealt. The shoulders are
+  clipped to the circle so the figure reads as a portrait crop rather than a
+  bust floating in a square.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96" role="img" aria-hidden="true">
+  <defs>
+    <clipPath id="t-thumb-clip">
+      <circle cx="48" cy="48" r="48"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#t-thumb-clip)" fill="#a9b6cb">
+    <circle cx="48" cy="37" r="17"/>
+    <path d="M48 60c-16.6 0-30 10.6-30 23.7V96h60V83.7C78 70.6 64.6 60 48 60z"/>
+  </g>
+</svg>

@@ -710,11 +710,194 @@ header#header-wrap .navbar {
 
 /* ------------------------------------------------------- testimonials --- */
 
-/* Three cards to a slide. The arrows sit outside the row, so the track is inset
-   to leave room for them; the indicators go below rather than over the cards,
-   so a long quote never has dots sitting on its last line. */
+/* The section is a heading block, then a stage holding the carousel and the
+   three hand-lettered asides pinned around it. The asides are positioned
+   against the stage rather than the carousel so they can sit out in the margin
+   without widening the track the cards slide in.
+
+   Unlike the rest of the page this band paints its own pale-blue ground and
+   works in blue and yellow rather than the site's purple - it is the one
+   section meant to lift off the grey. */
+#testimonials {
+  position: relative;
+  /* The decorative discs below run off the edges; without this they widen the
+     page instead of being cropped by the band. */
+  overflow: hidden;
+  padding: 90px 0 70px !important;
+  background: radial-gradient(circle at 50% 20%,
+              rgba(225, 241, 255, .9) 0,
+              rgba(247, 251, 255, .8) 30%,
+              #ffffff 68%);
+}
+
+/* Two oversized discs tucked into the bottom corners, mostly off-canvas. They
+   carry no meaning, so they are pseudo-elements rather than markup. */
+#testimonials::before,
+#testimonials::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+#testimonials::before {
+  width: 330px;
+  height: 330px;
+  left: -180px;
+  bottom: -170px;
+  background: rgba(225, 239, 255, .65);
+}
+
+#testimonials::after {
+  width: 390px;
+  height: 390px;
+  right: -210px;
+  bottom: -220px;
+  background: rgba(225, 239, 255, .55);
+}
+
+/* Everything real sits above the discs. */
+#testimonials .wz-shell { position: relative; z-index: 2; }
+
+.wz-testimonials-head { text-align: center; }
+
+/* Eyebrow above the heading. */
+.wz-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 25px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #e9f3ff, #dcecff);
+  color: #1676df;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+}
+
+.wz-pill svg { width: 18px; height: 18px; }
+
+.wz-testimonials-head .wz-section-title {
+  margin: 0 0 22px;
+  font-size: clamp(40px, 5vw, 76px);
+  line-height: 1.02;
+  letter-spacing: -.04em;
+}
+
+/* The second word is blue with a hand-drawn yellow stroke under it - a squashed
+   ellipse rather than a rule, so it reads as marker rather than underline. The
+   span has to be inline-block for the stroke to be measured against the word
+   instead of the whole line. */
+.wz-testimonials-head .wz-section-title span {
+  position: relative;
+  display: inline-block;
+  background: none;
+  color: #1680f5;
+  -webkit-text-fill-color: #1680f5;
+}
+
+.wz-testimonials-head .wz-section-title span::after {
+  content: '';
+  position: absolute;
+  left: 8%;
+  bottom: -9px;
+  width: 88%;
+  height: 7px;
+  border-radius: 50%;
+  background: #ffb900;
+  transform: rotate(-2deg);
+}
+
+.wz-testimonials-sub {
+  max-width: 760px;
+  margin: 0 auto;
+  color: #5d6980;
+  font-size: 20px;
+  line-height: 1.55;
+}
+
+.wz-testimonials-stage { position: relative; }
+
+/* --- the hand-lettered asides --- */
+
+.wz-doodle {
+  position: absolute;
+  z-index: 3;
+  font-family: 'Magnolia Script', 'Dancing Script', cursive;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.05;
+  color: #2e6bb3;
+  pointer-events: none;
+}
+
+.wz-doodle svg { display: block; opacity: .85; }
+
+.wz-doodle-tl {
+  top: 46px;
+  left: 0;
+  transform: rotate(-6deg);
+}
+
+/* The arrow hangs off the last line and points down into the first card. */
+.wz-doodle-tl svg {
+  margin: 2px 0 0 78px;
+  transform: rotate(20deg);
+}
+
+.wz-doodle-br {
+  right: 6px;
+  bottom: 6px;
+  color: #3271b8;
+  text-align: right;
+  font-size: 26px;
+  transform: rotate(-7deg);
+}
+
+/* The one in a speech bubble, as on the reference: a yellow oval with a tail
+   drawn as a triangle tucked under its lower-left edge. */
+/* Sized and lifted so the oval finishes inside the band the track's top padding
+   leaves clear, and only the tail reaches down to the cards - the bubble is
+   pointing at them, not sitting on them. */
+.wz-doodle-tr {
+  top: -14px;
+  right: -10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 178px;
+  height: 132px;
+  padding: 18px;
+  border-radius: 50%;
+  background: #fff0bd;
+  color: #215b9c;
+  text-align: center;
+  transform: rotate(-4deg);
+}
+
+.wz-doodle-tr::after {
+  content: '';
+  position: absolute;
+  left: 44px;
+  bottom: -18px;
+  border-style: solid;
+  border-width: 22px 18px 0 0;
+  border-color: #fff0bd transparent transparent transparent;
+}
+
+/* --- the carousel --- */
+
+/* The track is inset so the asides have a margin to sit in, and padded at the
+   top so a card's photo can hang over its own edge without being clipped by the
+   carousel's overflow. The inset is what gives the asides their room: without
+   it the cards fill the shell edge to edge and the lettering lands on them.
+   The top padding does double duty: it clears the photo hanging over the first
+   card's edge, and it leaves the band the speech bubble sits in - sized so the
+   bubble finishes above the cards rather than across the top one's badge. */
 .wz-testimonials {
-  padding: 0 56px 44px;
+  padding: 120px 60px 0;
 }
 
 /* A slide is a grid row, and the cards in it stand equal height however much
@@ -725,88 +908,224 @@ header#header-wrap .navbar {
   justify-content: center;
 }
 
+/* `.carousel-item` is `overflow: hidden` in Bootstrap 5.3 and would cut the
+   photo off at the card's top edge. */
+.wz-testimonials .carousel-inner,
+.wz-testimonials .carousel-item { overflow: visible; }
+
 .wz-testimonial {
-  background: var(--wz-surface);
-  border-radius: var(--wz-radius);
-  box-shadow: var(--wz-shadow);
-  padding: 30px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, .94);
+  border: 1px solid rgba(220, 229, 239, .6);
+  border-radius: 27px;
+  box-shadow: 0 12px 35px rgba(44, 78, 115, .08);
+  /* Top padding clears the photo, which hangs 37px above the card and stands
+     110px tall with its ring - so its lowest point is 73px down, and the stars
+     start below that rather than through it. */
+  padding: 111px 38px 30px;
   margin: 0;
+  /* A floor, not a fixed height, so a long quote still grows the card. It is
+     here so a row of short quotes keeps the generous proportions of the design
+     rather than collapsing into three letterbox cards. */
+  min-height: 495px;
   height: 100%;
-  text-align: center;
-  transition: transform .18s ease, box-shadow .18s ease;
+  text-align: left;
+  transition: transform .3s ease, box-shadow .3s ease;
 }
 
-.wz-testimonial:hover { transform: translateY(-3px); box-shadow: var(--wz-shadow-lg); }
+.wz-testimonial:hover {
+  transform: translateY(-7px);
+  box-shadow: 0 20px 45px rgba(44, 78, 115, .14);
+}
+
+/* Three tints, taken in turn across the whole set - see the counter in the
+   view. Each card's photo and quote badge use its own; everything else on the
+   card is the same on all three. */
+.wz-testimonial--a1 { --wz-t-accent: #e85d73; --wz-t-accent-soft: #fff0f3; --wz-t-photo: #ffdfe0; }
+.wz-testimonial--a2 { --wz-t-accent: #1680f5; --wz-t-accent-soft: #eaf4ff; --wz-t-photo: #d9eaff; }
+.wz-testimonial--a3 { --wz-t-accent: #51aa75; --wz-t-accent-soft: #edf9f0; --wz-t-photo: #dff2e1; }
+
+/* The photo rides up over the card's top edge and the quote badge sits inside
+   it at the opposite corner. Both are pinned to the card itself, so this
+   wrapper only groups them in the markup. */
+.wz-testimonial-head { position: static; display: block; }
+
+.wz-testimonial-photo {
+  position: absolute;
+  top: -37px;
+  left: 35px;
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--wz-t-photo, #e6f1ff);
+  border: 7px solid rgba(255, 255, 255, .85);
+  box-shadow: 0 6px 18px rgba(44, 78, 115, .12);
+}
 
 .wz-testimonial-mark {
+  position: absolute;
+  top: 25px;
+  right: 28px;
+  width: 62px;
+  height: 62px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--wz-t-accent-soft, #f4f4f9);
+  color: var(--wz-t-accent, #1680f5);
   font-family: Georgia, "Times New Roman", serif;
-  font-size: 64px;
+  font-size: 46px;
+  font-weight: 800;
   line-height: 1;
-  height: 40px;
-  background: var(--wz-grad);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  /* Georgia's closing quote sits high in its box; nudged down so it reads as
+     centred in the disc rather than pinned to the top of it. */
+  padding-top: 24px;
 }
 
-.wz-testimonial blockquote { margin: 0; }
+.wz-testimonial-stars {
+  display: flex;
+  gap: 3px;
+  margin-bottom: 9px;
+}
+
+/* Unearned stars stay on the card as hollow outlines rather than disappearing,
+   so a four-star quote is visibly four out of five and not just "four stars,
+   narrower than the card beside it". */
+.wz-testimonial-stars svg { width: 22px; height: 22px; fill: none; stroke: #e2c98a; stroke-width: 1.4; }
+.wz-testimonial-stars svg.is-on { fill: #ffad00; stroke: #ffad00; }
+
+.wz-testimonial blockquote { margin: 0; flex: 1 1 auto; }
 
 .wz-testimonial blockquote h3 {
-  font-size: 20px;
+  max-width: 390px;
+  font-size: 24px;
   font-weight: 800;
-  letter-spacing: -.02em;
+  letter-spacing: -.028em;
   text-transform: none;
-  margin: 0 0 12px;
-  color: var(--wz-ink);
+  line-height: 1.16;
+  margin: 0 0 17px;
+  color: #10182b;
 }
 
 .wz-testimonial blockquote p {
-  color: var(--wz-ink-soft);
-  font-size: 15.5px;
-  line-height: 1.7;
+  color: #5c687b;
+  font-size: 17px;
+  line-height: 1.52;
   margin: 0;
 }
 
-.wz-testimonials .carousel-control-prev,
-.wz-testimonials .carousel-control-next {
-  width: 44px;
-  height: 44px;
-  top: 50%;
-  transform: translateY(-50%);
-  margin-bottom: 44px; /* clears the indicator strip below the card */
-  border-radius: 50%;
-  background: var(--wz-surface);
-  box-shadow: var(--wz-shadow);
-  opacity: 1;
+/* Who said it, ruled off from the quote. `margin-top: auto` on the blockquote's
+   flex growth pushes it to the foot of the card, so the footers line up across
+   a row whose quotes are different lengths. */
+.wz-testimonial-by {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 25px;
+  padding-top: 20px;
+  border-top: 1px solid #e2e7ee;
 }
 
-.wz-testimonials .carousel-control-prev:hover,
-.wz-testimonials .carousel-control-next:hover { background: var(--wz-bg); }
+.wz-testimonial-who { display: flex; flex-direction: column; min-width: 0; }
 
-.wz-testimonials .carousel-control-prev-icon,
-.wz-testimonials .carousel-control-next-icon {
-  width: 16px;
-  height: 16px;
+.wz-testimonial-name {
+  font-weight: 800;
+  font-size: 17px;
+  color: #10182b;
+  letter-spacing: -.01em;
+}
+
+.wz-testimonial-role {
+  font-size: 14px;
+  color: #758198;
+  font-weight: 600;
+  margin-top: 3px;
+}
+
+.wz-testimonial-place {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  font-size: 14px;
+  color: #68758a;
+  white-space: nowrap;
+}
+
+.wz-testimonial-place svg { color: var(--wz-t-accent, #68758a); }
+
+/* --- the controls --- */
+
+/* One strip under the cards: arrow, dots, arrow. Both controls are taken out of
+   Bootstrap's absolute positioning to sit in it. */
+.wz-testimonials-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 55px;
+  margin-top: 27px;
+}
+
+.wz-testimonials-nav .carousel-control-prev,
+.wz-testimonials-nav .carousel-control-next {
+  position: static;
+  flex: 0 0 auto;
+  width: 55px;
+  height: 55px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid #e0e6ed;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, .03);
+  opacity: 1;
+  transition: background .25s ease, border-color .25s ease;
+}
+
+.wz-testimonials-nav .carousel-control-prev:hover,
+.wz-testimonials-nav .carousel-control-next:hover {
+  background: #1680f5;
+  border-color: #1680f5;
+}
+
+.wz-testimonials-nav .carousel-control-prev-icon,
+.wz-testimonials-nav .carousel-control-next-icon {
+  width: 15px;
+  height: 15px;
   /* Bootstrap ships a white glyph, invisible on the light disc; this is the
-     same inversion `.carousel-dark` uses. */
+     same inversion `.carousel-dark` uses. On hover the disc turns blue and the
+     glyph goes back to the white it shipped as. */
   filter: invert(1) grayscale(100);
 }
 
-.wz-testimonials .carousel-indicators {
-  bottom: 0;
-  margin: 0;
+.wz-testimonials-nav .carousel-control-prev:hover .carousel-control-prev-icon,
+.wz-testimonials-nav .carousel-control-next:hover .carousel-control-next-icon {
+  filter: none;
 }
 
-.wz-testimonials .carousel-indicators [data-bs-target] {
-  width: 8px;
-  height: 8px;
+.wz-testimonials-nav .carousel-indicators {
+  position: static;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.wz-testimonials-nav .carousel-indicators [data-bs-target] {
+  width: 12px;
+  height: 12px;
+  margin: 0;
   border: 0;
   border-radius: 50%;
-  background: var(--wz-line);
+  background: #d9dee5;
   opacity: 1;
+  transition: background .2s ease;
 }
 
-.wz-testimonials .carousel-indicators .active { background: var(--wz-purple); }
+.wz-testimonials-nav .carousel-indicators .active { background: #1680f5; }
 
 /* --------------------------------------------------------------- forms --- */
 
@@ -1125,6 +1444,19 @@ footer#footer,
 @media (max-width: 1199px) {
   .wz-footer-grid { grid-template-columns: 1fr 1fr 1fr; }
   .wz-footer-grid > :first-child { grid-column: 1 / -1; }
+
+  /* Below this the shell has no margin left for the hand-lettered asides, and
+     they would land on the cards. They carry no information the page needs -
+     aria-hidden decoration - so they go rather than being squeezed in, and the
+     track takes the width they were holding. */
+  .wz-doodle { display: none; }
+  /* With them gone the track takes the width they were holding, and the band
+     that made room for the bubble is no longer needed either - only the strip
+     the photo hangs in is still wanted. */
+  .wz-testimonials { padding: 74px 8px 0; }
+  .wz-testimonial { padding: 96px 28px 28px; min-height: 0; }
+  .wz-testimonial blockquote h3 { font-size: 22px; }
+  .wz-testimonial blockquote p { font-size: 16px; }
 }
 
 @media (max-width: 991px) {
@@ -1254,13 +1586,32 @@ footer#footer,
 
   .wz-card { padding: 20px; border-radius: 18px; }
 
-  /* No room beside the card for the arrows on a phone - drop them and let the
-     quote have the full width; swipe and the indicators still move it. */
-  .wz-testimonials { padding: 0 0 36px; }
-  .wz-testimonials .carousel-control-prev,
-  .wz-testimonials .carousel-control-next { display: none; }
-  .wz-testimonial { padding: 24px 20px 28px; border-radius: 18px; }
+  /* The arrows are in their own strip under the cards now rather than floating
+     over them, so they survive the phone; only the side inset goes, to give the
+     quote the full width. */
+  #testimonials { padding: 66px 0 55px !important; }
+  .wz-testimonials { padding: 66px 0 0; }
+  .wz-testimonial { padding: 88px 24px 26px; border-radius: 22px; }
+  .wz-testimonial blockquote h3 { font-size: 21px; }
   .wz-testimonial blockquote p { font-size: 15.5px; }
+
+  /* The photo and its badge come down with the card - at the full 110px the
+     photo is most of the width of a phone card. */
+  .wz-testimonial-photo { width: 88px; height: 88px; top: -30px; left: 24px; border-width: 5px; }
+  .wz-testimonial-mark { width: 52px; height: 52px; top: 20px; right: 20px; font-size: 38px; padding-top: 20px; }
+  .wz-testimonial-stars svg { width: 19px; height: 19px; }
+
+  .wz-testimonials-head .wz-section-title { font-size: clamp(34px, 8vw, 46px); }
+  .wz-testimonials-sub { font-size: 16px; }
+  .wz-pill { font-size: 12px; padding: 9px 16px; }
+  .wz-testimonials-nav { gap: 30px; }
+  .wz-testimonials-nav .carousel-control-prev,
+  .wz-testimonials-nav .carousel-control-next { width: 46px; height: 46px; }
+
+  /* Name, role and place stack on a narrow card - side by side, a two-word city
+     wraps under a long name and the rule above them stops lining up. */
+  .wz-testimonial-by { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .wz-testimonial-place { white-space: normal; }
 
   .wz-footer-grid { grid-template-columns: 1fr 1fr; gap: 30px; }
   .wz-footer-grid > :first-child { grid-column: 1 / -1; }

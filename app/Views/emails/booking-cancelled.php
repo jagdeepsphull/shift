@@ -11,7 +11,8 @@
  * else - so this says only what happened and who to talk to about it.
  *
  * The shift is named the same way as in the booking e-mail, store and all, so
- * somebody with several bookings can tell which one has gone.
+ * somebody with several bookings can tell which one has gone - by the store's
+ * own name rather than the group the owner trades under, for the same reason.
  *
  * @var string      $name
  * @var array       $shift    row from `post_job`
@@ -21,6 +22,7 @@
  */
 $store    = $store ?? null;
 $employer = $employer ?? null;
+$pharmacy = $store ? $store->s_name : ($employer['u_comp_name'] ?? '');
 ?>
 <?= $this->extend('emails/layout') ?>
 
@@ -28,7 +30,7 @@ $employer = $employer ?? null;
     <h2 style="margin: 0 0 14px; font-size: 18px; color: #222;">Hello, <?= esc($name) ?>!</h2>
 
     <p style="line-height: 1.6;">We are writing to let you know that your booking for
-    <strong><?= esc($shift['p_job_title']) ?></strong><?= $employer ? ' at <strong>' . esc($employer['u_comp_name']) . '</strong>' : '' ?>
+    <strong><?= esc($shift['p_job_title']) ?></strong><?= $pharmacy !== '' ? ' at <strong>' . esc($pharmacy) . '</strong>' : '' ?>
     has been cancelled. <strong>Please do not attend this shift.</strong></p>
 
     <p style="line-height: 1.6;">The booking was for:</p>

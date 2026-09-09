@@ -2,10 +2,14 @@
     <footer id="footer" class="footer-area">
       <div class="wz-footer">
         <div class="wz-footer-bottom">
+          <?php /* Set at /sadmin/settings, so this and the contact page cannot
+                 disagree about which account is the agency's. The wrapper stays
+                 whatever is in it: the bar is a three-column grid, and an empty
+                 first cell still holds the middle one in the middle. */ ?>
           <div class="wz-social">
-            <a href="#" aria-label="Facebook"><i class="lni-facebook-filled"></i></a>
-            <a href="https://x.com/reliefshifts" target="_blank" rel="noopener" aria-label="X"><i class="lni-twitter-filled"></i></a>
-            <a href="https://www.instagram.com/reliefshifts?igsh=ZGwydWl5NTg0OXln" target="_blank" rel="noopener" aria-label="Instagram"><i class="lni-instagram-filled"></i></a>
+            <?php foreach (socialLinks($settings[0] ?? null) as $link) { ?>
+            <a href="<?php echo esc($link['url']); ?>" target="_blank" rel="noopener" aria-label="<?php echo esc($link['label']); ?>"><i class="<?php echo $link['icon']; ?>"></i></a>
+            <?php } ?>
           </div>
           <?php /* The address and the two legal pages are one line in the
                  middle of the bar, which keeps it to the three items the grid

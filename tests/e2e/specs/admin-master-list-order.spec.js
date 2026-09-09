@@ -43,7 +43,10 @@ const LISTS = [
   { module: 'city', table: 'city', key: 'c_id', orderColumn: 'c_order', nameColumn: 'c_name', groupColumn: 'c_province', tableId: 'example1', nameCell: 1 },
   { module: 'softwareskills', table: 'software_skills', key: 'ss_id', orderColumn: 'ss_order', nameColumn: 'ss_name', groupColumn: null, tableId: 'example1', nameCell: 1 },
   { module: 'storeservice', table: 'store_service', key: 'st_id', orderColumn: 'st_order', nameColumn: 'st_service_name', groupColumn: null, tableId: 'example1', nameCell: 1 },
-  { module: 'testimonials', table: 'testimonial', key: 't_id', orderColumn: 't_order', nameColumn: 't_title', groupColumn: null, tableId: 'example1', nameCell: 1 },
+  // nameCell 2, not 1: DataTables drops the hidden id column out of the DOM, so
+  // the first cell on screen is whatever follows it - and on Testimonials that
+  // is the photo, which comes before the title.
+  { module: 'testimonials', table: 'testimonial', key: 't_id', orderColumn: 't_order', nameColumn: 't_title', groupColumn: null, tableId: 'example1', nameCell: 2 },
   { module: 'resources', table: 'headermenu', key: 'm_id', orderColumn: 'm_order', nameColumn: 'm_name', groupColumn: 'm_parentid', tableId: 'res-table-ex', nameCell: 1 },
 ];
 

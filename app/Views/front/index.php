@@ -165,32 +165,111 @@ foreach (($shift_for ?: []) as $wz_row) {
 </section>
 
 <?php if (! empty($testimonials)): ?>
+<?php
+  // Three to a slide, so the row matches the three tiles above it. Bootstrap
+  // moves one slide at a time, so the grouping is done here rather than by
+  // sliding a wider track - a fourth testimonial starts the next slide.
+  $slides = array_chunk($testimonials, 3);
+
+  // Cards take one of three accent tints in turn - the quote badge and the ring
+  // round the photo. Counted across the whole set rather than per slide, so the
+  // colours keep marching in order as the carousel advances instead of
+  // restarting on every slide and putting the same tint under the same column.
+  $wz_t_seq = 0;
+?>
 <!-- What people say about us. Hidden entirely when the admin has added none. -->
 <section id="testimonials" class="section-padding">
   <div class="wz-shell">
-    <div class="text-center mb-5">
-      <h2 class="wz-section-title">What People Say</h2>
+    <div class="wz-testimonials-head">
+      <span class="wz-pill">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">
+          <path d="M9 12a4 4 0 100-8 4 4 0 000 8zm7.5 1a3 3 0 100-6 3 3 0 000 6zM9 14c-3.9 0-7 2-7 4.5V21h14v-2.5C16 16 12.9 14 9 14zm7.5.5c-.9 0-1.7.1-2.4.3 1.2 1 1.9 2.3 1.9 3.7V21h6v-2c0-2.2-2.5-4.5-5.5-4.5z"/>
+        </svg>
+        Real stories. Real impact.
+      </span>
+      <h2 class="wz-section-title">What People <span>Say</span></h2>
+      <p class="wz-testimonials-sub">
+        Hear from job seekers and employers who have found success with
+        <?php echo esc($settings[0]->s_sitename); ?>.
+      </p>
     </div>
 
-    <?php
-      // Three to a slide, so the row matches the three tiles above it. Bootstrap
-      // moves one slide at a time, so the grouping is done here rather than by
-      // sliding a wider track - a fourth testimonial starts the next slide.
-      $slides = array_chunk($testimonials, 3);
-    ?>
+    <?php /* Hand-lettered asides, in the script face the hero uses. Decoration
+       only - aria-hidden so a screen reader is not read three fragments that
+       belong to no card, and hidden outright below the desktop breakpoint,
+       where there is no margin for them to sit in. */ ?>
+    <div class="wz-testimonials-stage">
+      <span class="wz-doodle wz-doodle-tl" aria-hidden="true">
+        People<br>Make It<br>Happen &#9825;
+        <svg viewBox="0 0 40 46" width="34" height="40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+          <path d="M6 3c9 8 20 20 24 34"/><path d="M18 36l12 3 1-12"/>
+        </svg>
+      </span>
+      <span class="wz-doodle wz-doodle-tr" aria-hidden="true">Great<br>People<br>Great Shifts</span>
+      <span class="wz-doodle wz-doodle-br" aria-hidden="true">Stronger<br>Communities &#9825;</span>
+
     <div id="wz-testimonials" class="carousel slide wz-testimonials" data-bs-ride="carousel" data-bs-interval="6000">
       <div class="carousel-inner">
         <?php foreach ($slides as $i => $slide): ?>
           <div class="carousel-item <?php echo $i === 0 ? 'active' : ''; ?>">
             <div class="row g-4">
               <?php foreach ($slide as $testimonial): ?>
+                <?php
+                  $wz_stars    = testimonialRating($testimonial->t_rating ?? 5);
+                  $wz_name     = trim((string) ($testimonial->t_name ?? ''));
+                  $wz_role     = trim((string) ($testimonial->t_role ?? ''));
+                  $wz_place    = trim((string) ($testimonial->t_location ?? ''));
+                  $wz_accent   = 'wz-testimonial--a' . (($wz_t_seq++ % 3) + 1);
+                ?>
                 <div class="col-md-6 col-lg-4">
-                  <figure class="wz-testimonial">
-                    <div class="wz-testimonial-mark" aria-hidden="true">&ldquo;</div>
+                  <figure class="wz-testimonial <?php echo $wz_accent; ?>">
+                    <div class="wz-testimonial-head">
+                      <?php /* Always an image: `testimonialPhoto()` hands back the
+                         placeholder thumb when the row has no photo of its own,
+                         so the circle is never an empty hole in the card. */ ?>
+                      <img class="wz-testimonial-photo" src="<?php echo esc(testimonialPhoto($testimonial->t_image ?? ''), 'attr'); ?>"
+                           alt="<?php echo $wz_name !== '' ? esc($wz_name, 'attr') : ''; ?>" loading="lazy" width="76" height="76">
+                      <span class="wz-testimonial-mark" aria-hidden="true">&rdquo;</span>
+                    </div>
+
+                    <div class="wz-testimonial-stars" role="img"
+                         aria-label="Rated <?php echo $wz_stars; ?> out of 5">
+                      <?php for ($s = 1; $s <= 5; $s++): ?>
+                        <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true"
+                             class="<?php echo $s <= $wz_stars ? 'is-on' : ''; ?>">
+                          <path d="M10 1.6l2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L1.6 7.7l5.8-.8z"/>
+                        </svg>
+                      <?php endfor; ?>
+                    </div>
+
                     <blockquote>
                       <h3><?php echo esc($testimonial->t_title); ?></h3>
                       <p><?php echo nl2br(esc($testimonial->t_description)); ?></p>
                     </blockquote>
+
+                    <?php /* The footer only appears once there is something to put
+                       in it. An older quote with no name attached keeps the card
+                       it always had rather than gaining an empty ruled-off strip. */ ?>
+                    <?php if ($wz_name !== '' || $wz_role !== '' || $wz_place !== ''): ?>
+                      <figcaption class="wz-testimonial-by">
+                        <span class="wz-testimonial-who">
+                          <?php if ($wz_name !== ''): ?>
+                            <span class="wz-testimonial-name"><?php echo esc($wz_name); ?></span>
+                          <?php endif; ?>
+                          <?php if ($wz_role !== ''): ?>
+                            <span class="wz-testimonial-role"><?php echo esc($wz_role); ?></span>
+                          <?php endif; ?>
+                        </span>
+                        <?php if ($wz_place !== ''): ?>
+                          <span class="wz-testimonial-place">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true">
+                              <path d="M12 2a7 7 0 00-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 00-7-7zm0 9.5A2.5 2.5 0 1112 6.5a2.5 2.5 0 010 5z"/>
+                            </svg>
+                            <?php echo esc($wz_place); ?>
+                          </span>
+                        <?php endif; ?>
+                      </figcaption>
+                    <?php endif; ?>
                   </figure>
                 </div>
               <?php endforeach; ?>
@@ -199,26 +278,35 @@ foreach (($shift_for ?: []) as $wz_row) {
         <?php endforeach; ?>
       </div>
 
+      <?php /* Arrows and dots sit together in one strip under the cards rather
+         than the arrows floating over them, which is what Bootstrap does by
+         default: at three cards wide an arrow over the edge card lands on its
+         text. They keep their Bootstrap classes and data attributes, so the
+         carousel is still driven entirely by the framework. */ ?>
       <?php if (count($slides) > 1): ?>
-        <button class="carousel-control-prev" type="button" data-bs-target="#wz-testimonials" data-bs-slide="prev">
-          <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-          <span class="visually-hidden">Previous</span>
-        </button>
-        <button class="carousel-control-next" type="button" data-bs-target="#wz-testimonials" data-bs-slide="next">
-          <span class="carousel-control-next-icon" aria-hidden="true"></span>
-          <span class="visually-hidden">Next</span>
-        </button>
+        <div class="wz-testimonials-nav">
+          <button class="carousel-control-prev" type="button" data-bs-target="#wz-testimonials" data-bs-slide="prev">
+            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+            <span class="visually-hidden">Previous</span>
+          </button>
 
-        <div class="carousel-indicators">
-          <?php foreach ($slides as $i => $slide): ?>
-            <button type="button" data-bs-target="#wz-testimonials" data-bs-slide-to="<?php echo $i; ?>"
-                    class="<?php echo $i === 0 ? 'active' : ''; ?>"
-                    <?php echo $i === 0 ? 'aria-current="true"' : ''; ?>
-                    aria-label="Testimonials <?php echo $i + 1; ?>"></button>
-          <?php endforeach; ?>
+          <div class="carousel-indicators">
+            <?php foreach ($slides as $i => $slide): ?>
+              <button type="button" data-bs-target="#wz-testimonials" data-bs-slide-to="<?php echo $i; ?>"
+                      class="<?php echo $i === 0 ? 'active' : ''; ?>"
+                      <?php echo $i === 0 ? 'aria-current="true"' : ''; ?>
+                      aria-label="Testimonials <?php echo $i + 1; ?>"></button>
+            <?php endforeach; ?>
+          </div>
+
+          <button class="carousel-control-next" type="button" data-bs-target="#wz-testimonials" data-bs-slide="next">
+            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+            <span class="visually-hidden">Next</span>
+          </button>
         </div>
       <?php endif; ?>
     </div>
+    </div><!-- /.wz-testimonials-stage -->
   </div>
 </section>
 <?php endif; ?>

@@ -228,6 +228,7 @@ class AppSettings extends BaseConfig
         4 => ['template' => 'booking-applicant', 'label' => 'Booking confirmation (as applicant)', 'audience' => 'applicant'],
         5 => ['template' => 'booking-employer',  'label' => 'Booking confirmation (as employer)',  'audience' => 'employer'],
         6 => ['template' => 'shift-reminder',    'label' => 'Day-before shift reminder',           'audience' => 'applicant'],
+        7 => ['template' => 'shift-updated',     'label' => 'Shift updated by the agency',         'audience' => 'employer'],
     ];
 
     /**
@@ -328,6 +329,17 @@ class AppSettings extends BaseConfig
     public string $mailFromEmail = 'donotreply@pickashift.ca';
 
     public string $mailFromName = 'PickAShift';
+
+    /**
+     * The address every e-mail tells its reader to write to with questions,
+     * and the one the unsubscribe page offers.
+     *
+     * Fixed here rather than read from `settings.s_email`: that row is the
+     * contact-form inbox and the address in the website footer, and it held a
+     * reliefshifts.com address while the e-mail copy the agency signed off
+     * names this one. Override with `appsettings.supportEmail` in .env.
+     */
+    public string $supportEmail = 'team@pickashift.ca';
 
     /**
      * Fallback for the address copied on booking e-mails. The live value is

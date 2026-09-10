@@ -12,6 +12,9 @@
 						echo session()->getFlashdata('error_msg');
 				}
 					?>
+	            <?php if (validation_errors()): ?>
+	                <div class="alert alert-danger"><?= validation_errors() ?></div>
+	            <?php endif; ?>
 	            <form name="post-job" action="" method="post" enctype="multipart/form-data">
 	                <div class="dashboard-caption-wrap">
 
@@ -37,33 +40,6 @@
 								<div class="form-group">
 									<label>Last Name</label>
 									<input required type="text" class="form-control" placeholder="Enter Last Name" name="u_lname" value="<?php echo esc($u_lname); ?>">
-								</div>
-	                        </div>
-							<div class="col-lg-4 col-md-4 col-sm-2">
-	                            <div class="form-group">
-									<label>Store Name</label>
-									<input required readonly disabled type="text" class="form-control" placeholder="Enter <?php echo $pageinfo['title']; ?> Name" name="u_comp_name" value="<?php echo esc($u_comp_name); ?>">
-								</div>
-	                        </div>
-	                        <div class="col-lg-4 col-md-4 col-sm-2">
-	                            <div class="form-group">
-									<label>Store Registration Province</label>
-									<select required readonly disabled class="form-control " name="u_l_provice" id="province_L_list" >
-										<option value="">Select Province</option>
-										<?php if($province){ ?>
-										<?php foreach($province as $record){ ?>
-										<option value="<?php echo $record->p_id; ?>"
-											<?php echo ($u_l_provice==$record->p_id)?"selected":""; ?>>
-											<?php echo $record->p_name; ?></option>
-										<?php } ?>
-										<?php } ?>
-									</select>
-								</div>
-	                        </div>
-	                        <div class="col-lg-4 col-md-4 col-sm-2">
-	                            <div class="form-group">
-									<label>Store No.</label>
-									<input required readonly disabled type="text" class="form-control" placeholder="Enter Store No." name="u_licence_no" value="<?php echo esc($u_licence_no); ?>">
 								</div>
 	                        </div>
 						</div>

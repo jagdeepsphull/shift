@@ -4,15 +4,24 @@
  * Shell every e-mail template extends. Templates fill the `content` section and
  * may set `$title` (used for the <title> and the coloured banner).
  *
+ * The templates whose wording comes from the agency's e-mail spec set their own
+ * banner with `$this->setVar('title', ...)` rather than taking one from the
+ * sender, so a message's words all live in one file. A value set that way
+ * reaches this layout because it is rendered with the child's data.
+ *
  * Styles are inline-ish and table-free-ish on purpose: Outlook and Gmail both
  * strip <style> blocks in some contexts, so anything that must survive is
  * repeated as a style attribute on the element itself.
  *
  * @var string      $title
- * @var array|null  $settings  rows from `settings`; [0] is the live one
+ * @var bool        $support_line false from a template that names the support
+ *                                address in its own words, as the cancellation
+ *                                does, so it is not said twice
+ * @var array|null  $settings     rows from `settings`; [0] is the live one
  */
-$site      = $settings[0]->s_sitename ?? 'PickAShift';
-$supportTo = $settings[0]->s_email ?? 'team@pickashift.ca';
+$site        = $settings[0]->s_sitename ?? 'Pick-A-Shift';
+$supportTo   = config('AppSettings')->supportEmail;
+$supportLine = $support_line ?? true;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -44,12 +53,15 @@ $supportTo = $settings[0]->s_email ?? 'team@pickashift.ca';
         <div class="content" style="padding: 22px 24px;">
             <?= $this->renderSection('content') ?>
 
-            <p style="line-height: 1.6;">If you have any questions, our support team is at
+            <?php if ($supportLine) { ?>
+            <p style="line-height: 1.6;">If you have any questions, you may reach out to our support team at
                 <a href="mailto:<?= esc($supportTo) ?>" style="color: #7c3aed;"><?= esc($supportTo) ?></a>.</p>
+            <?php } ?>
         </div>
 
         <div class="footer" style="background: #f1f1f4; padding: 16px 20px; text-align: center; font-size: 13px; color: #666;">
-            <p style="margin: 0 0 6px;">&copy; <?= date('Y') ?> <?= esc($site) ?>. All rights reserved.</p>
+            <?php /* No year: the agency's spec struck it, so the line never goes stale. */ ?>
+            <p style="margin: 0 0 6px;">&copy; <?= esc($site) ?>. All rights reserved.</p>
             <p style="margin: 0 0 10px;"><a href="<?= base_url('terms') ?>" style="color: #7c3aed;">Terms &amp; Conditions</a></p>
 
             <?php /*

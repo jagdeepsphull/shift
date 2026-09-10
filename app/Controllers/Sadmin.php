@@ -1622,6 +1622,12 @@ class Sadmin extends BaseController
      *
      * Ordered oldest first, so the carousel opens on the first one added and the
      * admin can predict the running order from the list screen.
+     *
+     * A row is a whole card, not just the two blocks of text: who said it, what
+     * they are, where they are, how many stars and their photo. Only the title
+     * and the quote are compulsory - the rest are what the card shows when they
+     * are filled in and leaves out when they are not, so an existing quote with
+     * nobody's name on it still renders.
      */
     public function testimonials()
     {
@@ -1636,6 +1642,7 @@ class Sadmin extends BaseController
         $this->data['validation_errors'] = '';
         $this->data['pageinfo']          = ['title' => 'Testimonial', 'link' => $module];
         $this->data['testimonials']      = $this->custom->get_data_order($table, TESTIMONIAL_ORDER, '', false);
+        $this->data['ratings']           = [5 => '5 stars', 4 => '4 stars', 3 => '3 stars', 2 => '2 stars', 1 => '1 star'];
 
         switch ($action) {
             default:
@@ -1644,13 +1651,17 @@ class Sadmin extends BaseController
 
             case 'add':
                 if ($this->input->post('savedata')) {
-                    $this->form_validation->set_rules('t_title', 'Title', 'required');
-                    $this->form_validation->set_rules('t_description', 'Description', 'required');
+                    $this->testimonialRules();
 
                     $rowData = cleanArray($this->input->post());
-                    unset($rowData['savedata']);
+                    unset($rowData['savedata'], $rowData['remove_image']);
 
                     if (insertQry_N($table, $rowData)) {
+                        // The photo can only be filed once the row it belongs to
+                        // has an id - `fileupload()` writes the filename back
+                        // itself, and needs somewhere to write it to.
+                        $this->testimonialPhotoUpload((int) $this->custom->db()->insertID());
+
                         ci_redirect('sadmin/' . $module);
                     }
 
@@ -1671,19 +1682,35 @@ class Sadmin extends BaseController
 
                     if ($original_row) {
                         if ($this->input->post('updatedata')) {
-                            $this->form_validation->set_rules('t_title', 'Title', 'required');
-                            $this->form_validation->set_rules('t_description', 'Description', 'required');
+                            $this->testimonialRules();
 
                             $rowData = cleanArray($this->input->post());
-                            unset($rowData['updatedata']);
+                            $remove  = (string) $this->input->post('remove_image') !== '';
+                            unset($rowData['updatedata'], $rowData['remove_image']);
+
+                            // `t_image` is not a form field the browser posts
+                            // back, so the update never touches it and a save
+                            // with no new file leaves the existing photo alone.
+                            // Clearing it is therefore its own instruction.
+                            if ($remove) {
+                                $rowData['t_image'] = '';
+                            }
 
                             if (updateQry($table, $rowData, ['t_id' => $id])) {
+                                $this->testimonialPhotoUpload((int) $id);
+
                                 ci_redirect('sadmin/' . $module);
                             }
 
                             foreach ($rowData as $ky => $vl) {
                                 $this->data[$ky] = $vl;
                             }
+
+                            // The form redraws from `$this->data`, and the
+                            // posted array has no `t_image` in it - without this
+                            // a failed save would show "no photo" for a row that
+                            // has one.
+                            $this->data['t_image'] = $remove ? '' : $original_row[0]->t_image;
                         } else {
                             getTableInfo($this->dbname, $table, ['t_id' => $id]);
                         }
@@ -1750,6 +1777,73 @@ class Sadmin extends BaseController
                     ci_redirect('sadmin/' . $module);
                 }
                 break;
+        }
+    }
+
+    /**
+     * The rules both testimonial forms run, kept in one place so the add screen
+     * and the edit screen cannot drift apart.
+     *
+     * Only the two text blocks are required. The name, role and location are
+     * optional because the card hides each line it has nothing for, and the old
+     * rows carry none of them - making them compulsory would mean the admin
+     * could not save an edit to a quote written before the columns existed
+     * without first inventing an author for it.
+     *
+     * The rating is a fixed list rather than a number: it is drawn as stars, so
+     * `in_list` and a select between them mean the card never has to render a 0
+     * or a 9.
+     */
+    private function testimonialRules(): void
+    {
+        $this->form_validation->set_rules('t_title', 'Title', 'required');
+        $this->form_validation->set_rules('t_description', 'Description', 'required');
+        $this->form_validation->set_rules('t_name', 'Name', 'permit_empty|max_length[100]');
+        $this->form_validation->set_rules('t_role', 'Role', 'permit_empty|max_length[100]');
+        $this->form_validation->set_rules('t_location', 'Location', 'permit_empty|max_length[120]');
+        $this->form_validation->set_rules('t_rating', 'Rating', 'required|in_list[1,2,3,4,5]');
+        $this->form_validation->set_rules('t_status', 'Status', 'required|in_list[0,1]');
+    }
+
+    /**
+     * File the photo posted with a testimonial form, if one was.
+     *
+     * Runs after the row is written, never instead of it: the picture is the
+     * one part of the card that can fail on its own (wrong format, too big),
+     * and a rejected file should leave the text the admin typed saved rather
+     * than throwing the whole save away. The flash message says which happened.
+     */
+    private function testimonialPhotoUpload(int $id): void
+    {
+        if ($id < 1) {
+            return;
+        }
+
+        $file = $this->request->getFile('t_image');
+
+        if ($file === null || ! $file->isValid()) {
+            return;
+        }
+
+        $filestatus = fileupload([
+            'filename' => 't_image',
+            'path'     => 'testimonial',
+            'types'    => 'gif|jpg|jpeg|png|webp',
+            'size'     => '2048',
+            'width'    => '2000',
+            'height'   => '2000',
+            'table'    => 'testimonial',
+            'field'    => 't_image',
+            'pkfield'  => 't_id',
+            'pkval'    => $id,
+        ]);
+
+        if ($filestatus['error'] == 1) {
+            $this->session->set_flashdata(
+                'error_msg',
+                '<div class="alert alert-warning">The testimonial was saved, but the photo was not: '
+                . esc($filestatus['status']['error'] ?? 'the file could not be uploaded.') . '</div>'
+            );
         }
     }
 
@@ -2569,9 +2663,8 @@ class Sadmin extends BaseController
      */
     private function sendAccountApprovedEmail(array $user): void
     {
-        $subject = 'Your Account Has Been Approved – Welcome to ' . $this->data['settings'][0]->s_sitename . '!';
+        $subject = 'Your Account is now Active';
         $message = email_body('account-approved', [
-            'title'    => 'Your account has been approved',
             'name'     => trim($user['u_fname'] . ' ' . $user['u_lname']),
             'settings' => $this->data['settings'],
         ]);
@@ -3286,7 +3379,9 @@ class Sadmin extends BaseController
                             }
                         }
 
-                        if ($shift_approved['p_approved'] != 1 && $rowData['p_approved'] == 1) {
+                        $announced = $shift_approved['p_approved'] != 1 && $rowData['p_approved'] == 1;
+
+                        if ($announced) {
                             // Who this goes to is the form's "Send shift
                             // e-mail to" boxes, saved on the row above.
                             $this->sendShiftPostedEmail(
@@ -3313,7 +3408,9 @@ class Sadmin extends BaseController
                             $this->cancelBooking($booking, false);
                         }
 
-                        if ($applicant && $applicantId !== $bookedId) {
+                        $rebooked = $applicant && $applicantId !== $bookedId;
+
+                        if ($rebooked) {
                             $this->bookApplicant((int) $id, $applicant, (string) $this->input->post('sj_admin_comment'));
                         } elseif ($booking && $applicantId === 0 && $shiftBooked) {
                             // Nobody on it now. It was closed because of the
@@ -3323,6 +3420,15 @@ class Sadmin extends BaseController
                             $this->db->table($table)
                                 ->where('p_id', $id)
                                 ->update(['p_approved' => 1, 'modified' => date('Y-m-d H:i:s')]);
+                        }
+
+                        // Anything else this save changed, to the same boxes.
+                        // Last, so it describes the shift once the booking
+                        // above has settled; skipped when "your shift is
+                        // live" or the booking confirmation has just told the
+                        // store the same thing.
+                        if (! $announced && ! $rebooked) {
+                            $this->sendShiftUpdatedEmail($shift_approved, $booking, (int) $id, $u_data[0]);
                         }
 
                         ci_redirect('sadmin/postjobs', 'refresh');
@@ -3601,9 +3707,16 @@ class Sadmin extends BaseController
 
             $rowData = cleanArray($this->input->post());
 
-            $rowData['s_disclaimer']       = $this->input->post('s_disclaimer');
-            $rowData['s_terms_conditions'] = $this->input->post('s_terms_conditions');
-            $rowData['s_privacy_policy']   = $this->input->post('s_privacy_policy');
+            // Whoever fills these in types what they would type into a browser,
+            // so they are normalised here rather than trusted as an `href`.
+            foreach (['s_facebook_url', 's_twitter_url', 's_instagram_url'] as $link) {
+                $rowData[$link] = socialUrl($rowData[$link] ?? '');
+            }
+
+            // `s_disclaimer`, `s_terms_conditions` and `s_privacy_policy` are no
+            // longer on the form and so are not in the post. The update writes
+            // only the columns it is given, which leaves that text as it stands
+            // for whenever the editors are wanted back.
             unset($rowData['updatedata'], $rowData['files']);
 
             if (updateQry($table, $rowData, ['s_id' => 1])) {
@@ -3625,13 +3738,137 @@ class Sadmin extends BaseController
      *
      * Called from the one moment it means anything: a shift becoming Open,
      * whether that is a new shift saved as Open or an existing one approved.
-     * The applicant side of the site is not involved - the booking e-mails are
-     * sent from `bookApplicant()` and are not affected by any of this.
+     * The applicant side of the site is not involved; the employer's half of a
+     * booking is sent from `sendBookingEmails()` and reads the same choice.
      *
      * @param array<string, mixed>  $shift the `post_job` row, after saving
      * @param object|null           $owner the `users` row that owns the store
      */
     private function sendShiftPostedEmail(array $shift, ?object $owner): void
+    {
+        $audience = $this->shiftStoreAudience($shift, $owner, 'shift-posted');
+
+        // Which branch the shift is at, so the e-mail can name it: a chain's
+        // head office runs several and the shift number alone does not say.
+        $store = shiftStore((object) $shift);
+
+        // The greeting is the store's owner either way. The manager is sent the
+        // same message rather than one addressed to them: this e-mail says a
+        // shift is live, and it reads the same to both sides of a store.
+        //
+        // The subject names the site by its domain rather than by
+        // `s_sitename`, because that is what the spec asks for and what a
+        // pharmacy recognises in a crowded inbox.
+        $subject = 'Your Shift is now live on ' . siteDomain();
+        $message = email_body('shift-posted', [
+            'name'        => trim(($owner->u_fname ?? '') . ' ' . ($owner->u_lname ?? '')),
+            'shift_title' => $shift['p_job_title'] ?? '',
+            'shift_date'  => $shift['p_dates'] ? dateFormat($shift['p_dates']) : '',
+            'store_name'  => (string) ($store->s_name ?? ''),
+            'settings'    => $this->data['settings'],
+        ]);
+
+        foreach ($audience as $address) {
+            if (send_email($address, $subject, $message)) {
+                log_message('info', 'Shift-posted e-mail sent to ' . $address);
+            } else {
+                log_message('error', 'Shift-posted e-mail failed for ' . $address);
+            }
+        }
+    }
+
+    /**
+     * Tell the store an admin has changed one of its shifts.
+     *
+     * Called after every save of the edit form, once the booking on it has been
+     * settled, and sends only when the save changed something. Two saves are
+     * left to the e-mail they already send, so the store is not told twice:
+     * the shift becoming Open ("your shift is live"), and a new applicant being
+     * booked on it (the booking confirmation). Both of those describe the
+     * shift as it now stands.
+     *
+     * What counts as a change is what the store is shown - see
+     * `shiftSummaryLines()` - plus the title, the store's rate, the extra
+     * details and who the e-mail goes to. Ticking Owner on a shift and saving
+     * is a change, and it sends, which is how an administrator gets an e-mail
+     * to somebody who was left off the first one. The applicant's rate and the
+     * agency's own notes are not: neither is the store's business, and the
+     * notes box rewrites its own markup on a save that changed nothing.
+     *
+     * @param array<string, mixed>      $before        the `post_job` row before the save
+     * @param array<string, mixed>|null $bookingBefore who was on it before the save
+     * @param object|null               $owner         the `users` row that owns the store
+     */
+    private function sendShiftUpdatedEmail(array $before, ?array $bookingBefore, int $shiftId, ?object $owner): void
+    {
+        $after = $this->custom->get_where_row('post_job', ['p_id' => $shiftId]);
+
+        if (! $after) {
+            return;
+        }
+
+        $bookedUser = fn (?array $booking) => $booking
+            ? $this->custom->get_where_row('users', ['u_id' => (int) $booking['u_id']])
+            : null;
+
+        $was   = shiftSummaryLines($before, $bookedUser($bookingBefore));
+        $lines = shiftSummaryLines($after, $bookedUser($this->shiftBooking($shiftId)));
+
+        $sides = static function ($choice): array {
+            $sides = shiftEmailChoice($choice);
+            sort($sides);
+
+            return $sides;
+        };
+
+        $changed = $was !== $lines
+            || $sides($before['p_email_to'] ?? '') !== $sides($after['p_email_to'] ?? '');
+
+        foreach (['p_job_title', 'p_hourly_rate', 'p_additional_details'] as $column) {
+            $changed = $changed || (string) ($before[$column] ?? '') !== (string) ($after[$column] ?? '');
+        }
+
+        if (! $changed) {
+            log_message('info', 'Shift-updated e-mail not sent for ' . $after['p_job_title'] . ': the save changed nothing.');
+
+            return;
+        }
+
+        $audience = $this->shiftStoreAudience($after, $owner, 'shift-updated');
+
+        $date    = dateFormat($after['p_dates']);
+        $subject = 'Your shift has been updated' . ($date !== '' ? ' : ' . $date : '');
+        $message = email_body('shift-updated', [
+            'name'        => trim(($owner->u_fname ?? '') . ' ' . ($owner->u_lname ?? '')),
+            'shift_title' => $after['p_job_title'],
+            'lines'       => $lines,
+            'was'         => $was,
+            'settings'    => $this->data['settings'],
+        ]);
+
+        foreach ($audience as $address) {
+            if (send_email($address, $subject, $message)) {
+                log_message('info', 'Shift-updated e-mail sent to ' . $address);
+            } else {
+                log_message('error', 'Shift-updated e-mail failed for ' . $address);
+            }
+        }
+    }
+
+    /**
+     * Who at a shift's store to write to about it: the sides ticked in its
+     * "Send shift e-mails to" boxes that can be reached and have not opted out
+     * of `$template`, then the fixed address, which is on every one.
+     *
+     * A ticked side that could not be reached is logged rather than dropped
+     * silently, so "the owner never got it" has an answer in the log.
+     *
+     * @param array<string, mixed> $shift the `post_job` row, after saving
+     * @param object|null          $owner the `users` row that owns the store
+     *
+     * @return array<int, string> addresses, the store's own first
+     */
+    private function shiftStoreAudience(array $shift, ?object $owner, string $template): array
     {
         $storeId = (int) ($shift['p_store_id'] ?? 0);
         $manager = $storeId > 0 ? (storeManagers([$storeId])[$storeId] ?? null) : null;
@@ -3640,42 +3877,26 @@ class Sadmin extends BaseController
             $owner,
             $manager,
             $shift['p_email_to'] ?? '',
-            (string) config('AppSettings')->shiftEmailFallback
+            (string) config('AppSettings')->shiftEmailFallback,
+            $template
         );
+
+        $which = $shift['p_job_title'] ?? ('shift ' . ($shift['p_id'] ?? '?'));
 
         if ($audience['missing'] !== []) {
             log_message('info', sprintf(
-                'Shift-posted e-mail for %s could not reach: %s (no such account, no address, or opted out).',
-                $shift['p_job_title'] ?? ('shift ' . ($shift['p_id'] ?? '?')),
+                '%s e-mail for %s could not reach: %s (no such account, no address, or opted out).',
+                $template,
+                $which,
                 implode(', ', $audience['missing'])
             ));
         }
 
         if ($audience['fellBack']) {
-            log_message('info', sprintf(
-                'Shift-posted e-mail for %s went to the fallback address.',
-                $shift['p_job_title'] ?? ('shift ' . ($shift['p_id'] ?? '?'))
-            ));
+            log_message('info', sprintf('%s e-mail for %s went to the fallback address only.', $template, $which));
         }
 
-        // The greeting is the store's owner either way. The manager is sent the
-        // same message rather than one addressed to them: this e-mail says a
-        // shift is live, and it reads the same to both sides of a store.
-        $subject = 'Your Shift Has Been Posted on ' . $this->data['settings'][0]->s_sitename . '!';
-        $message = email_body('shift-posted', [
-            'title'       => 'Your shift is now live',
-            'name'        => trim(($owner->u_fname ?? '') . ' ' . ($owner->u_lname ?? '')),
-            'shift_title' => $shift['p_job_title'] ?? '',
-            'settings'    => $this->data['settings'],
-        ]);
-
-        foreach ($audience['to'] as $address) {
-            if (send_email($address, $subject, $message)) {
-                log_message('info', 'Shift-posted e-mail sent to ' . $address);
-            } else {
-                log_message('error', 'Shift-posted e-mail failed for ' . $address);
-            }
-        }
+        return $audience['to'];
     }
 
     /**
@@ -3885,9 +4106,8 @@ class Sadmin extends BaseController
 
         $employer = $this->custom->get_where_row('users', ['u_id' => $shift['u_id']]);
 
-        $subject = 'Your shift booking has been cancelled : ' . $shift['p_job_title'];
+        $subject = 'Your upcoming shift has been cancelled : ' . dateFormat($shift['p_dates']);
         $message = email_body('booking-cancelled', [
-            'title'    => 'Your shift booking has been cancelled',
             'name'     => $applicant['u_fname'] . ' ' . $applicant['u_lname'],
             'shift'    => $shift,
             'employer' => $employer,
@@ -4047,10 +4267,10 @@ class Sadmin extends BaseController
         $store_detail = shiftStore((object) $shift_detail);
 
         $applicant_email   = $user_email;
-        $applicant_subject = 'Congratulations! You Have Been Approved for Shift ID : ' . $shift_detail['p_job_title'];
+        $applicant_subject = 'Your shift has been booked ' . dateFormat($shift_detail['p_dates']);
         $applicant_message = email_body('booking-applicant', [
-            'title'            => 'You have been approved for a shift',
             'name'             => $user_name,
+            'first_name'       => $user->u_fname,
             'shift'            => $shift_detail,
             'employer'         => $employer_detail,
             'store'            => $store_detail,
@@ -4072,11 +4292,28 @@ class Sadmin extends BaseController
             log_message('error', 'Failed to send email.');
         }
 
-        $employer_email   = $employer_detail['u_email'];
-        $employer_subject = 'A New Applicant Has Been Approved for Shift ID : ' . $shift_detail['p_job_title'];
+        // Who at the store asked to hear about this shift. The same tick boxes
+        // that decide who is told the shift went live decide who is told it has
+        // been filled: QC found an owner who had been unticked on the shift
+        // form still being sent "an applicant has been approved".
+        //
+        // No fallback address is passed - the agency's copy below is this
+        // message's always-sent recipient, and passing one as well would send
+        // the agency two of them.
+        $storeId  = (int) ($shift_detail['p_store_id'] ?? 0);
+        $manager  = $storeId > 0 ? (storeManagers([$storeId])[$storeId] ?? null) : null;
+        $audience = shiftPostedRecipients(
+            (object) $employer_detail,
+            $manager,
+            $shift_detail['p_email_to'] ?? '',
+            '',
+            'booking-employer'
+        );
+
+        $employer_subject = 'Applicant Approved for Shift Date : ' . dateFormat($shift_detail['p_dates']);
         $employer_message = email_body('booking-employer', [
-            'title'          => 'An applicant has been approved for your shift',
             'name'           => $employer_detail['u_fname'] . ' ' . $employer_detail['u_lname'],
+            'first_name'     => $employer_detail['u_fname'],
             'applicant_name' => $user_name,
             'applicant'      => $user,
             'shift'          => $shift_detail,
@@ -4086,16 +4323,33 @@ class Sadmin extends BaseController
             'settings'       => $this->data['settings'],
         ]);
 
-        if (! userAllowsEmail($employer_detail, 'booking-employer')) {
-            log_message('info', 'Booking e-mail withheld: employer ' . $employer_detail['u_id'] . ' opted out.');
+        if ($audience['to'] === []) {
+            // Nobody at the store is to be told - either the shift says so, or
+            // the people it names have opted out. The agency still keeps its
+            // copy: that record is not the store's to switch off.
+            log_message('info', sprintf(
+                'Booking e-mail to the store withheld for shift %s: nobody ticked or reachable (%s).',
+                $shift_detail['p_job_title'] ?? $shiftId,
+                $audience['missing'] === [] ? 'none ticked' : implode(', ', $audience['missing'])
+            ));
 
             if ($agency_copy) {
                 send_email($agency_copy, $employer_subject, $employer_message);
             }
-        } elseif (send_email($employer_email, $employer_subject, $employer_message, $agency_copy)) {
-            log_message('info', 'Email sent successfully!');
         } else {
-            log_message('error', 'Failed to send email.');
+            // The agency is copied once, on the first message only, so a store
+            // with both an owner and a manager does not send it two.
+            $copy = $agency_copy;
+
+            foreach ($audience['to'] as $address) {
+                if (send_email($address, $employer_subject, $employer_message, $copy)) {
+                    log_message('info', 'Booking e-mail sent to ' . $address);
+                } else {
+                    log_message('error', 'Booking e-mail failed for ' . $address);
+                }
+
+                $copy = '';
+            }
         }
     }
 

@@ -15,6 +15,16 @@ const TITLE = 'E2E Playwright Testimonial';
 const TITLE_RENAMED = 'E2E Playwright Testimonial Renamed';
 const BODY = 'Shifts were filled the same day, and every credential was checked before we saw the name.';
 
+/**
+ * A real 1x1 PNG, inline rather than a file on disk - `fileupload()` runs
+ * getimagesize() over what it is handed, so a renamed .txt would be rejected
+ * and the test would prove nothing about the upload path.
+ */
+const PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  'base64',
+);
+
 test.beforeEach(() => {
   query("DELETE FROM testimonial WHERE t_title LIKE 'E2E %';");
 });
@@ -57,10 +67,20 @@ test.describe('the back-office list', () => {
     expect(count('testimonial', `t_title = '${TITLE}'`), 'row should exist').toBe(1);
     expect(scalar(`SELECT t_description FROM testimonial WHERE t_title = '${TITLE}';`)).toBe(BODY);
 
-    // The add form posts the two text fields and nothing else, so the column
-    // default decides the status - it has to land Active and show on the home
-    // page, not need a second click first.
+    // Everything about the person is optional, so a title and a quote on their
+    // own still save - that is the whole of what a testimonial was before those
+    // columns existed.
+    expect(scalar(`SELECT t_name FROM testimonial WHERE t_title = '${TITLE}';`)).toBe('');
+
+    // NULL rather than '': a file input is not something the browser posts back
+    // when nothing was picked, so the column is never written at all. Both read
+    // as "no photo" to `testimonialPhoto()`.
+    expect(scalar(`SELECT t_image FROM testimonial WHERE t_title = '${TITLE}';`)).toBe('NULL');
+
+    // The two selects come pre-set, so a save that touches neither has to land
+    // Active and five stars rather than needing a second visit to be shown.
     expect(scalar(`SELECT t_status FROM testimonial WHERE t_title = '${TITLE}';`)).toBe('1');
+    expect(scalar(`SELECT t_rating FROM testimonial WHERE t_title = '${TITLE}';`)).toBe('5');
 
     await filterTable(page, TITLE);
     await expect(page.locator('#example1 tbody tr', { hasText: TITLE })).toHaveCount(1);
@@ -77,6 +97,89 @@ test.describe('the back-office list', () => {
 
     await expect(page).toHaveURL(/\/sadmin\/testimonials$/);
     expect(count('testimonial', `t_title = '${TITLE}'`), 'both kept').toBe(2);
+    await expectNoServerError(page);
+  });
+
+  test('saves the whole card - who said it, their stars and a photo', async ({ page }) => {
+    await page.goto('sadmin/testimonials/add');
+
+    await page.fill('input[name="t_title"]', TITLE);
+    await page.fill('textarea[name="t_description"]', BODY);
+    await page.fill('input[name="t_name"]', 'E2E Sarah M.');
+    await page.fill('input[name="t_role"]', 'Job Seeker');
+    await page.fill('input[name="t_location"]', 'Toronto, ON');
+    await page.selectOption('select[name="t_rating"]', '4');
+    await page.selectOption('select[name="t_status"]', '1');
+
+    // A real image, not a renamed text file: `fileupload()` reads the header
+    // with getimagesize() and turns away anything that is not actually one.
+    await page.setInputFiles('input[name="t_image"]', {
+      name: 'e2e-face.png',
+      mimeType: 'image/png',
+      buffer: PNG,
+    });
+
+    await page.click('button[name="savedata"]');
+    await expect(page).toHaveURL(/\/sadmin\/testimonials$/);
+
+    const id = scalar(`SELECT t_id FROM testimonial WHERE t_title = '${TITLE}';`);
+    expect(scalar(`SELECT t_name FROM testimonial WHERE t_id = ${id};`)).toBe('E2E Sarah M.');
+    expect(scalar(`SELECT t_role FROM testimonial WHERE t_id = ${id};`)).toBe('Job Seeker');
+    expect(scalar(`SELECT t_location FROM testimonial WHERE t_id = ${id};`)).toBe('Toronto, ON');
+    expect(scalar(`SELECT t_rating FROM testimonial WHERE t_id = ${id};`)).toBe('4');
+
+    // The upload happens after the insert, because the filename is written back
+    // onto a row that has to exist first.
+    const stored = scalar(`SELECT t_image FROM testimonial WHERE t_id = ${id};`);
+    expect(stored, 'a filename was stored').toMatch(/\.png$/);
+
+    // ... and the file is really there, which is what the front end checks
+    // before it decides between the photo and the placeholder thumb.
+    await expect(page.request.get(`uploads/testimonial/${stored}`)).resolves.toBeOK();
+
+    // The list draws it back.
+    await filterTable(page, TITLE);
+    const row = page.locator('#example1 tbody tr', { hasText: TITLE });
+    await expect(row.locator('img')).toHaveAttribute('src', new RegExp(`uploads/testimonial/${stored}$`));
+    await expectNoServerError(page);
+  });
+
+  test('keeps the photo through an edit, and lets it be taken off again', async ({ page }) => {
+    query(`INSERT INTO testimonial (t_title, t_description, t_status) VALUES ('${TITLE}', '${BODY}', 1);`);
+    const id = scalar(`SELECT t_id FROM testimonial WHERE t_title = '${TITLE}';`);
+
+    // No photo yet: nothing to remove, and the circle is the placeholder.
+    await page.goto(`sadmin/testimonials/edit/${id}`);
+    await expect(page.locator('#remove_image')).toBeDisabled();
+    await expect(page.locator('.card-body img')).toHaveAttribute('src', /thumb\.svg$/);
+
+    await page.setInputFiles('input[name="t_image"]', {
+      name: 'e2e-face.png',
+      mimeType: 'image/png',
+      buffer: PNG,
+    });
+    await page.click('button[name="updatedata"]');
+    await expect(page).toHaveURL(/\/sadmin\/testimonials$/);
+
+    const stored = scalar(`SELECT t_image FROM testimonial WHERE t_id = ${id};`);
+    expect(stored).toMatch(/\.png$/);
+
+    // A save that touches neither the file input nor the checkbox has to leave
+    // the photo alone - the browser will not pre-fill a file input, so an empty
+    // one cannot be read as "clear it".
+    await page.goto(`sadmin/testimonials/edit/${id}`);
+    await page.fill('input[name="t_role"]', 'Pharmacist');
+    await page.click('button[name="updatedata"]');
+    expect(scalar(`SELECT t_image FROM testimonial WHERE t_id = ${id};`), 'photo kept').toBe(stored);
+
+    // Taking it off is its own instruction. AdminLTE hides the box itself and
+    // draws it on the label, so the label is what a person clicks and what the
+    // test has to click too - `check()` on the input finds it covered.
+    await page.goto(`sadmin/testimonials/edit/${id}`);
+    await page.click('label[for="remove_image"]');
+    await expect(page.locator('#remove_image')).toBeChecked();
+    await page.click('button[name="updatedata"]');
+    expect(scalar(`SELECT t_image FROM testimonial WHERE t_id = ${id};`), 'photo cleared').toBe('');
     await expectNoServerError(page);
   });
 
@@ -208,6 +311,39 @@ test.describe('the home page carousel', () => {
     await expect(slides.nth(1)).toHaveClass(/active/);
     await expect(slides.nth(1).locator('.wz-testimonial')).toHaveCount(1);
     await expect(slides.nth(1)).toContainText('E2E Fourth Testimonial');
+
+    await expectNoServerError(page);
+  });
+
+  test('draws the person behind the quote, and a thumb where there is no photo', async ({ page }) => {
+    query(`
+      INSERT INTO testimonial (t_title, t_description, t_name, t_role, t_location, t_rating, t_status) VALUES
+        ('${TITLE}', '${BODY}', 'E2E Sarah M.', 'Job Seeker', 'Toronto, ON', 4, 1),
+        ('E2E Nameless Testimonial', 'A quote with nobody attached to it.', '', '', '', 5, 1);
+    `);
+
+    await page.goto('');
+
+    const card = page.locator('.wz-testimonial', { hasText: TITLE });
+    await expect(card.locator('.wz-testimonial-name')).toHaveText('E2E Sarah M.');
+    await expect(card.locator('.wz-testimonial-role')).toHaveText('Job Seeker');
+    await expect(card.locator('.wz-testimonial-place')).toContainText('Toronto, ON');
+
+    // Four of five, and the strip says so to a screen reader as well as showing
+    // it - the stars themselves are decorative.
+    await expect(card.locator('.wz-testimonial-stars')).toHaveAttribute('aria-label', 'Rated 4 out of 5');
+    await expect(card.locator('.wz-testimonial-stars svg.is-on')).toHaveCount(4);
+    await expect(card.locator('.wz-testimonial-stars svg')).toHaveCount(5);
+
+    // Neither row has an uploaded photo, so both fall back to the thumb rather
+    // than rendering an empty src.
+    await expect(card.locator('.wz-testimonial-photo')).toHaveAttribute('src', /thumb\.svg$/);
+
+    // The one with nobody attached keeps the card it always had: no ruled-off
+    // strip with nothing in it.
+    const nameless = page.locator('.wz-testimonial', { hasText: 'E2E Nameless Testimonial' });
+    await expect(nameless.locator('.wz-testimonial-by')).toHaveCount(0);
+    await expect(nameless.locator('.wz-testimonial-photo')).toHaveAttribute('src', /thumb\.svg$/);
 
     await expectNoServerError(page);
   });

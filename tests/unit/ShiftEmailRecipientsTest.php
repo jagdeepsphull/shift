@@ -3,7 +3,8 @@
 use CodeIgniter\Test\CIUnitTestCase;
 
 /**
- * Who "your shift is live" is sent to.
+ * Who a store is told about one of its shifts - both "your shift is live" and
+ * the booking confirmation, which read the same choice.
  *
  * The shift form asks which side of the store to tell - owner, manager, both or
  * neither - and this is the logic that turns that answer into addresses, plus
@@ -222,5 +223,47 @@ final class ShiftEmailRecipientsTest extends CIUnitTestCase
         // Always in the same order, whichever order the boxes arrive in, so the
         // stored string of a given choice is always the same string.
         $this->assertSame(['owner', 'manager'], shiftEmailChoice('manager,owner'));
+    }
+
+    /**
+     * The booking half of a shift's mail obeys the same tick boxes.
+     *
+     * This is the QC report: an owner unticked on the shift form was still
+     * being sent "an applicant has been approved for your shift", because that
+     * send site went straight to the employer's address without asking. No
+     * fallback is passed for that message - the agency's copy is its
+     * always-sent recipient - so an unticked store really is told nothing.
+     */
+    public function testUntickedSidesAreNotToldABookingEither(): void
+    {
+        $audience = shiftPostedRecipients(
+            $this->user('owner@example.com'),
+            $this->user('manager@example.com'),
+            '',
+            '',
+            'booking-employer'
+        );
+
+        $this->assertSame([], $audience['to']);
+        $this->assertTrue($audience['fellBack']);
+    }
+
+    /**
+     * Which e-mail is being sent decides which opt-out is read. An employer who
+     * switched "your shift is live" off in Manage Email has not thereby asked
+     * to stop hearing that their shift has been filled.
+     */
+    public function testTheOptOutCheckedIsTheOneForTheMessageBeingSent(): void
+    {
+        // 3 is shift-posted, 5 is booking-employer, per AppSettings::$emailTypes.
+        $owner = $this->user('owner@example.com', '3');
+
+        $posted = shiftPostedRecipients($owner, null, 'owner', '', 'shift-posted');
+        $this->assertSame([], $posted['to']);
+        $this->assertSame(['owner'], $posted['missing']);
+
+        $booking = shiftPostedRecipients($owner, null, 'owner', '', 'booking-employer');
+        $this->assertSame(['owner@example.com'], $booking['to']);
+        $this->assertSame([], $booking['missing']);
     }
 }

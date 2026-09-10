@@ -1,0 +1,735 @@
+<title>Pick-A-Shift E-mail Copy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap">
+
+<style>
+  :root {
+    --ground: #f6f5fa;
+    --surface: #ffffff;
+    --surface-2: #efedf5;
+    --ink: #1c1826;
+    --ink-2: #5b5468;
+    --ink-3: #857e93;
+    --rule: #e3dfeb;
+    --rule-strong: #cbc4d9;
+    --accent: #6d28d9;
+    --accent-soft: #ece5fb;
+    --note: #8a4b08;
+    --note-soft: #fbf0df;
+    --shadow: 0 1px 2px rgba(28, 24, 38, .05), 0 10px 28px -18px rgba(28, 24, 38, .35);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #121019;
+      --surface: #1a1722;
+      --surface-2: #231f2e;
+      --ink: #ebe7f2;
+      --ink-2: #b2aac0;
+      --ink-3: #8a8298;
+      --rule: #2e2939;
+      --rule-strong: #463e55;
+      --accent: #b69ffb;
+      --accent-soft: #2a2140;
+      --note: #f0b35a;
+      --note-soft: #32250f;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .45);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #121019;
+    --surface: #1a1722;
+    --surface-2: #231f2e;
+    --ink: #ebe7f2;
+    --ink-2: #b2aac0;
+    --ink-3: #8a8298;
+    --rule: #2e2939;
+    --rule-strong: #463e55;
+    --accent: #b69ffb;
+    --accent-soft: #2a2140;
+    --note: #f0b35a;
+    --note-soft: #32250f;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .45);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "IBM Plex Serif", Georgia, "Times New Roman", serif;
+    font-size: 16px;
+    line-height: 1.65;
+    margin: 0;
+    padding: 0 20px 96px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 50rem; margin: 0 auto; }
+
+  h1, h2, h3 { font-family: Archivo, "Helvetica Neue", Arial, sans-serif; text-wrap: balance; }
+
+  .label {
+    font-family: Archivo, "Helvetica Neue", Arial, sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  /* ---- Masthead ---- */
+
+  .masthead {
+    display: grid;
+    gap: 12px;
+    padding: 56px 0 26px;
+    border-bottom: 2px solid var(--ink);
+  }
+
+  .masthead .label { color: var(--accent); }
+
+  h1 {
+    font-size: clamp(2rem, 5.5vw, 2.9rem);
+    font-weight: 700;
+    letter-spacing: -.025em;
+    line-height: 1.04;
+    margin: 0;
+  }
+
+  .standfirst { color: var(--ink-2); max-width: 62ch; margin: 0; }
+
+  /* ---- Jump list: the PDF's own numbering ---- */
+
+  .index {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(14.5rem, 1fr));
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .index a {
+    display: grid;
+    grid-template-columns: 1.6rem 1fr;
+    gap: 2px 8px;
+    padding: 12px 4px 12px 0;
+    color: var(--ink);
+    text-decoration: none;
+    font-family: Archivo, "Helvetica Neue", Arial, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+
+  .index a span:first-child { color: var(--accent); font-variant-numeric: tabular-nums; }
+  .index a small { grid-column: 2; font-weight: 500; font-size: 12px; color: var(--ink-3); }
+  .index a:hover span:last-of-type { text-decoration: underline; text-underline-offset: 3px; }
+
+  /* ---- Across every e-mail ---- */
+
+  .shared { padding: 34px 0 10px; }
+
+  .shared h2 { font-size: 1.3rem; margin: 0 0 14px; letter-spacing: -.01em; }
+
+  .shared ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 10px;
+    max-width: 66ch;
+  }
+
+  .shared li { padding-left: 18px; position: relative; }
+  .shared li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: .7em;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  .key {
+    margin: 22px 0 0;
+    font-size: 14px;
+    color: var(--ink-2);
+    max-width: 66ch;
+  }
+
+  /* ---- One e-mail ---- */
+
+  .mail { padding: 52px 0 0; scroll-margin-top: 12px; }
+
+  .mail-head {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 16px;
+    align-items: baseline;
+    margin-bottom: 16px;
+  }
+
+  .num {
+    grid-row: span 2;
+    font-family: Archivo, "Helvetica Neue", Arial, sans-serif;
+    font-size: 2.4rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mail-head h2 { font-size: 1.35rem; margin: 0; letter-spacing: -.012em; line-height: 1.25; }
+
+  .meta {
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 18px;
+    font-size: 14px;
+    color: var(--ink-2);
+  }
+
+  .meta b {
+    font-family: Archivo, "Helvetica Neue", Arial, sans-serif;
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-right: 5px;
+  }
+
+  .meta code { font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px; }
+
+  .subject {
+    display: grid;
+    grid-template-columns: 5.2rem 1fr;
+    align-items: baseline;
+    background: var(--surface);
+    border: 1px solid var(--rule-strong);
+    border-bottom: 0;
+    padding: 12px 16px;
+  }
+
+  .subject .text {
+    font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 14.5px;
+    font-weight: 500;
+    line-height: 1.5;
+    word-break: break-word;
+  }
+
+  /* The message itself keeps the e-mail's own colours and face in both
+     themes: it is a picture of what lands in the inbox. */
+  .inbox {
+    background: #f4f4f7;
+    border: 1px solid var(--rule-strong);
+    padding: 18px;
+    box-shadow: var(--shadow);
+  }
+
+  .email {
+    max-width: 600px;
+    margin: 0 auto;
+    background: #ffffff;
+    color: #333333;
+    border-radius: 10px;
+    overflow: hidden;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 15px;
+  }
+
+  .email .band {
+    background: #7c3aed;
+    color: #ffffff;
+    text-align: center;
+    padding: 20px;
+    font-size: 19px;
+    font-weight: 700;
+    line-height: 1.35;
+  }
+
+  .email .body { padding: 22px 24px 8px; }
+  .email p { line-height: 1.6; margin: 0 0 12px; }
+  .email ul { line-height: 1.7; padding-left: 20px; margin: 0 0 14px; }
+  .email a { color: #7c3aed; text-decoration: none; }
+  .email .map { color: #1a73e8; }
+
+  .email .cta { text-align: center; margin: 22px 0 18px; }
+  .email .cta span {
+    display: inline-block;
+    padding: 12px 22px;
+    background: #7c3aed;
+    color: #ffffff;
+    border-radius: 6px;
+    font-weight: 700;
+  }
+
+  .email .foot {
+    background: #f1f1f4;
+    padding: 16px 20px;
+    text-align: center;
+    font-size: 13px;
+    color: #666666;
+  }
+
+  .email .foot p { margin: 0 0 6px; line-height: 1.5; }
+  .email .foot p:last-child { margin: 0; font-size: 12px; color: #888888; }
+
+  /* A value filled in from the account or the shift. */
+  .f {
+    background: #efe7ff;
+    color: inherit;
+    border-bottom: 1px dotted #7c3aed;
+    border-radius: 2px;
+    padding: 0 2px;
+  }
+
+  .subject .f {
+    background: var(--accent-soft);
+    border-bottom-color: var(--accent);
+  }
+
+  .only { font-style: italic; color: #8a8a96; font-size: 13px; }
+
+  /* The website page (#7) is not an e-mail: it sits on the site's grey. */
+  .page {
+    max-width: 640px;
+    margin: 0 auto;
+    background: #f5f5f8;
+    color: #222222;
+    border: 1px solid #e4e4ea;
+    border-radius: 8px;
+    padding: 34px 30px;
+    text-align: center;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+
+  .page h3 { font-family: Arial, Helvetica, sans-serif; font-size: 22px; margin: 0 0 12px; }
+  .page p { margin: 0 0 14px; line-height: 1.6; }
+  .page .small { font-size: 14px; color: #6c6c78; }
+  .page .btn {
+    display: inline-block;
+    background: #7c3aed;
+    color: #ffffff;
+    padding: 10px 22px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 14px;
+  }
+
+  .diff {
+    margin: 14px 0 0;
+    padding: 12px 16px;
+    background: var(--note-soft);
+    border-left: 3px solid var(--note);
+    font-size: 14.5px;
+    line-height: 1.55;
+  }
+
+  .diff .label { color: var(--note); display: block; margin-bottom: 4px; }
+  .diff ul { margin: 0; padding-left: 18px; }
+  .diff li + li { margin-top: 4px; }
+
+  footer.colophon {
+    margin-top: 64px;
+    border-top: 1px solid var(--rule);
+    padding-top: 18px;
+    font-size: 13.5px;
+    color: var(--ink-3);
+    max-width: 66ch;
+  }
+
+  footer.colophon code { font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px; }
+
+  a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+  @media (max-width: 560px) {
+    .subject { grid-template-columns: 1fr; gap: 2px; }
+    .inbox { padding: 10px; }
+    .email .body { padding: 18px 16px 6px; }
+    .page { padding: 26px 18px; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <span class="label">Pick-A-Shift &middot; e-mail copy, as of 10 Sep 2026</span>
+    <h1>What every e-mail now says</h1>
+    <p class="standfirst">The six e-mails and the unsubscribe page, reworded to match the agency's PDF
+    &ldquo;Email Format PICK-A-Shift&rdquo;, plus the &ldquo;shift updated&rdquo; e-mail added since. Each one
+    shows its subject line and the full message as it arrives, filled in with the PDF's own example values.</p>
+  </header>
+
+  <nav aria-label="E-mails in this document">
+    <ol class="index">
+      <li><a href="#e1"><span>1</span><span>Registration received</span><small>to the new user</small></a></li>
+      <li><a href="#e2"><span>2</span><span>Account now active</span><small>to the new user</small></a></li>
+      <li><a href="#e3"><span>3</span><span>Shift is live</span><small>to the store</small></a></li>
+      <li><a href="#e4"><span>4</span><span>Shift booked</span><small>to the applicant</small></a></li>
+      <li><a href="#e5"><span>5</span><span>Applicant approved</span><small>to the store</small></a></li>
+      <li><a href="#e6"><span>6</span><span>Shift cancelled</span><small>to the applicant</small></a></li>
+      <li><a href="#e7"><span>7</span><span>Unsubscribe page</span><small>on the website</small></a></li>
+      <li><a href="#e8"><span>8</span><span>Shift updated</span><small>to the store &middot; not in the PDF</small></a></li>
+    </ol>
+  </nav>
+
+  <section class="shared" aria-labelledby="shared-h">
+    <h2 id="shared-h">What changed across every e-mail</h2>
+    <ul>
+      <li>The copyright line is now <strong>&copy; Pick-A-Shift. All rights reserved.</strong> The year is
+      gone.</li>
+      <li>The support address is always <strong>team@pickashift.ca</strong>. It used to come from the site
+      settings, which held an old reliefshifts.com address.</li>
+      <li>The closing line is <strong>&ldquo;If you have any questions, you may reach out to our support team
+      at team@pickashift.ca.&rdquo;</strong> The cancellation (6) leaves it out because it names the address in
+      its own paragraph.</li>
+      <li>The footer still ends with <strong>&ldquo;You are receiving this because you have an account on
+      Pick-A-Shift.&rdquo;</strong> and the <strong>Unsubscribe from these e-mails</strong> link.</li>
+    </ul>
+    <p class="key"><span class="f">Tinted text</span> is filled in from the account or the shift. The example
+    values are the ones in the PDF. Grey italic notes mark lines that only appear in some e-mails.</p>
+  </section>
+
+  <!-- 1 -->
+  <article class="mail" id="e1" aria-labelledby="e1-h">
+    <div class="mail-head">
+      <span class="num">1</span>
+      <h2 id="e1-h">Registration received</h2>
+      <p class="meta"><span><b>To</b>the person who registered</span><span><b>Sent</b>on registration</span><span><b>File</b><code>emails/welcome.php</code></span></p>
+    </div>
+    <div class="subject"><span class="label">Subject</span><span class="text">Welcome to Pick-A-Shift! Your Account is Pending</span></div>
+    <div class="inbox">
+      <div class="email">
+        <div class="band">Welcome to Pick-A-Shift</div>
+        <div class="body">
+          <p>Hello, <span class="f">Austin Blevins Levi Marquez</span>!</p>
+          <p>Thank you for registering with Pick-A-Shift. Your account is currently under review and will be
+          activated once it is verified.</p>
+          <p>Once verified you will get a confirmation e-mail, and you will be able to sign in with the
+          credentials you provided during registration.</p>
+          <p>We appreciate your patience and look forward to having you as part of our platform.</p>
+          <p>If you have any questions, you may reach out to our support team at
+          <a href="mailto:team@pickashift.ca">team@pickashift.ca</a>.</p>
+        </div>
+        <div class="foot">
+          <p>&copy; Pick-A-Shift. All rights reserved.</p>
+          <p><a href="#e1">Terms &amp; Conditions</a></p>
+          <p>You are receiving this because you have an account on Pick-A-Shift.<br><a href="#e7">Unsubscribe from these e-mails</a></p>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <!-- 2 -->
+  <article class="mail" id="e2" aria-labelledby="e2-h">
+    <div class="mail-head">
+      <span class="num">2</span>
+      <h2 id="e2-h">Account now active</h2>
+      <p class="meta"><span><b>To</b>the person who registered</span><span><b>Sent</b>when the agency approves the account</span><span><b>File</b><code>emails/account-approved.php</code></span></p>
+    </div>
+    <div class="subject"><span class="label">Subject</span><span class="text">Your Account is now Active</span></div>
+    <div class="inbox">
+      <div class="email">
+        <div class="band">Your account is now Active</div>
+        <div class="body">
+          <p>Hello, <span class="f">Austin Blevins Levi Marquez</span>!</p>
+          <p>Your account with Pick-A-Shift is now active. You can sign in using the credentials you provided
+          during registration.</p>
+          <div class="cta"><span>Sign in</span></div>
+          <p>If you have any questions, you may reach out to our support team at
+          <a href="mailto:team@pickashift.ca">team@pickashift.ca</a>.</p>
+        </div>
+        <div class="foot">
+          <p>&copy; Pick-A-Shift. All rights reserved.</p>
+          <p><a href="#e2">Terms &amp; Conditions</a></p>
+          <p>You are receiving this because you have an account on Pick-A-Shift.<br><a href="#e7">Unsubscribe from these e-mails</a></p>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <!-- 3 -->
+  <article class="mail" id="e3" aria-labelledby="e3-h">
+    <div class="mail-head">
+      <span class="num">3</span>
+      <h2 id="e3-h">Shift is live</h2>
+      <p class="meta"><span><b>To</b>the store owner and/or manager ticked on the shift</span><span><b>Sent</b>when a shift goes live</span><span><b>File</b><code>emails/shift-posted.php</code></span></p>
+    </div>
+    <div class="subject"><span class="label">Subject</span><span class="text">Your Shift is now live on pickashift.ca</span></div>
+    <div class="inbox">
+      <div class="email">
+        <div class="band">Pick-A-Shift</div>
+        <div class="body">
+          <p>Hello, <span class="f">Demo Zelda Blair</span>!</p>
+          <p>Your shift <strong><span class="f">PAS-470</span></strong> for <strong><span class="f">02 Sep 2026</span></strong>
+          at <strong><span class="f">Demo Store</span></strong> is now live on our platform.</p>
+          <p>Stay up to date: Login to your account to view your latest shift updates.</p>
+          <p>We truly appreciate your business and the opportunity to support your pharmacy and look forward to
+          working with you! Thank you for choosing Pick-A-Shift.</p>
+          <p>If you have any questions, you may reach out to our support team at
+          <a href="mailto:team@pickashift.ca">team@pickashift.ca</a>.</p>
+        </div>
+        <div class="foot">
+          <p>&copy; Pick-A-Shift. All rights reserved.</p>
+          <p><a href="#e3">Terms &amp; Conditions</a></p>
+          <p>You are receiving this because you have an account on Pick-A-Shift.<br><a href="#e7">Unsubscribe from these e-mails</a></p>
+        </div>
+      </div>
+    </div>
+    <div class="diff">
+      <span class="label">Differs from the PDF</span>
+      <ul>
+        <li>The PDF gives this e-mail no purple heading, so the band at the top shows only
+        &ldquo;Pick-A-Shift&rdquo;.</li>
+        <li>A full stop closes &ldquo;&hellip;is now live on our platform.&rdquo;</li>
+        <li>The domain in the subject comes from the site's own address. The live site says pickashift.ca; a test
+        copy says its own address.</li>
+      </ul>
+    </div>
+  </article>
+
+  <!-- 4 -->
+  <article class="mail" id="e4" aria-labelledby="e4-h">
+    <div class="mail-head">
+      <span class="num">4</span>
+      <h2 id="e4-h">Shift booked</h2>
+      <p class="meta"><span><b>To</b>the applicant, agency copied</span><span><b>Sent</b>when the agency books them on a shift</span><span><b>File</b><code>emails/booking-applicant.php</code></span></p>
+    </div>
+    <div class="subject"><span class="label">Subject</span><span class="text">Your shift has been booked <span class="f">31 Aug 2026</span></span></div>
+    <div class="inbox">
+      <div class="email">
+        <div class="band">Pick-A-Shift</div>
+        <div class="body">
+          <p>Hello <span class="f">Blair</span>,</p>
+          <p>We are pleased to inform you that the shift <strong><span class="f">PAS-473</span></strong> has been
+          booked for you at <strong><span class="f">Pharmacy_01</span></strong>.</p>
+          <p>Here are the details:</p>
+          <ul>
+            <li>Store: <span class="f">Pharmacy_01</span> (no. <span class="f">TEST-0001</span>)</li>
+            <li>Store Address: <span class="f">Pharmacy, 999 Upper Wentworth St, Hamilton, Ontario, L9K0H4</span></li>
+            <li>Store Phone: <span class="f">9053025362</span> <span class="only">&mdash; only when the store has one</span></li>
+            <li>Shift requested for: <span class="f">Driver</span></li>
+            <li>Shift Date: <span class="f">31 Aug 2026</span></li>
+            <li>Shift time: <span class="f">15:00 - 19:00</span></li>
+            <li>Software: <span class="f">Kroll Paperless</span></li>
+            <li>Services: <span class="f">Assistant on site</span></li>
+            <li>Message from the agency: <span class="f">testing demo</span> <span class="only">&mdash; only when the agency typed one</span></li>
+          </ul>
+          <p>You may Login to your account on our portal for full details.</p>
+          <p><a class="map" href="#e4">Get directions to this store</a> <span class="only">&mdash; opens Google Maps at the store</span></p>
+          <p>Note:</p>
+          <ul>
+            <li>Please ensure you arrive on time for your shift.</li>
+            <li>Review the location and plan your route in advance.</li>
+            <li>Check in with the on-site supervisor or assistant upon arrival (if available).</li>
+          </ul>
+          <p>We wish you all the best for the shift and look forward to working and supporting you with your
+          upcoming shifts.</p>
+          <p>If you have any questions, you may reach out to our support team at
+          <a href="mailto:team@pickashift.ca">team@pickashift.ca</a>.</p>
+        </div>
+        <div class="foot">
+          <p>&copy; Pick-A-Shift. All rights reserved.</p>
+          <p><a href="#e4">Terms &amp; Conditions</a></p>
+          <p>You are receiving this because you have an account on Pick-A-Shift.<br><a href="#e7">Unsubscribe from these e-mails</a></p>
+        </div>
+      </div>
+    </div>
+    <div class="diff">
+      <span class="label">Differs from the PDF</span>
+      <ul>
+        <li>The PDF gives this e-mail no purple heading, so the band at the top shows only
+        &ldquo;Pick-A-Shift&rdquo;.</li>
+        <li>Full stops close &ldquo;&hellip;booked for you at Pharmacy_01.&rdquo;, &ldquo;&hellip;your upcoming
+        shifts.&rdquo; and the support line.</li>
+      </ul>
+    </div>
+  </article>
+
+  <!-- 5 -->
+  <article class="mail" id="e5" aria-labelledby="e5-h">
+    <div class="mail-head">
+      <span class="num">5</span>
+      <h2 id="e5-h">Applicant approved</h2>
+      <p class="meta"><span><b>To</b>the store owner and/or manager ticked on the shift, agency copied</span><span><b>Sent</b>at the same moment as 4</span><span><b>File</b><code>emails/booking-employer.php</code></span></p>
+    </div>
+    <div class="subject"><span class="label">Subject</span><span class="text">Applicant Approved for Shift Date : <span class="f">02 Sep 2026</span></span></div>
+    <div class="inbox">
+      <div class="email">
+        <div class="band">An applicant has been approved for your shift</div>
+        <div class="body">
+          <p>Hello, <span class="f">Demo Zelda</span></p>
+          <p>Here are the details:</p>
+          <ul>
+            <li>Store: <span class="f">Demo Store</span> (no. <span class="f">281</span>)</li>
+            <li>Applicant name: <span class="f">Austin Blevins Levi Marquez</span></li>
+            <li>Applicant Type: <span class="f">Pharmacy Assistant</span></li>
+            <li>Licence No.: <span class="f">999999</span></li>
+            <li>Licence Province: <span class="f">Alberta</span></li>
+            <li>Shift requested for: <span class="f">Pharmacy Assistant</span></li>
+            <li>Shift Date: <span class="f">02 Sep 2026</span></li>
+            <li>Shift Time: <span class="f">21:00 - 22:21</span></li>
+            <li>Software: <span class="f">Kroll</span></li>
+            <li>Services: <span class="f">Injections, Assistant on site, Minor Ailments, Technician on site,
+            Compounding Level B, Assistant help till 6pm, Low volume day, Assistant help for partial shift,
+            Blister Packs, No Compounds, No Methadone, No Assistant</span></li>
+          </ul>
+          <p>Thank you for choosing Pick-A-Shift. We appreciate the opportunity to support your pharmacy and look
+          forward to assisting you with your future staffing needs.</p>
+          <p>If you have any questions, you may reach out to our support team at
+          <a href="mailto:team@pickashift.ca">team@pickashift.ca</a>.</p>
+        </div>
+        <div class="foot">
+          <p>&copy; Pick-A-Shift. All rights reserved.</p>
+          <p><a href="#e5">Terms &amp; Conditions</a></p>
+          <p>You are receiving this because you have an account on Pick-A-Shift.<br><a href="#e7">Unsubscribe from these e-mails</a></p>
+        </div>
+      </div>
+    </div>
+    <div class="diff">
+      <span class="label">Differs from the PDF</span>
+      <ul>
+        <li>The purple heading sits in the band at the top, above &ldquo;Hello&rdquo;, as it does in every
+        e-mail. The PDF shows it just below the greeting.</li>
+        <li>The greeting uses the store owner's first name, as the PDF's &ldquo;Hello, Demo Zelda&rdquo; does.
+        A manager on the store gets the same e-mail, addressed to the owner.</li>
+      </ul>
+    </div>
+  </article>
+
+  <!-- 6 -->
+  <article class="mail" id="e6" aria-labelledby="e6-h">
+    <div class="mail-head">
+      <span class="num">6</span>
+      <h2 id="e6-h">Shift cancelled</h2>
+      <p class="meta"><span><b>To</b>the applicant, agency copied</span><span><b>Sent</b>when their booking is taken off them</span><span><b>File</b><code>emails/booking-cancelled.php</code></span></p>
+    </div>
+    <div class="subject"><span class="label">Subject</span><span class="text">Your upcoming shift has been cancelled : <span class="f">01 Oct 2026</span></span></div>
+    <div class="inbox">
+      <div class="email">
+        <div class="band">Your upcoming shift has been cancelled</div>
+        <div class="body">
+          <p>Hello, <span class="f">FirstN Test LastN Applicant</span>!</p>
+          <p>Your upcoming shift <strong><span class="f">PAS-522</span></strong> at <strong><span class="f">Test Pharmacy_01</span>
+          on <span class="f">01 Oct 2026</span></strong> has been cancelled. <strong>Please do not attend this
+          shift.</strong></p>
+          <p>Details :</p>
+          <ul>
+            <li>Store: <span class="f">Test Pharmacy_01</span> (no. <span class="f">TEST-0001</span>)</li>
+            <li>Shift Date: <span class="f">01 Oct 2026</span></li>
+            <li>Shift Time: <span class="f">09:00 - 18:00</span></li>
+            <li>Role: <span class="f">Pharmacist</span></li>
+          </ul>
+          <p>We appreciate your understanding and welcome you to apply for other upcoming shifts available
+          through Pick-A-Shift as we update them regularly. If you have any questions or believe this
+          cancellation was made in error, please contact our support team at
+          <a href="mailto:team@pickashift.ca">team@pickashift.ca</a>.</p>
+          <p>We apologize for any inconvenience this may cause.</p>
+        </div>
+        <div class="foot">
+          <p>&copy; Pick-A-Shift. All rights reserved.</p>
+          <p><a href="#e6">Terms &amp; Conditions</a></p>
+          <p>You are receiving this because you have an account on Pick-A-Shift.<br><a href="#e7">Unsubscribe from these e-mails</a></p>
+        </div>
+      </div>
+    </div>
+    <div class="diff">
+      <span class="label">Differs from the PDF</span>
+      <ul>
+        <li>The shift is named by its store (&ldquo;Test Pharmacy_01&rdquo;), not the group name the PDF
+        crossed out.</li>
+        <li>A full stop follows the support address.</li>
+      </ul>
+    </div>
+  </article>
+
+  <!-- 7 -->
+  <article class="mail" id="e7" aria-labelledby="e7-h">
+    <div class="mail-head">
+      <span class="num">7</span>
+      <h2 id="e7-h">Unsubscribe page</h2>
+      <p class="meta"><span><b>Shown</b>when someone clicks Unsubscribe in any e-mail</span><span><b>File</b><code>front/unsubscribe.php</code></span></p>
+    </div>
+    <div class="subject"><span class="label">Page</span><span class="text">pickashift.ca/unsubscribe/&hellip;</span></div>
+    <div class="inbox">
+      <div class="page">
+        <h3>Unsubscribe from e-mails</h3>
+        <p>Stop sending e-mails to <strong><span class="f">Abcd1234@gmail.com</span></strong>?</p>
+        <p class="small">You will no longer receive general updates or shift alerts. However, you may still
+        receive essential notifications regarding account actions or schedule changes, such as password resets
+        or cancellations for shifts you have already booked. All other emails will stop immediately.</p>
+        <p><span class="btn">Yes, unsubscribe me</span></p>
+      </div>
+    </div>
+    <div class="diff">
+      <span class="label">Differs from the PDF</span>
+      <ul>
+        <li>The PDF has no button text. The page keeps its &ldquo;Yes, unsubscribe me&rdquo; button, now placed
+        under the explanation so it is read first.</li>
+      </ul>
+    </div>
+  </article>
+
+  <!-- 8 -->
+  <article class="mail" id="e8" aria-labelledby="e8-h">
+    <div class="mail-head">
+      <span class="num">8</span>
+      <h2 id="e8-h">Shift updated</h2>
+      <p class="meta"><span><b>To</b>the store owner and/or manager ticked on the shift, plus team@pickashift.ca</span><span><b>Sent</b>when the agency saves a change to a shift</span><span><b>File</b><code>emails/shift-updated.php</code></span></p>
+    </div>
+    <div class="subject"><span class="label">Subject</span><span class="text">Your shift has been updated : <span class="f">02 Sep 2026</span></span></div>
+    <div class="inbox">
+      <div class="email">
+        <div class="band">Your shift has been updated</div>
+        <div class="body">
+          <p>Hello, <span class="f">Demo Zelda Blair</span>!</p>
+          <p>Your shift <strong><span class="f">PAS-470</span></strong> has been updated. Here are the details:</p>
+          <ul>
+            <li>Store: <span class="f">Demo Store</span> (no. <span class="f">281</span>)</li>
+            <li>Shift Date: <span class="f">02 Sep 2026</span></li>
+            <li>Shift Time: <strong><span class="f">21:00 - 23:00</span></strong> <span style="color:#888">(was 21:00 - 22:21)</span> <span class="only">&mdash; a changed line says what it was</span></li>
+            <li>Shift requested for: <span class="f">Pharmacy Assistant</span></li>
+            <li>Software: <span class="f">Kroll</span></li>
+            <li>Services: <span class="f">Assistant on site</span></li>
+            <li>Status: <span class="f">Booked</span></li>
+            <li>Booked applicant: <span class="f">Austin Blevins Levi Marquez</span> <span class="only">&mdash; only while somebody is booked</span></li>
+          </ul>
+          <p>Stay up to date: Login to your account to view your latest shift updates.</p>
+          <p>Thank you for choosing Pick-A-Shift.</p>
+          <p>If you have any questions, you may reach out to our support team at
+          <a href="mailto:team@pickashift.ca">team@pickashift.ca</a>.</p>
+        </div>
+        <div class="foot">
+          <p>&copy; Pick-A-Shift. All rights reserved.</p>
+          <p><a href="#e8">Terms &amp; Conditions</a></p>
+          <p>You are receiving this because you have an account on Pick-A-Shift.<br><a href="#e7">Unsubscribe from these e-mails</a></p>
+        </div>
+      </div>
+    </div>
+    <div class="diff">
+      <span class="label">Not in the PDF</span>
+      <ul>
+        <li>New e-mail, worded in the style of e-mail 3. Sent only when the save changed something, including
+        ticking Owner or Manager. Not sent when the save makes the shift Open (e-mail 3 goes instead) or books a
+        new applicant (e-mail 5 goes instead).</li>
+      </ul>
+    </div>
+  </article>
+
+  <footer class="colophon">
+    Taken from the templates in <code>app/Views/emails/</code> and the subjects in
+    <code>app/Controllers/Front.php</code> and <code>app/Controllers/Sadmin.php</code>, on branch
+    <code>feature/email-text-matches-pdf</code>. Run <code>php spark email:preview &lt;template&gt; &lt;shiftId&gt;</code>
+    to render any of them against a real shift.
+  </footer>
+
+</div>

@@ -47,6 +47,7 @@ class PreviewEmail extends BaseCommand
         'booking-employer',
         'shift-reminder',
         'booking-cancelled',
+        'shift-updated',
     ];
 
     /** Stages that describe an account, not a shift. */
@@ -97,9 +98,34 @@ class PreviewEmail extends BaseCommand
 
         if ($template === 'shift-posted') {
             CLI::write(email_body('shift-posted', [
-                'title'       => 'Your shift is live',
                 'name'        => trim($employer['u_fname'] . ' ' . $employer['u_lname']),
                 'shift_title' => $shift['p_job_title'],
+                'shift_date'  => dateFormat($shift['p_dates'] ?? null),
+                'store_name'  => (string) ($store->s_name ?? ''),
+            ]));
+
+            return EXIT_SUCCESS;
+        }
+
+        // The store's "your shift has been updated". There is no earlier row
+        // to compare with here, so the preview pretends the time was moved,
+        // to show how a changed line reads.
+        if ($template === 'shift-updated') {
+            $booked = $custom->db()->table('stu_saved_applied_jobs s')
+                ->select('u.*')
+                ->join('users u', 'u.u_id = s.u_id', 'inner')
+                ->where('s.p_id', $shiftId)
+                ->where('s.sj_is_approved', 1)
+                ->get()
+                ->getRow();
+
+            $lines = shiftSummaryLines($shift, $booked);
+
+            CLI::write(email_body('shift-updated', [
+                'name'        => trim($employer['u_fname'] . ' ' . $employer['u_lname']),
+                'shift_title' => $shift['p_job_title'],
+                'lines'       => $lines,
+                'was'         => ['Shift Time' => '09:00 - 17:00'] + $lines,
             ]));
 
             return EXIT_SUCCESS;
@@ -107,8 +133,8 @@ class PreviewEmail extends BaseCommand
 
         if ($template === 'booking-applicant') {
             CLI::write(email_body('booking-applicant', [
-                'title'            => 'You have been approved for a shift',
                 'name'             => 'Preview Applicant',
+                'first_name'       => 'Preview',
                 'shift'            => $shift,
                 'employer'         => $employer,
                 'store'            => $store,
@@ -124,7 +150,6 @@ class PreviewEmail extends BaseCommand
         // row - only the name it opens with.
         if ($template === 'booking-cancelled') {
             CLI::write(email_body('booking-cancelled', [
-                'title'    => 'Your shift booking has been cancelled',
                 'name'     => 'Preview Applicant',
                 'shift'    => $shift,
                 'employer' => $employer,
@@ -169,8 +194,8 @@ class PreviewEmail extends BaseCommand
         }
 
         CLI::write(email_body('booking-employer', [
-            'title'          => 'An applicant has been approved for your shift',
             'name'           => trim($employer['u_fname'] . ' ' . $employer['u_lname']),
+            'first_name'     => $employer['u_fname'],
             'applicant_name' => trim($applicant->u_fname . ' ' . $applicant->u_lname),
             'applicant'      => $applicant,
             'shift'          => $shift,
@@ -187,14 +212,12 @@ class PreviewEmail extends BaseCommand
     {
         if ($template === 'welcome') {
             return email_body('welcome', [
-                'title' => 'Welcome to PickAShift!',
                 'name'  => 'Preview Person',
             ]);
         }
 
         if ($template === 'account-approved') {
             return email_body('account-approved', [
-                'title' => 'Your account has been approved',
                 'name'  => 'Preview Person',
             ]);
         }

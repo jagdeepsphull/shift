@@ -8,6 +8,9 @@
 	            </div>
 
 	            <?php echo session()->getFlashdata('error_msg'); ?>
+	            <?php if (validation_errors()): ?>
+	                <div class="alert alert-danger"><?= validation_errors() ?></div>
+	            <?php endif; ?>
 
 	            <form name="store-form" action="" method="post">
 	                <div class="dashboard-caption-wrap">

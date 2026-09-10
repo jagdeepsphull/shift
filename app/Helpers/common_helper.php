@@ -260,6 +260,33 @@ if (! function_exists('phoneFields')) {
     }
 }
 
+if (! function_exists('assetUrl')) {
+    /**
+     * A URL for one of our own asset files, stamped with its last-modified time.
+     *
+     * `base_url()` alone gives every visitor's browser a URL that never changes,
+     * and neither Apache nor the app sends a cache header telling it otherwise -
+     * so an edited stylesheet keeps being answered out of the browser cache and
+     * the change appears not to have happened at all. The `?v=` stamp changes
+     * whenever the file does, which makes it a different URL to cache.
+     *
+     * Only for files this project maintains. A vendor build never changes under
+     * the same name, so there is nothing to bust and the plain URL caches for
+     * longer.
+     *
+     * A path that is not on disk is returned unstamped rather than throwing:
+     * a missing stylesheet is already visible, and a fatal error on every page
+     * would be the worse failure.
+     */
+    function assetUrl(string $path): string
+    {
+        $file = FCPATH . ltrim($path, '/');
+        $time = is_file($file) ? filemtime($file) : false;
+
+        return base_url($path) . ($time !== false ? '?v=' . $time : '');
+    }
+}
+
 if (! function_exists('normalisePhone')) {
     /**
      * A mobile number as typed, reduced to the bare digits that get stored.
@@ -286,6 +313,79 @@ if (! function_exists('normalisePhone')) {
         }
 
         return substr($digits, 0, PHONE_LENGTH);
+    }
+}
+
+if (! function_exists('socialUrl')) {
+    /**
+     * Make one of the `settings` social links safe to put in an `href`.
+     *
+     * Whoever fills the box in the admin panel types what they would type into
+     * a browser, so "facebook.com/pickashift" has to work as well as the full
+     * address - a link saved without a scheme is read as a path and sends the
+     * visitor to a page on this site that does not exist. Anything that is not
+     * plainly http or https is treated as a bare address, which is also what
+     * stops a "javascript:" URL from reaching the markup.
+     *
+     * An empty box comes back as an empty string; the views hide the icon.
+     */
+    function socialUrl($url): string
+    {
+        $url = trim(strip_tags((string) $url));
+
+        if ($url === '') {
+            return '';
+        }
+
+        if (preg_match('~^https?://~i', $url) !== 1) {
+            $url = 'https://' . ltrim((string) preg_replace('~^[a-z][a-z0-9+.-]*:~i', '', $url), '/');
+        }
+
+        return $url;
+    }
+}
+
+if (! function_exists('socialLinks')) {
+    /**
+     * The social profiles that have been filled in, ready to render.
+     *
+     * The site footer and the contact page show the same row of icons, and
+     * while the addresses were written into the two views by hand they had
+     * drifted on to different accounts. Building the row from the `settings`
+     * row keeps them the same, and lets a box left empty in the admin panel
+     * take its icon off both pages instead of linking to nowhere.
+     *
+     * `class` is what the stylesheet colours the hover with, so it stays even
+     * though the label is what a screen reader reads out.
+     *
+     * @param object|null $settings the `settings` row
+     *
+     * @return list<array{label: string, class: string, url: string, icon: string}>
+     */
+    function socialLinks($settings): array
+    {
+        $networks = [
+            ['label' => 'Facebook', 'class' => 'facebook', 'column' => 's_facebook_url', 'icon' => 'lni-facebook-filled'],
+            ['label' => 'X', 'class' => 'twitter', 'column' => 's_twitter_url', 'icon' => 'lni-twitter-filled'],
+            ['label' => 'Instagram', 'class' => 'instagram', 'column' => 's_instagram_url', 'icon' => 'lni-instagram-filled'],
+        ];
+
+        $links = [];
+
+        foreach ($networks as $network) {
+            $url = socialUrl($settings->{$network['column']} ?? '');
+
+            if ($url !== '') {
+                $links[] = [
+                    'label' => $network['label'],
+                    'class' => $network['class'],
+                    'url'   => $url,
+                    'icon'  => $network['icon'],
+                ];
+            }
+        }
+
+        return $links;
     }
 }
 
@@ -445,8 +545,11 @@ if (! function_exists('updateQry')) {
             return false;
         }
 
-        $ci->session->set_flashdata('error_msg', EMPTY_FORM);
-
+        // Nothing is flashed for a form that failed its rules - the form
+        // shows `validation_errors()`, which says which rule and why. This
+        // used to flash "Please fill all the mandatory fields" as well, so a
+        // name that was already taken came back with both messages, the
+        // first of them untrue. The add forms (insertQry) never did it.
         return false;
     }
 }
@@ -1251,6 +1354,31 @@ if (! function_exists('mapSearchLink')) {
         return $place === ''
             ? ''
             : 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode($place);
+    }
+}
+
+if (! function_exists('siteDomain')) {
+    /**
+     * The site's own host - "pickashift.ca" - for the handful of places that
+     * name the site by its address rather than by `settings.s_sitename`.
+     *
+     * Taken from `base_url()` rather than written down, so a staging checkout
+     * says its own host instead of claiming to be the live site in a subject
+     * line somebody is about to reply to. The "www." is dropped because nobody
+     * writes the site's name with it.
+     *
+     * Falls back to the configured site name when base_url has no host to
+     * give, which is only the case in a badly configured CLI run.
+     */
+    function siteDomain(): string
+    {
+        $host = parse_url(base_url(), PHP_URL_HOST);
+
+        if (! is_string($host) || $host === '') {
+            return (string) config('AppSettings')->mailFromName;
+        }
+
+        return preg_replace('/^www\./i', '', $host);
     }
 }
 
@@ -2387,12 +2515,20 @@ if (! function_exists('shiftPostedRecipients')) {
      * what the caller logs. The e-mail always goes somewhere; a shift going
      * live unannounced is the one outcome to avoid.
      *
-     * @param object|null $owner   the `users` row that owns the store
-     * @param object|null $manager the `users` row running it, if any
+     * Used for both e-mails a store is sent about one of its shifts: "your
+     * shift is live" and the booking confirmation. Which of the two is being
+     * sent decides the opt-out that is checked, hence `$template`; the choice
+     * on the shift is the same question either way, and QC found the booking
+     * half ignoring it - an owner who had been unticked on the shift form was
+     * still told when an applicant was approved.
+     *
+     * @param object|null $owner    the `users` row that owns the store
+     * @param object|null $manager  the `users` row running it, if any
+     * @param string      $template which e-mail this is, for the opt-out check
      *
      * @return array{to: array<int, string>, missing: array<int, string>, fellBack: bool}
      */
-    function shiftPostedRecipients(?object $owner, ?object $manager, $choice, string $fallback): array
+    function shiftPostedRecipients(?object $owner, ?object $manager, $choice, string $fallback, string $template = 'shift-posted'): array
     {
         $wanted  = shiftEmailChoice($choice);
         $to      = [];
@@ -2413,7 +2549,7 @@ if (! function_exists('shiftPostedRecipients')) {
                 continue;
             }
 
-            if (! userAllowsEmail($user, 'shift-posted')) {
+            if (! userAllowsEmail($user, $template)) {
                 $missing[] = $side;
 
                 continue;
@@ -2437,5 +2573,98 @@ if (! function_exists('shiftPostedRecipients')) {
         }
 
         return ['to' => $to, 'missing' => $missing, 'fellBack' => $fellBack];
+    }
+}
+
+if (! function_exists('shiftSummaryLines')) {
+    /**
+     * A shift as the store is shown it in the "your shift has been updated"
+     * e-mail: label => printable value, in the order the e-mail lists them.
+     *
+     * Built the same way for the row before an edit and the row after it, so
+     * comparing the two arrays is how the e-mail knows which lines changed -
+     * compared as the reader sees them, not as the columns hold them, so a
+     * store swapped for one of the same name is not reported as a change.
+     *
+     * No rate, as on every other e-mail, and nothing from the agency's own
+     * notes. "Booked applicant" is only there while somebody is on the shift,
+     * so a booking appearing or going shows up as that line changing.
+     *
+     * @param array<string, mixed> $shift     a `post_job` row
+     * @param array|object|null    $applicant the `users` row booked on it
+     *
+     * @return array<string, string>
+     */
+    function shiftSummaryLines(array $shift, $applicant = null): array
+    {
+        $store    = shiftStore((object) $shift);
+        $statuses = (array) config('AppSettings')->approved;
+
+        $lines = [
+            'Store'               => $store
+                ? $store->s_name . (trim((string) $store->s_number) !== '' ? ' (no. ' . $store->s_number . ')' : '')
+                : '',
+            'Shift Date'          => dateFormat($shift['p_dates'] ?? null),
+            'Shift Time'          => (string) ($shift['p_shift_time'] ?? ''),
+            'Shift requested for' => getShiftForName($shift['p_shift_for'] ?? 0),
+            'Software'            => getSoftwareSkills($shift['p_skills'] ?? ''),
+            'Services'            => getStoreServices($shift['p_services'] ?? ''),
+            'Status'              => $statuses[(int) ($shift['p_approved'] ?? 0)] ?? '',
+        ];
+
+        if ($applicant) {
+            $applicant = (object) $applicant;
+
+            $lines['Booked applicant'] = trim($applicant->u_fname . ' ' . $applicant->u_lname);
+        }
+
+        return $lines;
+    }
+}
+
+if (! function_exists('testimonialPhoto')) {
+    /**
+     * The URL for a testimonial's uploaded photo, or the stand-in thumb.
+     *
+     * `t_image` holds a bare filename (the convention `users.u_photo` set), so
+     * no caller builds the uploads path itself.
+     *
+     * Always an address, never '': every caller - the home page card, and the
+     * three back-office screens - draws the circle whether or not there is a
+     * photo in it, so returning nothing would put a broken-image icon on all
+     * four rather than saving them anything. The thumb is transparent, so the
+     * card's own accent tint shows through behind the figure.
+     *
+     * The file is checked for on disk, not just in the column: a row can outlive
+     * its upload - a file cleared out of uploads/ by hand, or a database copied
+     * between environments without the images beside it - and a name that no
+     * longer resolves would render as a broken-image icon.
+     */
+    function testimonialPhoto($file): string
+    {
+        $file = trim((string) $file);
+
+        if ($file !== '' && is_file(FCPATH . 'uploads/testimonial/' . $file)) {
+            return base_url('uploads/testimonial/' . $file);
+        }
+
+        return base_url('assets/front/assets/img/testimonial/thumb.svg');
+    }
+}
+
+if (! function_exists('testimonialRating')) {
+    /**
+     * A testimonial's star rating, clamped to the 1-5 the card can draw.
+     *
+     * The column defaults to 5 and the form only offers those five values, but
+     * rows predating both exist, and so do rows written straight into the table
+     * - anything outside the range is read as the full five rather than drawn as
+     * no stars at all or as a row that overflows the card.
+     */
+    function testimonialRating($value): int
+    {
+        $stars = (int) $value;
+
+        return ($stars >= 1 && $stars <= 5) ? $stars : 5;
     }
 }

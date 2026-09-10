@@ -1036,6 +1036,128 @@ $migrations = [
             return $notes;
         },
     ],
+    [
+        'version' => '2026-09-08-090000',
+        'class'   => 'App\Database\Migrations\AddListOrderColumns',
+        'label'   => 'AddListOrderColumns',
+        'apply'   => static function (mysqli $db): array {
+            $notes = [];
+
+            // The same column AddShiftForOrder gave `shift_for`, for the other
+            // seven lists in the Masters block. Each entry is: table, column,
+            // primary key, what the list was already sorted by, and the column
+            // it is numbered within - null where the list runs end to end.
+            $lists = [
+                ['province', 'p_order', 'p_id', 'p_name', null],
+                ['city', 'c_order', 'c_id', 'c_name', 'c_province'],
+                ['software_skills', 'ss_order', 'ss_id', 'ss_name', null],
+                ['store_service', 'st_order', 'st_id', 'st_service_name', null],
+                ['additional_details', 'ad_order', 'ad_id', 'ad_name', null],
+                ['headermenu', 'm_order', 'm_id', 'm_name', 'm_parentid'],
+                ['testimonial', 't_order', 't_id', 't_id', null],
+            ];
+
+            foreach ($lists as [$table, $column, $key, $sortBy, $groupBy]) {
+                if (! tableExists($db, $table)) {
+                    // `additional_details` and `testimonial` are themselves
+                    // made by earlier migrations in this same array. If one of
+                    // those was skipped there is nothing here to add a column
+                    // to, and saying so is more use than a fatal error.
+                    $notes[] = "{$table} does not exist yet - skipped";
+
+                    continue;
+                }
+
+                if (columnExists($db, $table, $column)) {
+                    $notes[] = "{$table}.{$column} is already there";
+
+                    continue;
+                }
+
+                run($db, 'ALTER TABLE `' . $table . '`
+                          ADD COLUMN `' . $column . '` INT NOT NULL DEFAULT 0
+                          COMMENT ' . quoted('Where this sits in the list. Set by the arrows in the back office.'));
+                $notes[] = "{$table}.{$column} added";
+
+                // Numbered as each list already read, so nothing moves on the
+                // day this runs. Deactivated rows are numbered too: status says
+                // whether a row may be picked, not where it sits.
+                //
+                // One statement per group rather than a window function: this
+                // runs over a web request on shared hosting, where the MySQL
+                // version is whatever the host gives us and ROW_NUMBER() needs
+                // 8.0. A session variable works everywhere back to 5.6.
+                if ($groupBy === null) {
+                    run($db, 'SET @position := 0');
+                    run($db, 'UPDATE `' . $table . '`
+                              SET `' . $column . '` = (@position := @position + 1)
+                              ORDER BY `' . $sortBy . '` ASC');
+
+                    $notes[] = "{$table} rows numbered in the order they were already shown in";
+
+                    continue;
+                }
+
+                // Grouped lists start again at 1 inside each group, because
+                // that is how they are offered - a city is only ever picked
+                // after a province, a resources link belongs to one menu.
+                $groups = $db->query('SELECT DISTINCT `' . $groupBy . '` AS g FROM `' . $table . '`');
+                $count  = 0;
+
+                while ($groups !== false && $row = $groups->fetch_assoc()) {
+                    run($db, 'SET @position := 0');
+                    run($db, 'UPDATE `' . $table . '`
+                              SET `' . $column . '` = (@position := @position + 1)
+                              WHERE `' . $groupBy . '` = ' . (int) $row['g'] . '
+                              ORDER BY `' . $sortBy . '` ASC');
+                    $count++;
+                }
+
+                $notes[] = "{$table} rows numbered within each {$groupBy} ({$count} of them)";
+            }
+
+            return $notes;
+        },
+    ],
+    [
+        'version' => '2026-09-09-100000',
+        'class'   => 'App\Database\Migrations\AddTestimonialPersonFields',
+        'label'   => 'AddTestimonialPersonFields',
+        'apply'   => static function (mysqli $db): array {
+            $notes = [];
+
+            // The person behind the quote: the home page card now shows who
+            // said it, what they are, where they are, a star rating and a
+            // photo. Only `t_rating` is NOT NULL - it is drawn as stars on
+            // every card, so a row with no answer has to have one.
+            $columns = [
+                ['t_name', "VARCHAR(100) NULL COMMENT 'Who said it, as shown on the card - ''Sarah M.''.'", 't_description'],
+                ['t_role', "VARCHAR(100) NULL COMMENT 'Their standing - ''Job Seeker'', ''HR Manager''. Blank hides the line.'", 't_name'],
+                ['t_location', "VARCHAR(120) NULL COMMENT 'City and province. Blank hides the pin.'", 't_role'],
+                ['t_image', "VARCHAR(255) NULL COMMENT 'Filename under uploads/testimonial/. Blank falls back to the placeholder thumb.'", 't_location'],
+                ['t_rating', "TINYINT(1) NOT NULL DEFAULT 5 COMMENT 'Stars out of five, 1-5.'", 't_image'],
+            ];
+
+            if (! tableExists($db, 'testimonial')) {
+                // Made by AddTestimonialTable, earlier in this same array. If
+                // that was skipped there is nothing here to add columns to.
+                return ['testimonial does not exist yet - skipped'];
+            }
+
+            foreach ($columns as [$column, $definition, $after]) {
+                if (columnExists($db, 'testimonial', $column)) {
+                    $notes[] = "testimonial.{$column} already there";
+
+                    continue;
+                }
+
+                run($db, 'ALTER TABLE `testimonial` ADD COLUMN `' . $column . '` ' . $definition . ' AFTER `' . $after . '`');
+                $notes[] = "added testimonial.{$column}";
+            }
+
+            return $notes;
+        },
+    ],
 ];
 
 $applied = 0;

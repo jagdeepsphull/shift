@@ -39,8 +39,32 @@ $makeZip = in_array('--zip', $argv, true);
  */
 $split = in_array('--split', $argv, true);
 
-/** The private folder's name, which the front controller looks for. */
-$privateName = 'pickashift_app';
+if (! in_array($target, ['staging', 'production'], true)) {
+    fwrite(STDERR, "Usage: php deploy/build.php staging|production [--zip] [--split] [--private=NAME]\n");
+    exit(1);
+}
+
+$isStg = $target === 'staging';
+
+/**
+ * Where staging sits inside its document root.
+ *
+ * Two things are derived from this and would otherwise drift apart: the
+ * `RewriteBase` mod_rewrite needs to resolve the front controller, and how far
+ * a split bundle has to climb to reach the private half. Move staging and both
+ * follow from the one edit.
+ */
+const STAGING_DIR = 'staging';
+
+/**
+ * The private folder's name, which the front controller looks for.
+ *
+ * Staging gets its own, because both halves of both deploys end up in the same
+ * home directory: one name would mean staging's application files overwriting
+ * the live ones, which is the whole site, silently, on an upload meant for a
+ * test copy.
+ */
+$privateName = $isStg ? 'pickashift_staging_app' : 'pickashift_app';
 
 foreach ($argv as $arg) {
     if (str_starts_with($arg, '--private=')) {
@@ -48,22 +72,36 @@ foreach ($argv as $arg) {
     }
 }
 
-if (! in_array($target, ['staging', 'production'], true)) {
-    fwrite(STDERR, "Usage: php deploy/build.php staging|production [--zip] [--split] [--private=NAME]\n");
-    exit(1);
-}
-
-if ($split && $target === 'staging') {
-    // Staging lives in a subfolder of a document root, so "outside the document
-    // root" is a different question there and the answer is not this.
-    fwrite(STDERR, "  --split is for production. Staging is a subfolder deploy.\n");
-    exit(1);
-}
-
 if ($privateName === '' || ! preg_match('/^[A-Za-z0-9._-]+$/', $privateName)) {
     fwrite(STDERR, "  --private must be a plain folder name, e.g. --private=pickashift_app\n");
     exit(1);
 }
+
+/**
+ * How far above the public half the private one sits, as a relative path.
+ *
+ * Production's document root is an addon domain's folder, a direct child of the
+ * home directory, so one level up is already outside every document root.
+ *
+ * Staging is a subfolder of `public_html`, so one level up from it is
+ * `public_html` itself - a document root, and the live one. Climbing only as
+ * far as production does would put `.env`, with the database and SMTP
+ * credentials in it, at a public URL. It goes up one further, past the document
+ * root and into the home directory, where production's private half already
+ * sits beside it.
+ */
+$privateUp = str_repeat('../', $isStg ? substr_count(trim(STAGING_DIR, '/'), '/') + 2 : 1);
+
+/**
+ * Where the public half goes, relative to the home directory.
+ *
+ * Reported at the end of the build and nothing more - the bundle does not need
+ * to know. It is here so the two targets are described in one place rather than
+ * in the sentences printed at the bottom of the file.
+ */
+$docRoot = $isStg
+    ? 'public_html/' . trim(STAGING_DIR, '/') . '/'
+    : 'pickashift.ca/';
 
 /** Everything that ships. Nothing else does. */
 const ALLOW = [
@@ -89,8 +127,7 @@ const SKIP_DIRS = ['.git', 'node_modules', '.vscode', '.idea'];
  */
 const SKIP_EXT = ['map', 'psd', 'ai', 'sketch'];
 
-$out   = $root . '/deploy/build/' . $target;
-$isStg = $target === 'staging';
+$out = $root . '/deploy/build/' . $target;
 
 echo "Building {$target}\n";
 echo str_repeat('-', 60) . "\n";
@@ -221,21 +258,23 @@ if ($isStg) {
     // followed it, so the day `.htaccess` was saved with CRLF - which it now
     // has - the replace silently did nothing and the build stopped here. The
     // captured line ending is reused, so the file keeps whichever it has.
+    $base = '/' . trim(STAGING_DIR, '/') . '/';
+
     $ht = preg_replace(
         '/([ \t]*)RewriteEngine On[ \t]*(\r?\n)/',
-        '$1RewriteEngine On$2$1RewriteBase /staging/$2',
+        '$1RewriteEngine On$2$1RewriteBase ' . $base . '$2',
         $ht,
         1
     );
 
-    if ($ht === null || ! str_contains($ht, 'RewriteBase /staging/')) {
+    if ($ht === null || ! str_contains($ht, 'RewriteBase ' . $base)) {
         fwrite(STDERR, "  ERROR: could not insert RewriteBase - no 'RewriteEngine On' line in .htaccess\n");
         exit(1);
     }
 
     // Staging lives on the same hostname, so the SSL redirect block would send
     // it to the canonical site. Harmless over https, kept for parity.
-    echo "  .htaccess: RewriteBase /staging/ added\n";
+    echo "  .htaccess: RewriteBase {$base} added\n";
 } else {
     echo "  .htaccess: copied as-is\n";
 }
@@ -319,19 +358,20 @@ if ($split) {
 
     $locate = <<<PHP
         // The application itself is not in this folder, and not under any
-        // document root: app/, vendor/, writable/ and .env live one level up,
-        // in {$privateName}/. They have no URL at all - not a blocked one,
-        // none - so no rule has to hold for them to stay unreachable.
+        // document root: app/, vendor/, writable/ and .env live in
+        // {$privateName}/, up in the home directory. They have no URL at all -
+        // not a blocked one, none - so no rule has to hold for them to stay
+        // unreachable.
         //
         // Built by deploy/build.php --split. FCPATH stays the document root, so
         // uploads/ and assets/ still resolve here, where the browser expects.
-        \$privateDir = realpath(FCPATH . '../{$privateName}');
+        \$privateDir = realpath(FCPATH . '{$privateUp}{$privateName}');
 
         if (\$privateDir === false || ! is_file(\$privateDir . '/app/Config/Paths.php')) {
             header('HTTP/1.1 503 Service Unavailable.', true, 503);
 
             echo 'Application files not found. This document root expects them in '
-                . '../{$privateName}/ - see deploy/UPLOAD.md.';
+                . '{$privateUp}{$privateName}/ - see deploy/UPLOAD.md.';
 
             exit(1);
         }
@@ -346,7 +386,7 @@ if ($split) {
 
     file_put_contents($pub . '/index.php', str_replace($needle, $locate, $index));
 
-    echo "  split: site/ (document root) + private/{$privateName}/ (above it)\n";
+    echo "  split: site/ (document root) + private/{$privateName}/ (home directory)\n";
 }
 
 // ---------------------------------------------------------------- report ----
@@ -439,23 +479,30 @@ if ($makeZip && $split) {
     // in the home directory creates `<name>/` rather than emptying the
     // application over whatever is already there. The public one does not -
     // its contents go straight into the document root, which already exists.
-    zipUp($pub, $root . '/deploy/build/pickashift-site.zip', '');
-    zipUp($priv, $root . '/deploy/build/pickashift-private.zip', $privateName . '/');
+    // Named per target, so a staging bundle and a production one can sit in the
+    // build folder at once without either overwriting the other - and so the
+    // wrong one cannot be uploaded over the live site by picking the file with
+    // the familiar name.
+    zipUp($pub, $root . '/deploy/build/pickashift-' . $target . '-site.zip', '');
+    zipUp($priv, $root . '/deploy/build/pickashift-' . $target . '-private.zip', $privateName . '/');
 
     echo "\n";
     echo "  Upload and extract these in two places:\n";
-    echo "    pickashift-site.zip     -> the document root  (pickashift.ca/)\n";
-    echo "    pickashift-private.zip  -> the home directory (creates {$privateName}/ beside it)\n";
+    printf("    pickashift-%s-site.zip%s-> the document root  (%s)\n", $target, '      ', $docRoot);
+    printf("    pickashift-%s-private.zip%s-> the home directory (creates %s/)\n", $target, '   ', $privateName);
 }
 
 if ($split) {
     echo "\n";
     echo "  Layout on the server:\n";
-    echo "    /home/<user>/pickashift.ca/   index.php  .htaccess  robots.txt  assets/  uploads/\n";
-    echo "    /home/<user>/{$privateName}/" . str_repeat(' ', max(1, 14 - strlen($privateName)))
+    echo "    /home/<user>/{$docRoot}" . str_repeat(' ', max(1, 26 - strlen($docRoot)))
+        . "index.php  .htaccess  robots.txt  assets/  uploads/\n";
+    echo "    /home/<user>/{$privateName}/" . str_repeat(' ', max(1, 25 - strlen($privateName)))
         . "app/  vendor/  writable/  .env  spark\n";
     echo "\n";
-    echo "  The two must stay siblings: index.php looks for ../{$privateName}/.\n";
+    echo "  index.php looks for {$privateUp}{$privateName}/ from the document root, so both\n";
+    echo "  halves have to keep the places above - the private one in the home\n";
+    echo "  directory, under no document root at all.\n";
 }
 
 echo "  Next: deploy/UPLOAD.md\n";

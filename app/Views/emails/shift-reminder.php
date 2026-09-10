@@ -39,7 +39,6 @@ $mapLink = $store ? storeMapLink($store) : '';
         <li>Address: <?= esc($employer['u_address1']) ?>, <?= esc(getCityName($employer['u_city'])) ?>, <?= esc(getProvinceName($employer['u_provice'])) ?>, <?= esc($employer['u_pincode']) ?></li>
         <?php } ?>
         <li>Shift time: <?= esc($shift['p_shift_time']) ?></li>
-        <li>Rate: CAD$ <?= esc($shift['p_ac_hourly_rate']) ?>/hour</li>
         <li>Role: <?= esc(getShiftForName($shift['p_shift_for'])) ?></li>
         <li>Software: <?= esc(getSoftwareSkills($shift['p_skills'])) ?></li>
     </ul>

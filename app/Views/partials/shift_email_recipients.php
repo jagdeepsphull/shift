@@ -4,11 +4,12 @@
  * "Send shift e-mail to" - the two sides of the store that can be told a shift
  * is live. On both admin shift forms, so the two cannot drift apart.
  *
- * The e-mail is `shift-posted`, and it is sent at the moment the shift becomes
- * Open: when a new shift is saved as Open, or when an existing one is approved.
- * Editing a shift that is already live sends nothing, so changing these boxes
- * afterwards changes who the *next* announcement reaches, not who has already
- * been written to.
+ * Three e-mails obey it. `shift-posted` is sent at the moment the shift becomes
+ * Open - when a new shift is saved as Open, or when an existing one is approved
+ * - `booking-employer` when an applicant is approved for it, and
+ * `shift-updated` when the edit form saves any other change. Ticking a box and
+ * saving counts as a change, so it is also how somebody left off an earlier
+ * message is sent the shift as it now stands.
  *
  * Neither box ticked is a real answer, not a mistake - some shifts are arranged
  * by phone and the pharmacy does not want the mail - and the shift still gets
@@ -17,9 +18,9 @@
  * disabled: it is not a choice an administrator makes per shift, but leaving it
  * off the card would make an empty pair of boxes read as "no e-mail at all".
  *
- * The applicant side is not on this card and never will be. Booking e-mails go
- * out whenever a booking is made, to the person it was made with, and are not
- * something an administrator chooses per shift.
+ * The applicant side is not on this card and never will be. The applicant's own
+ * half of a booking goes to the person the booking was made with, and is not
+ * something an administrator chooses on their behalf.
  *
  * @var mixed  $selected the stored or posted `p_email_to`
  * @var string $manager  who runs this shift's store, if the caller knows
@@ -33,7 +34,7 @@ $sides = [
 ];
 ?>
 <div class="form-group">
-    <label class="d-block">Send shift e-mail to</label>
+    <label class="d-block">Send shift e-mails to</label>
 
     <div class="border rounded p-2">
         <?php foreach ($sides as $side => $meta) { ?>

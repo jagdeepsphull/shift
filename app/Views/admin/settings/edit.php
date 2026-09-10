@@ -21,8 +21,11 @@
     </section>
     <?php  
 						echo session()->getFlashdata('error_msg');
-						
+
 					?>
+    <?php if (validation_errors()): ?>
+        <div class="alert alert-danger mx-3"><?= validation_errors() ?></div>
+    <?php endif; ?>
     <!-- Main content -->
     <form name="editform" action="" method="post">
         <section class="content">

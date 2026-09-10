@@ -40,11 +40,25 @@ class CustomModel
         return $this->db->table($table)->insert($data);
     }
 
+    /**
+     * Update the row(s) `$where` names. True when the row is there and now
+     * holds `$data`, whether or not that took a change.
+     *
+     * MySQL counts a row as affected only when a value actually changed, so
+     * saving an edit form without touching it affected nothing - and every
+     * master list's Update button answered "Something went wrong" to exactly
+     * that. The row is looked for instead. It still has to be found: callers
+     * put ownership in `$where` (a store only its owner may edit, a shift only
+     * while it is pending), and a row that is not theirs must still fail.
+     */
     public function updateData($table, $data, $where)
     {
-        $this->db->table($table)->where($where)->update($data);
+        if (! $this->db->table($table)->where($where)->update($data)) {
+            return false;
+        }
 
-        return $this->db->affectedRows() > 0;
+        return $this->db->affectedRows() > 0
+            || $this->db->table($table)->where($where)->countAllResults() > 0;
     }
 
     /**

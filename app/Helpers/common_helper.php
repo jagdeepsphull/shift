@@ -545,8 +545,11 @@ if (! function_exists('updateQry')) {
             return false;
         }
 
-        $ci->session->set_flashdata('error_msg', EMPTY_FORM);
-
+        // Nothing is flashed for a form that failed its rules - the form
+        // shows `validation_errors()`, which says which rule and why. This
+        // used to flash "Please fill all the mandatory fields" as well, so a
+        // name that was already taken came back with both messages, the
+        // first of them untrue. The add forms (insertQry) never did it.
         return false;
     }
 }

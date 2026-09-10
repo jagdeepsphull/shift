@@ -25,7 +25,7 @@
 <!-- Main content -->
     <section class="content">
       <?php 
-			if(session()->getFlashdata('error_msg')){echo '<div class="alert alert-danger">'.session()->getFlashdata('error_msg').'</div>';}		
+			if(session()->getFlashdata('error_msg')){echo session()->getFlashdata('error_msg');}		
 					
 		?>
 		<?php if (validation_errors()): ?>

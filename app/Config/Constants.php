@@ -90,7 +90,7 @@ defined('INSERTJOB') || define('INSERTJOB', '<div class="alert alert-success">Sh
 defined('INSERT')    || define('INSERT', '<div class="alert alert-success">Records has been Inserted successfully.</div>');
 defined('UPDATE')    || define('UPDATE', '<div class="alert alert-success">Records has been Updated successfully.</div>');
 defined('DELETE')    || define('DELETE', '<div class="alert alert-danger">Records has been Deleted successfully.</div>');
-defined('WRONG')     || define('WRONG', '<div class="alert alert-warning">Somethig went wrong. Please try again.</div>');
+defined('WRONG')     || define('WRONG', '<div class="alert alert-warning">Something went wrong. Please try again.</div>');
 defined('EMPTY_FORM') || define('EMPTY_FORM', '<div class="alert alert-danger">Please fill all the mandatory fields......</div>');
 
 /*

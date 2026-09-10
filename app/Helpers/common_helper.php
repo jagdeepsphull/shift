@@ -1354,6 +1354,31 @@ if (! function_exists('mapSearchLink')) {
     }
 }
 
+if (! function_exists('siteDomain')) {
+    /**
+     * The site's own host - "pickashift.ca" - for the handful of places that
+     * name the site by its address rather than by `settings.s_sitename`.
+     *
+     * Taken from `base_url()` rather than written down, so a staging checkout
+     * says its own host instead of claiming to be the live site in a subject
+     * line somebody is about to reply to. The "www." is dropped because nobody
+     * writes the site's name with it.
+     *
+     * Falls back to the configured site name when base_url has no host to
+     * give, which is only the case in a badly configured CLI run.
+     */
+    function siteDomain(): string
+    {
+        $host = parse_url(base_url(), PHP_URL_HOST);
+
+        if (! is_string($host) || $host === '') {
+            return (string) config('AppSettings')->mailFromName;
+        }
+
+        return preg_replace('/^www\./i', '', $host);
+    }
+}
+
 if (! function_exists('storeMapLink')) {
     /**
      * The map link to show for a store, falling back to a search for its
@@ -2487,12 +2512,20 @@ if (! function_exists('shiftPostedRecipients')) {
      * what the caller logs. The e-mail always goes somewhere; a shift going
      * live unannounced is the one outcome to avoid.
      *
-     * @param object|null $owner   the `users` row that owns the store
-     * @param object|null $manager the `users` row running it, if any
+     * Used for both e-mails a store is sent about one of its shifts: "your
+     * shift is live" and the booking confirmation. Which of the two is being
+     * sent decides the opt-out that is checked, hence `$template`; the choice
+     * on the shift is the same question either way, and QC found the booking
+     * half ignoring it - an owner who had been unticked on the shift form was
+     * still told when an applicant was approved.
+     *
+     * @param object|null $owner    the `users` row that owns the store
+     * @param object|null $manager  the `users` row running it, if any
+     * @param string      $template which e-mail this is, for the opt-out check
      *
      * @return array{to: array<int, string>, missing: array<int, string>, fellBack: bool}
      */
-    function shiftPostedRecipients(?object $owner, ?object $manager, $choice, string $fallback): array
+    function shiftPostedRecipients(?object $owner, ?object $manager, $choice, string $fallback, string $template = 'shift-posted'): array
     {
         $wanted  = shiftEmailChoice($choice);
         $to      = [];
@@ -2513,7 +2546,7 @@ if (! function_exists('shiftPostedRecipients')) {
                 continue;
             }
 
-            if (! userAllowsEmail($user, 'shift-posted')) {
+            if (! userAllowsEmail($user, $template)) {
                 $missing[] = $side;
 
                 continue;

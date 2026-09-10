@@ -44,7 +44,7 @@ $supportTo = $settings[0]->s_email ?? 'team@pickashift.ca';
         <div class="content" style="padding: 22px 24px;">
             <?= $this->renderSection('content') ?>
 
-            <p style="line-height: 1.6;">If you have any questions, our support team is at
+            <p style="line-height: 1.6;">If you have any questions, you may reach out to our support team at
                 <a href="mailto:<?= esc($supportTo) ?>" style="color: #7c3aed;"><?= esc($supportTo) ?></a>.</p>
         </div>
 

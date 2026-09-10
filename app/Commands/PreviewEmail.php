@@ -97,9 +97,11 @@ class PreviewEmail extends BaseCommand
 
         if ($template === 'shift-posted') {
             CLI::write(email_body('shift-posted', [
-                'title'       => 'Your shift is live',
+                'title'       => 'Your shift is now live',
                 'name'        => trim($employer['u_fname'] . ' ' . $employer['u_lname']),
                 'shift_title' => $shift['p_job_title'],
+                'shift_date'  => dateFormat($shift['p_dates'] ?? null),
+                'store_name'  => (string) ($store->s_name ?? ''),
             ]));
 
             return EXIT_SUCCESS;
@@ -107,7 +109,7 @@ class PreviewEmail extends BaseCommand
 
         if ($template === 'booking-applicant') {
             CLI::write(email_body('booking-applicant', [
-                'title'            => 'You have been approved for a shift',
+                'title'            => 'Your shift has been booked',
                 'name'             => 'Preview Applicant',
                 'shift'            => $shift,
                 'employer'         => $employer,
@@ -187,7 +189,7 @@ class PreviewEmail extends BaseCommand
     {
         if ($template === 'welcome') {
             return email_body('welcome', [
-                'title' => 'Welcome to PickAShift!',
+                'title' => 'Welcome to PickAShift',
                 'name'  => 'Preview Person',
             ]);
         }

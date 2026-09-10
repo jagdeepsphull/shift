@@ -2663,7 +2663,7 @@ class Sadmin extends BaseController
      */
     private function sendAccountApprovedEmail(array $user): void
     {
-        $subject = 'Your Account Has Been Approved – Welcome to ' . $this->data['settings'][0]->s_sitename . '!';
+        $subject = 'Your Account Has Been Approved';
         $message = email_body('account-approved', [
             'title'    => 'Your account has been approved',
             'name'     => trim($user['u_fname'] . ' ' . $user['u_lname']),
@@ -3726,8 +3726,8 @@ class Sadmin extends BaseController
      *
      * Called from the one moment it means anything: a shift becoming Open,
      * whether that is a new shift saved as Open or an existing one approved.
-     * The applicant side of the site is not involved - the booking e-mails are
-     * sent from `bookApplicant()` and are not affected by any of this.
+     * The applicant side of the site is not involved; the employer's half of a
+     * booking is sent from `sendBookingEmails()` and reads the same choice.
      *
      * @param array<string, mixed>  $shift the `post_job` row, after saving
      * @param object|null           $owner the `users` row that owns the store
@@ -3759,14 +3759,24 @@ class Sadmin extends BaseController
             ));
         }
 
+        // Which branch the shift is at, so the e-mail can name it: a chain's
+        // head office runs several and the shift number alone does not say.
+        $store = shiftStore((object) $shift);
+
         // The greeting is the store's owner either way. The manager is sent the
         // same message rather than one addressed to them: this e-mail says a
         // shift is live, and it reads the same to both sides of a store.
-        $subject = 'Your Shift Has Been Posted on ' . $this->data['settings'][0]->s_sitename . '!';
+        //
+        // The subject names the site by its domain rather than by
+        // `s_sitename`, because that is what the spec asks for and what a
+        // pharmacy recognises in a crowded inbox.
+        $subject = 'Your Shift is now live on ' . siteDomain();
         $message = email_body('shift-posted', [
             'title'       => 'Your shift is now live',
             'name'        => trim(($owner->u_fname ?? '') . ' ' . ($owner->u_lname ?? '')),
             'shift_title' => $shift['p_job_title'] ?? '',
+            'shift_date'  => $shift['p_dates'] ? dateFormat($shift['p_dates']) : '',
+            'store_name'  => (string) ($store->s_name ?? ''),
             'settings'    => $this->data['settings'],
         ]);
 
@@ -4148,9 +4158,9 @@ class Sadmin extends BaseController
         $store_detail = shiftStore((object) $shift_detail);
 
         $applicant_email   = $user_email;
-        $applicant_subject = 'Congratulations! You Have Been Approved for Shift ID : ' . $shift_detail['p_job_title'];
+        $applicant_subject = 'Your shift has been booked';
         $applicant_message = email_body('booking-applicant', [
-            'title'            => 'You have been approved for a shift',
+            'title'            => 'Your shift has been booked',
             'name'             => $user_name,
             'shift'            => $shift_detail,
             'employer'         => $employer_detail,
@@ -4173,7 +4183,24 @@ class Sadmin extends BaseController
             log_message('error', 'Failed to send email.');
         }
 
-        $employer_email   = $employer_detail['u_email'];
+        // Who at the store asked to hear about this shift. The same tick boxes
+        // that decide who is told the shift went live decide who is told it has
+        // been filled: QC found an owner who had been unticked on the shift
+        // form still being sent "an applicant has been approved".
+        //
+        // No fallback address is passed - the agency's copy below is this
+        // message's always-sent recipient, and passing one as well would send
+        // the agency two of them.
+        $storeId  = (int) ($shift_detail['p_store_id'] ?? 0);
+        $manager  = $storeId > 0 ? (storeManagers([$storeId])[$storeId] ?? null) : null;
+        $audience = shiftPostedRecipients(
+            (object) $employer_detail,
+            $manager,
+            $shift_detail['p_email_to'] ?? '',
+            '',
+            'booking-employer'
+        );
+
         $employer_subject = 'A New Applicant Has Been Approved for Shift ID : ' . $shift_detail['p_job_title'];
         $employer_message = email_body('booking-employer', [
             'title'          => 'An applicant has been approved for your shift',
@@ -4187,16 +4214,33 @@ class Sadmin extends BaseController
             'settings'       => $this->data['settings'],
         ]);
 
-        if (! userAllowsEmail($employer_detail, 'booking-employer')) {
-            log_message('info', 'Booking e-mail withheld: employer ' . $employer_detail['u_id'] . ' opted out.');
+        if ($audience['to'] === []) {
+            // Nobody at the store is to be told - either the shift says so, or
+            // the people it names have opted out. The agency still keeps its
+            // copy: that record is not the store's to switch off.
+            log_message('info', sprintf(
+                'Booking e-mail to the store withheld for shift %s: nobody ticked or reachable (%s).',
+                $shift_detail['p_job_title'] ?? $shiftId,
+                $audience['missing'] === [] ? 'none ticked' : implode(', ', $audience['missing'])
+            ));
 
             if ($agency_copy) {
                 send_email($agency_copy, $employer_subject, $employer_message);
             }
-        } elseif (send_email($employer_email, $employer_subject, $employer_message, $agency_copy)) {
-            log_message('info', 'Email sent successfully!');
         } else {
-            log_message('error', 'Failed to send email.');
+            // The agency is copied once, on the first message only, so a store
+            // with both an owner and a manager does not send it two.
+            $copy = $agency_copy;
+
+            foreach ($audience['to'] as $address) {
+                if (send_email($address, $employer_subject, $employer_message, $copy)) {
+                    log_message('info', 'Booking e-mail sent to ' . $address);
+                } else {
+                    log_message('error', 'Booking e-mail failed for ' . $address);
+                }
+
+                $copy = '';
+            }
         }
     }
 

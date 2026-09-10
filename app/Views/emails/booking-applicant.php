@@ -4,6 +4,10 @@
  * Sent to the applicant when an admin approves them for a shift. The agency is
  * copied on this one (see `getAgencyCopyEmail()`).
  *
+ * Worded as the agency's e-mail spec has it (#4), which greets the applicant by
+ * first name only and gives the message no heading, so the banner carries only
+ * the site's name. The subject is set by the sender, Sadmin::sendBookingEmails.
+ *
  * The pharmacy is named by its store, not by `u_comp_name`: the employer's
  * company name is the group an owner trades under, and a person told they are
  * booked at "Independent Pharmacy" has not been told which shop that is.
@@ -17,21 +21,25 @@
  * multi-store owner those are the head office, and this message is the one
  * telling somebody which building to walk into.
  *
- * @var string      $name
+ * @var string      $name             the applicant's full name
+ * @var string      $first_name       what the greeting uses; $name when absent
  * @var array       $shift            row from `post_job`
  * @var array       $employer         row from `users`
  * @var object|null $store            the shift's store, from `shiftStore()`
  * @var string      $approval_comment
  * @var array       $settings
  */
-$store    = $store ?? null;
-$mapLink  = $store ? storeMapLink($store) : '';
-$pharmacy = $store ? $store->s_name : $employer['u_comp_name'];
+$store     = $store ?? null;
+$mapLink   = $store ? storeMapLink($store) : '';
+$pharmacy  = $store ? $store->s_name : $employer['u_comp_name'];
+$firstName = trim((string) ($first_name ?? '')) !== '' ? trim($first_name) : $name;
+
+$this->setVar('title', $settings[0]->s_sitename ?? 'Pick-A-Shift');
 ?>
 <?= $this->extend('emails/layout') ?>
 
 <?= $this->section('content') ?>
-    <h2 style="margin: 0 0 14px; font-size: 18px; color: #222;">Hello, <?= esc($name) ?>!</h2>
+    <p style="line-height: 1.6;">Hello <?= esc($firstName) ?>,</p>
 
     <p style="line-height: 1.6;">We are pleased to inform you that the shift
     <strong><?= esc($shift['p_job_title']) ?></strong> has been booked for you at
@@ -42,16 +50,16 @@ $pharmacy = $store ? $store->s_name : $employer['u_comp_name'];
     <ul style="line-height: 1.7; padding-left: 20px;">
         <?php if ($store) { ?>
         <li>Store: <?= esc($store->s_name) ?><?= $store->s_number !== '' ? ' (no. ' . esc($store->s_number) . ')' : '' ?></li>
-        <li>Store address: <?= esc($store->s_address) ?>, <?= esc(getCityName($store->s_city)) ?>, <?= esc(getProvinceName($store->s_province)) ?>, <?= esc($store->s_pincode) ?></li>
+        <li>Store Address: <?= esc($store->s_address) ?>, <?= esc(getCityName($store->s_city)) ?>, <?= esc(getProvinceName($store->s_province)) ?>, <?= esc($store->s_pincode) ?></li>
         <?php if (trim((string) ($store->s_phone ?? '')) !== '') { ?>
-        <li>Store phone: <?= esc($store->s_phone) ?></li>
+        <li>Store Phone: <?= esc($store->s_phone) ?></li>
         <?php } ?>
         <?php } else { ?>
-        <li>Store no.: <?= esc($employer['u_licence_no']) ?></li>
-        <li>Store address: <?= esc($employer['u_address1']) ?>, <?= esc(getCityName($employer['u_city'])) ?>, <?= esc(getProvinceName($employer['u_provice'])) ?>, <?= esc($employer['u_pincode']) ?></li>
+        <li>Store: <?= esc($employer['u_comp_name']) ?><?= trim((string) $employer['u_licence_no']) !== '' ? ' (no. ' . esc($employer['u_licence_no']) . ')' : '' ?></li>
+        <li>Store Address: <?= esc($employer['u_address1']) ?>, <?= esc(getCityName($employer['u_city'])) ?>, <?= esc(getProvinceName($employer['u_provice'])) ?>, <?= esc($employer['u_pincode']) ?></li>
         <?php } ?>
         <li>Shift requested for: <?= esc(getShiftForName($shift['p_shift_for'])) ?></li>
-        <li>Shift date: <?= esc(dateFormat($shift['p_dates'])) ?></li>
+        <li>Shift Date: <?= esc(dateFormat($shift['p_dates'])) ?></li>
         <li>Shift time: <?= esc($shift['p_shift_time']) ?></li>
         <li>Software: <?= esc(getSoftwareSkills($shift['p_skills'])) ?></li>
         <li>Services: <?= esc(getStoreServices($shift['p_services'])) ?></li>
@@ -60,7 +68,7 @@ $pharmacy = $store ? $store->s_name : $employer['u_comp_name'];
         <?php } ?>
     </ul>
 
-    <p style="line-height: 1.6;">You may log in to your account on our portal for full details.</p>
+    <p style="line-height: 1.6;">You may Login to your account on our portal for full details.</p>
 
     <?php if ($mapLink !== '') { ?>
     <?php /* The pasted pin where the store has one, otherwise a search for the
@@ -71,7 +79,7 @@ $pharmacy = $store ? $store->s_name : $employer['u_comp_name'];
     </p>
     <?php } ?>
 
-    <p style="line-height: 1.6;"><strong>Note:</strong></p>
+    <p style="line-height: 1.6;">Note:</p>
 
     <ul style="line-height: 1.7; padding-left: 20px;">
         <li>Please ensure you arrive on time for your shift.</li>
@@ -79,6 +87,6 @@ $pharmacy = $store ? $store->s_name : $employer['u_comp_name'];
         <li>Check in with the on-site supervisor or assistant upon arrival (if available).</li>
     </ul>
 
-    <p style="line-height: 1.6;">We wish you all the best for the shift, and look forward to working with and
-    supporting you on your upcoming shifts.</p>
+    <p style="line-height: 1.6;">We wish you all the best for the shift and look forward to working and
+    supporting you with your upcoming shifts.</p>
 <?= $this->endSection() ?>

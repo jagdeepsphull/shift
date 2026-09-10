@@ -29,26 +29,30 @@ $account = $account ?? '';
                     <p class="mb-4">We could not match this unsubscribe link to an account. It may have been
                         cut short by your e-mail program when the message was forwarded.</p>
                     <p class="mb-0">Write to us and we will take you off the list by hand:
-                        <a href="mailto:<?= esc($settings[0]->s_email ?? 'team@pickashift.ca') ?>" class="theme-cl">
-                            <?= esc($settings[0]->s_email ?? 'team@pickashift.ca') ?></a>
+                        <a href="mailto:<?= esc(config('AppSettings')->supportEmail) ?>" class="theme-cl">
+                            <?= esc(config('AppSettings')->supportEmail) ?></a>
                     </p>
 
                 <?php } elseif ($state === 'confirm') { ?>
 
+                    <?php /* Worded as the agency's e-mail spec has it (#7), which
+                       puts what still gets sent straight under the question -
+                       read before the button, not after it. */ ?>
                     <h3 class="mb-3">Unsubscribe from e-mails</h3>
-                    <p class="mb-4">Stop sending e-mails to <strong><?= esc($account) ?></strong>?</p>
+                    <p class="mb-3">Stop sending e-mails to <strong><?= esc($account) ?></strong>?</p>
 
-                    <form action="" method="post" class="mb-4">
+                    <p class="text-muted mb-4" style="font-size: 14px;">
+                        You will no longer receive general updates or shift alerts. However, you may still receive
+                        essential notifications regarding account actions or schedule changes, such as password
+                        resets or cancellations for shifts you have already booked. All other emails will stop
+                        immediately.
+                    </p>
+
+                    <form action="" method="post" class="mb-0">
                         <button type="submit" name="unsubscribeSubmit" value="1" class="btn btn-common theme-bg">
                             Yes, unsubscribe me
                         </button>
                     </form>
-
-                    <p class="text-muted mb-0" style="font-size: 14px;">
-                        You will still receive e-mails for the requests initiated by you &mdash; e.g. a password
-                        reset, and notice that a shift you were booked on has been cancelled. Everything else
-                        will stop.
-                    </p>
 
                 <?php } elseif ($state === 'already') { ?>
 

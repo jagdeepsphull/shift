@@ -330,6 +330,17 @@ class AppSettings extends BaseConfig
     public string $mailFromName = 'PickAShift';
 
     /**
+     * The address every e-mail tells its reader to write to with questions,
+     * and the one the unsubscribe page offers.
+     *
+     * Fixed here rather than read from `settings.s_email`: that row is the
+     * contact-form inbox and the address in the website footer, and it held a
+     * reliefshifts.com address while the e-mail copy the agency signed off
+     * names this one. Override with `appsettings.supportEmail` in .env.
+     */
+    public string $supportEmail = 'team@pickashift.ca';
+
+    /**
      * Fallback for the address copied on booking e-mails. The live value is
      * `settings.s_agency_copy_email`, editable at /sadmin/settings.
      */

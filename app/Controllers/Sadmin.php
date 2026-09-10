@@ -2663,9 +2663,8 @@ class Sadmin extends BaseController
      */
     private function sendAccountApprovedEmail(array $user): void
     {
-        $subject = 'Your Account Has Been Approved';
+        $subject = 'Your Account is now Active';
         $message = email_body('account-approved', [
-            'title'    => 'Your account has been approved',
             'name'     => trim($user['u_fname'] . ' ' . $user['u_lname']),
             'settings' => $this->data['settings'],
         ]);
@@ -3772,7 +3771,6 @@ class Sadmin extends BaseController
         // pharmacy recognises in a crowded inbox.
         $subject = 'Your Shift is now live on ' . siteDomain();
         $message = email_body('shift-posted', [
-            'title'       => 'Your shift is now live',
             'name'        => trim(($owner->u_fname ?? '') . ' ' . ($owner->u_lname ?? '')),
             'shift_title' => $shift['p_job_title'] ?? '',
             'shift_date'  => $shift['p_dates'] ? dateFormat($shift['p_dates']) : '',
@@ -3996,9 +3994,8 @@ class Sadmin extends BaseController
 
         $employer = $this->custom->get_where_row('users', ['u_id' => $shift['u_id']]);
 
-        $subject = 'Your shift booking has been cancelled : ' . $shift['p_job_title'];
+        $subject = 'Your upcoming shift has been cancelled : ' . dateFormat($shift['p_dates']);
         $message = email_body('booking-cancelled', [
-            'title'    => 'Your shift booking has been cancelled',
             'name'     => $applicant['u_fname'] . ' ' . $applicant['u_lname'],
             'shift'    => $shift,
             'employer' => $employer,
@@ -4158,10 +4155,10 @@ class Sadmin extends BaseController
         $store_detail = shiftStore((object) $shift_detail);
 
         $applicant_email   = $user_email;
-        $applicant_subject = 'Your shift has been booked';
+        $applicant_subject = 'Your shift has been booked ' . dateFormat($shift_detail['p_dates']);
         $applicant_message = email_body('booking-applicant', [
-            'title'            => 'Your shift has been booked',
             'name'             => $user_name,
+            'first_name'       => $user->u_fname,
             'shift'            => $shift_detail,
             'employer'         => $employer_detail,
             'store'            => $store_detail,
@@ -4201,10 +4198,10 @@ class Sadmin extends BaseController
             'booking-employer'
         );
 
-        $employer_subject = 'A New Applicant Has Been Approved for Shift ID : ' . $shift_detail['p_job_title'];
+        $employer_subject = 'Applicant Approved for Shift Date : ' . dateFormat($shift_detail['p_dates']);
         $employer_message = email_body('booking-employer', [
-            'title'          => 'An applicant has been approved for your shift',
             'name'           => $employer_detail['u_fname'] . ' ' . $employer_detail['u_lname'],
+            'first_name'     => $employer_detail['u_fname'],
             'applicant_name' => $user_name,
             'applicant'      => $user,
             'shift'          => $shift_detail,

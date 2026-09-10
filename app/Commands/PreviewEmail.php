@@ -97,7 +97,6 @@ class PreviewEmail extends BaseCommand
 
         if ($template === 'shift-posted') {
             CLI::write(email_body('shift-posted', [
-                'title'       => 'Your shift is now live',
                 'name'        => trim($employer['u_fname'] . ' ' . $employer['u_lname']),
                 'shift_title' => $shift['p_job_title'],
                 'shift_date'  => dateFormat($shift['p_dates'] ?? null),
@@ -109,8 +108,8 @@ class PreviewEmail extends BaseCommand
 
         if ($template === 'booking-applicant') {
             CLI::write(email_body('booking-applicant', [
-                'title'            => 'Your shift has been booked',
                 'name'             => 'Preview Applicant',
+                'first_name'       => 'Preview',
                 'shift'            => $shift,
                 'employer'         => $employer,
                 'store'            => $store,
@@ -126,7 +125,6 @@ class PreviewEmail extends BaseCommand
         // row - only the name it opens with.
         if ($template === 'booking-cancelled') {
             CLI::write(email_body('booking-cancelled', [
-                'title'    => 'Your shift booking has been cancelled',
                 'name'     => 'Preview Applicant',
                 'shift'    => $shift,
                 'employer' => $employer,
@@ -171,8 +169,8 @@ class PreviewEmail extends BaseCommand
         }
 
         CLI::write(email_body('booking-employer', [
-            'title'          => 'An applicant has been approved for your shift',
             'name'           => trim($employer['u_fname'] . ' ' . $employer['u_lname']),
+            'first_name'     => $employer['u_fname'],
             'applicant_name' => trim($applicant->u_fname . ' ' . $applicant->u_lname),
             'applicant'      => $applicant,
             'shift'          => $shift,
@@ -189,14 +187,12 @@ class PreviewEmail extends BaseCommand
     {
         if ($template === 'welcome') {
             return email_body('welcome', [
-                'title' => 'Welcome to PickAShift',
                 'name'  => 'Preview Person',
             ]);
         }
 
         if ($template === 'account-approved') {
             return email_body('account-approved', [
-                'title' => 'Your account has been approved',
                 'name'  => 'Preview Person',
             ]);
         }

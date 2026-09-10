@@ -755,7 +755,6 @@ class Front extends BaseController
 
                         $subject      = 'Welcome to ' . $this->data['settings'][0]->s_sitename . '! Your Account is Pending';
                         $message_user = email_body('welcome', [
-                            'title'    => 'Welcome to ' . $this->data['settings'][0]->s_sitename,
                             'name'     => $this->data['name'],
                             'settings' => $this->data['settings'],
                         ]);

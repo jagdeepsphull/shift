@@ -442,12 +442,11 @@
         <div class="preview-banner"><span class="v">$title</span></div>
         <div class="preview-body">
           <p class="off">&hellip; the template's own content &hellip;</p>
-          <p>If you have any questions, our support team is at
-          <span class="v">settings.s_email</span>.</p>
+          <p>If you have any questions, you may reach out to our support team at
+          <span class="v">AppSettings::$supportEmail</span>.</p>
         </div>
         <div class="preview-foot">
-          <p>&copy; <span class="v">current year</span> <span class="v">settings.s_sitename</span>. All rights
-          reserved.</p>
+          <p>&copy; <span class="v">settings.s_sitename</span>. All rights reserved.</p>
           <p>Terms &amp; Conditions</p>
         </div>
       </div>
@@ -494,35 +493,35 @@
           </tr>
           <tr>
             <td><a href="#account-approved">account-approved</a></td>
-            <td>Your Account Has Been Approved &ndash; Welcome to <em>site</em>!</td>
+            <td>Your Account is now Active</td>
             <td>The user</td>
             <td>Admin activates an account</td>
             <td>Type 2</td>
           </tr>
           <tr>
             <td><a href="#shift-posted">shift-posted</a></td>
-            <td>Your Shift Has Been Posted on <em>site</em>!</td>
+            <td>Your Shift is now live on <em>domain</em></td>
             <td>Store owner and/or manager, plus the fixed address</td>
             <td>A shift goes live</td>
             <td>Type 3</td>
           </tr>
           <tr>
             <td><a href="#booking-applicant">booking-applicant</a></td>
-            <td>Congratulations! You Have Been Approved for Shift ID : <em>title</em></td>
+            <td>Your shift has been booked <em>shift date</em></td>
             <td>The applicant, agency copied</td>
             <td>Admin books an applicant</td>
             <td>Type 4</td>
           </tr>
           <tr>
             <td><a href="#booking-employer">booking-employer</a></td>
-            <td>A New Applicant Has Been Approved for Shift ID : <em>title</em></td>
+            <td>Applicant Approved for Shift Date : <em>shift date</em></td>
             <td>The employer, agency copied</td>
             <td>Admin books an applicant</td>
             <td>Type 5</td>
           </tr>
           <tr>
             <td><a href="#booking-cancelled">booking-cancelled</a></td>
-            <td>Your shift booking has been cancelled : <em>title</em></td>
+            <td>Your upcoming shift has been cancelled : <em>shift date</em></td>
             <td>The applicant, agency copied</td>
             <td>A booking is taken back</td>
             <td class="off">None</td>
@@ -574,18 +573,8 @@
         <dd>Type 1, &ldquo;Welcome (on registration)&rdquo; &mdash; guarded like the rest, though at
         registration the block list is necessarily empty</dd>
       </dl>
-      <div class="preview">
-        <div class="preview-subject"><b>Subject</b>Welcome to <span class="v">site name</span>! Your Account is
-        Pending</div>
-        <div class="preview-banner">Welcome to <span class="v">site name</span>!</div>
-        <div class="preview-body">
-          <p><strong>Hello, <span class="v">first last</span>!</strong></p>
-          <p>Thank you for registering with <span class="v">site name</span>. Your account is currently under
-          review and will be activated once it is approved.</p>
-          <p>As soon as that happens you will get a confirmation e-mail, and you will be able to sign in with
-          the credentials you chose during registration.</p>
-          <p>We appreciate your patience and look forward to having you as part of our community.</p>
-        </div>
+      <div class="aside">
+        <p>The subject and wording are in <a href="email-text.html#e1">email-text.html, e-mail 1</a>, matched to the agency's PDF.</p>
       </div>
     </article>
 
@@ -682,17 +671,8 @@
         <dt>Opt-out</dt>
         <dd>Type 2, &ldquo;Account approved&rdquo;</dd>
       </dl>
-      <div class="preview">
-        <div class="preview-subject"><b>Subject</b>Your Account Has Been Approved &ndash; Welcome to
-        <span class="v">site name</span>!</div>
-        <div class="preview-banner">Your account has been approved</div>
-        <div class="preview-body">
-          <p><strong>Hello, <span class="v">first last</span>!</strong></p>
-          <p>Great news &mdash; your account with <span class="v">site name</span> has been approved and is now
-          active. You can sign in using the credentials you provided during registration.</p>
-          <p class="center"><span class="btn">Sign in</span></p>
-          <p>Enjoy exploring the platform, and welcome to the <span class="v">site name</span> community!</p>
-        </div>
+      <div class="aside">
+        <p>The subject and wording are in <a href="email-text.html#e2">email-text.html, e-mail 2</a>, matched to the agency's PDF.</p>
       </div>
     </article>
 
@@ -718,18 +698,8 @@
         <dd>Type 3, &ldquo;Shift posted&rdquo; (employers only). A side that was ticked but is unreachable
         &mdash; no manager on the store, no address, or opted out &mdash; is logged, not silently dropped.</dd>
       </dl>
-      <div class="preview">
-        <div class="preview-subject"><b>Subject</b>Your Shift Has Been Posted on
-        <span class="v">site name</span>!</div>
-        <div class="preview-banner">Your shift is now live</div>
-        <div class="preview-body">
-          <p><strong>Hello, <span class="v">owner first last</span>!</strong></p>
-          <p>Great news &mdash; your shift <strong><span class="v">shift title</span></strong> has been posted
-          and is now live on our platform.</p>
-          <p>Applicants can view and apply for it straight away. We will let you know each time a candidate
-          submits an application.</p>
-          <p>Thank you for choosing <span class="v">site name</span> to fill your shift.</p>
-        </div>
+      <div class="aside">
+        <p>The subject and wording are in <a href="email-text.html#e3">email-text.html, e-mail 3</a>, matched to the agency's PDF.</p>
       </div>
     </article>
 
@@ -756,40 +726,8 @@
         <dd>Type 4, &ldquo;Booking confirmation (as applicant)&rdquo;. If the applicant opted out the agency's
         copy still goes &mdash; the opt-out is theirs, not the agency's.</dd>
       </dl>
-      <div class="preview">
-        <div class="preview-subject"><b>Subject</b>Congratulations! You Have Been Approved for Shift ID :
-        <span class="v">shift title</span></div>
-        <div class="preview-banner">You have been approved for a shift</div>
-        <div class="preview-body">
-          <p><strong>Hello, <span class="v">first last</span>!</strong></p>
-          <p>We are delighted to tell you that you have been approved for
-          <strong><span class="v">shift title</span></strong> at
-          <strong><span class="v">company name</span></strong>.</p>
-          <p>Here are the details:</p>
-          <ul>
-            <li>Store: <span class="v">store name</span> (no. <span class="v">store number</span>)</li>
-            <li>Where to find it: <span class="v">location label</span> <em class="off">&mdash; only if the
-            store has one</em></li>
-            <li>Store address: <span class="v">address, city, province, postcode</span></li>
-            <li>Store phone: <span class="v">phone</span> <em class="off">&mdash; only if set</em></li>
-            <li>Shift requested for: <span class="v">role</span></li>
-            <li>Shift date: <span class="v">date</span></li>
-            <li>Shift time: <span class="v">time</span></li>
-            <li>Rate: CAD$ <span class="v">applicant rate</span>/hour</li>
-            <li>Software: <span class="v">skills</span></li>
-            <li>Services: <span class="v">services</span></li>
-            <li>Message from the agency: <span class="v">approval comment</span> <em class="off">&mdash; only
-            if the admin typed one</em></li>
-          </ul>
-          <p><span style="color:#1a73e8">Get directions to this store</span> <em class="off">&mdash; the
-          store's pasted map pin, or a search for the address above</em></p>
-          <p>We wish you all the best for the shift.</p>
-          <span class="cond">If the shift has no store attached, the first lines fall back to</span>
-          <ul>
-            <li>Store no.: <span class="v">employer licence no.</span></li>
-            <li>Store address: <span class="v">employer address</span></li>
-          </ul>
-        </div>
+      <div class="aside">
+        <p>The subject and wording are in <a href="email-text.html#e4">email-text.html, e-mail 4</a>, matched to the agency's PDF.</p>
       </div>
     </article>
 
@@ -811,30 +749,8 @@
         <dt>Opt-out</dt>
         <dd>Type 5, &ldquo;Booking confirmation (as employer)&rdquo;. Agency copy still goes.</dd>
       </dl>
-      <div class="preview">
-        <div class="preview-subject"><b>Subject</b>A New Applicant Has Been Approved for Shift ID :
-        <span class="v">shift title</span></div>
-        <div class="preview-banner">An applicant has been approved for your shift</div>
-        <div class="preview-body">
-          <p><strong>Hello, <span class="v">employer first last</span>!</strong></p>
-          <p>An applicant has been approved for your shift
-          <strong><span class="v">shift title</span></strong>.</p>
-          <p>Here are their details:</p>
-          <ul>
-            <li>Store: <span class="v">store name</span> (no. <span class="v">store number</span>)
-            <em class="off">&mdash; which branch, for a chain</em></li>
-            <li>Applicant name: <span class="v">first last</span></li>
-            <li>Licence no.: <span class="v">licence no.</span></li>
-            <li>Licence province: <span class="v">province</span></li>
-            <li>Shift requested for: <span class="v">role</span></li>
-            <li>Shift date: <span class="v">date</span></li>
-            <li>Shift time: <span class="v">time</span></li>
-            <li>Rate: CAD$ <span class="v">employer rate</span>/hour</li>
-            <li>Software: <span class="v">skills</span></li>
-            <li>Services: <span class="v">services</span></li>
-          </ul>
-          <p>We hope the shift goes well.</p>
-        </div>
+      <div class="aside">
+        <p>The subject and wording are in <a href="email-text.html#e5">email-text.html, e-mail 5</a>, matched to the agency's PDF.</p>
       </div>
     </article>
 
@@ -859,28 +775,8 @@
         <dt>Opt-out</dt>
         <dd class="off">None. &ldquo;Do not attend&rdquo; is not optional mail.</dd>
       </dl>
-      <div class="preview">
-        <div class="preview-subject"><b>Subject</b>Your shift booking has been cancelled :
-        <span class="v">shift title</span></div>
-        <div class="preview-banner">Your shift booking has been cancelled</div>
-        <div class="preview-body">
-          <p><strong>Hello, <span class="v">first last</span>!</strong></p>
-          <p>We are writing to let you know that your booking for
-          <strong><span class="v">shift title</span></strong> at
-          <strong><span class="v">company name</span></strong> has been cancelled.
-          <strong>Please do not attend this shift.</strong></p>
-          <p>The booking was for:</p>
-          <ul>
-            <li>Store: <span class="v">store name</span> (no. <span class="v">store number</span>)</li>
-            <li>Shift date: <span class="v">date</span></li>
-            <li>Shift time: <span class="v">time</span></li>
-            <li>Role: <span class="v">role</span></li>
-          </ul>
-          <p>You are free to apply for other shifts on the site as usual, and we will be in touch as more come
-          up. If you think this is a mistake, or you would like to know more, please reply to this e-mail or
-          call us on <span class="v">settings.s_contactno</span>.</p>
-          <p>We are sorry for the inconvenience.</p>
-        </div>
+      <div class="aside">
+        <p>The subject and wording are in <a href="email-text.html#e6">email-text.html, e-mail 6</a>, matched to the agency's PDF.</p>
       </div>
     </article>
 

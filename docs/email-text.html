@@ -365,8 +365,8 @@
     <span class="label">Pick-A-Shift &middot; e-mail copy, as of 10 Sep 2026</span>
     <h1>What every e-mail now says</h1>
     <p class="standfirst">The six e-mails and the unsubscribe page, reworded to match the agency's PDF
-    &ldquo;Email Format PICK-A-Shift&rdquo;. Each one shows its subject line and the full message as it
-    arrives, filled in with the PDF's own example values.</p>
+    &ldquo;Email Format PICK-A-Shift&rdquo;, plus the &ldquo;shift updated&rdquo; e-mail added since. Each one
+    shows its subject line and the full message as it arrives, filled in with the PDF's own example values.</p>
   </header>
 
   <nav aria-label="E-mails in this document">
@@ -378,6 +378,7 @@
       <li><a href="#e5"><span>5</span><span>Applicant approved</span><small>to the store</small></a></li>
       <li><a href="#e6"><span>6</span><span>Shift cancelled</span><small>to the applicant</small></a></li>
       <li><a href="#e7"><span>7</span><span>Unsubscribe page</span><small>on the website</small></a></li>
+      <li><a href="#e8"><span>8</span><span>Shift updated</span><small>to the store &middot; not in the PDF</small></a></li>
     </ol>
   </nav>
 
@@ -674,6 +675,52 @@
       <ul>
         <li>The PDF has no button text. The page keeps its &ldquo;Yes, unsubscribe me&rdquo; button, now placed
         under the explanation so it is read first.</li>
+      </ul>
+    </div>
+  </article>
+
+  <!-- 8 -->
+  <article class="mail" id="e8" aria-labelledby="e8-h">
+    <div class="mail-head">
+      <span class="num">8</span>
+      <h2 id="e8-h">Shift updated</h2>
+      <p class="meta"><span><b>To</b>the store owner and/or manager ticked on the shift, plus team@pickashift.ca</span><span><b>Sent</b>when the agency saves a change to a shift</span><span><b>File</b><code>emails/shift-updated.php</code></span></p>
+    </div>
+    <div class="subject"><span class="label">Subject</span><span class="text">Your shift has been updated : <span class="f">02 Sep 2026</span></span></div>
+    <div class="inbox">
+      <div class="email">
+        <div class="band">Your shift has been updated</div>
+        <div class="body">
+          <p>Hello, <span class="f">Demo Zelda Blair</span>!</p>
+          <p>Your shift <strong><span class="f">PAS-470</span></strong> has been updated. Here are the details:</p>
+          <ul>
+            <li>Store: <span class="f">Demo Store</span> (no. <span class="f">281</span>)</li>
+            <li>Shift Date: <span class="f">02 Sep 2026</span></li>
+            <li>Shift Time: <strong><span class="f">21:00 - 23:00</span></strong> <span style="color:#888">(was 21:00 - 22:21)</span> <span class="only">&mdash; a changed line says what it was</span></li>
+            <li>Shift requested for: <span class="f">Pharmacy Assistant</span></li>
+            <li>Software: <span class="f">Kroll</span></li>
+            <li>Services: <span class="f">Assistant on site</span></li>
+            <li>Status: <span class="f">Booked</span></li>
+            <li>Booked applicant: <span class="f">Austin Blevins Levi Marquez</span> <span class="only">&mdash; only while somebody is booked</span></li>
+          </ul>
+          <p>Stay up to date: Login to your account to view your latest shift updates.</p>
+          <p>Thank you for choosing Pick-A-Shift.</p>
+          <p>If you have any questions, you may reach out to our support team at
+          <a href="mailto:team@pickashift.ca">team@pickashift.ca</a>.</p>
+        </div>
+        <div class="foot">
+          <p>&copy; Pick-A-Shift. All rights reserved.</p>
+          <p><a href="#e8">Terms &amp; Conditions</a></p>
+          <p>You are receiving this because you have an account on Pick-A-Shift.<br><a href="#e7">Unsubscribe from these e-mails</a></p>
+        </div>
+      </div>
+    </div>
+    <div class="diff">
+      <span class="label">Not in the PDF</span>
+      <ul>
+        <li>New e-mail, worded in the style of e-mail 3. Sent only when the save changed something, including
+        ticking Owner or Manager. Not sent when the save makes the shift Open (e-mail 3 goes instead) or books a
+        new applicant (e-mail 5 goes instead).</li>
       </ul>
     </div>
   </article>

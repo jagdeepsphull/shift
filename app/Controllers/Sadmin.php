@@ -3379,7 +3379,9 @@ class Sadmin extends BaseController
                             }
                         }
 
-                        if ($shift_approved['p_approved'] != 1 && $rowData['p_approved'] == 1) {
+                        $announced = $shift_approved['p_approved'] != 1 && $rowData['p_approved'] == 1;
+
+                        if ($announced) {
                             // Who this goes to is the form's "Send shift
                             // e-mail to" boxes, saved on the row above.
                             $this->sendShiftPostedEmail(
@@ -3406,7 +3408,9 @@ class Sadmin extends BaseController
                             $this->cancelBooking($booking, false);
                         }
 
-                        if ($applicant && $applicantId !== $bookedId) {
+                        $rebooked = $applicant && $applicantId !== $bookedId;
+
+                        if ($rebooked) {
                             $this->bookApplicant((int) $id, $applicant, (string) $this->input->post('sj_admin_comment'));
                         } elseif ($booking && $applicantId === 0 && $shiftBooked) {
                             // Nobody on it now. It was closed because of the
@@ -3416,6 +3420,15 @@ class Sadmin extends BaseController
                             $this->db->table($table)
                                 ->where('p_id', $id)
                                 ->update(['p_approved' => 1, 'modified' => date('Y-m-d H:i:s')]);
+                        }
+
+                        // Anything else this save changed, to the same boxes.
+                        // Last, so it describes the shift once the booking
+                        // above has settled; skipped when "your shift is
+                        // live" or the booking confirmation has just told the
+                        // store the same thing.
+                        if (! $announced && ! $rebooked) {
+                            $this->sendShiftUpdatedEmail($shift_approved, $booking, (int) $id, $u_data[0]);
                         }
 
                         ci_redirect('sadmin/postjobs', 'refresh');
@@ -3733,30 +3746,7 @@ class Sadmin extends BaseController
      */
     private function sendShiftPostedEmail(array $shift, ?object $owner): void
     {
-        $storeId = (int) ($shift['p_store_id'] ?? 0);
-        $manager = $storeId > 0 ? (storeManagers([$storeId])[$storeId] ?? null) : null;
-
-        $audience = shiftPostedRecipients(
-            $owner,
-            $manager,
-            $shift['p_email_to'] ?? '',
-            (string) config('AppSettings')->shiftEmailFallback
-        );
-
-        if ($audience['missing'] !== []) {
-            log_message('info', sprintf(
-                'Shift-posted e-mail for %s could not reach: %s (no such account, no address, or opted out).',
-                $shift['p_job_title'] ?? ('shift ' . ($shift['p_id'] ?? '?')),
-                implode(', ', $audience['missing'])
-            ));
-        }
-
-        if ($audience['fellBack']) {
-            log_message('info', sprintf(
-                'Shift-posted e-mail for %s went to the fallback address.',
-                $shift['p_job_title'] ?? ('shift ' . ($shift['p_id'] ?? '?'))
-            ));
-        }
+        $audience = $this->shiftStoreAudience($shift, $owner, 'shift-posted');
 
         // Which branch the shift is at, so the e-mail can name it: a chain's
         // head office runs several and the shift number alone does not say.
@@ -3778,13 +3768,135 @@ class Sadmin extends BaseController
             'settings'    => $this->data['settings'],
         ]);
 
-        foreach ($audience['to'] as $address) {
+        foreach ($audience as $address) {
             if (send_email($address, $subject, $message)) {
                 log_message('info', 'Shift-posted e-mail sent to ' . $address);
             } else {
                 log_message('error', 'Shift-posted e-mail failed for ' . $address);
             }
         }
+    }
+
+    /**
+     * Tell the store an admin has changed one of its shifts.
+     *
+     * Called after every save of the edit form, once the booking on it has been
+     * settled, and sends only when the save changed something. Two saves are
+     * left to the e-mail they already send, so the store is not told twice:
+     * the shift becoming Open ("your shift is live"), and a new applicant being
+     * booked on it (the booking confirmation). Both of those describe the
+     * shift as it now stands.
+     *
+     * What counts as a change is what the store is shown - see
+     * `shiftSummaryLines()` - plus the title, the store's rate, the extra
+     * details and who the e-mail goes to. Ticking Owner on a shift and saving
+     * is a change, and it sends, which is how an administrator gets an e-mail
+     * to somebody who was left off the first one. The applicant's rate and the
+     * agency's own notes are not: neither is the store's business, and the
+     * notes box rewrites its own markup on a save that changed nothing.
+     *
+     * @param array<string, mixed>      $before        the `post_job` row before the save
+     * @param array<string, mixed>|null $bookingBefore who was on it before the save
+     * @param object|null               $owner         the `users` row that owns the store
+     */
+    private function sendShiftUpdatedEmail(array $before, ?array $bookingBefore, int $shiftId, ?object $owner): void
+    {
+        $after = $this->custom->get_where_row('post_job', ['p_id' => $shiftId]);
+
+        if (! $after) {
+            return;
+        }
+
+        $bookedUser = fn (?array $booking) => $booking
+            ? $this->custom->get_where_row('users', ['u_id' => (int) $booking['u_id']])
+            : null;
+
+        $was   = shiftSummaryLines($before, $bookedUser($bookingBefore));
+        $lines = shiftSummaryLines($after, $bookedUser($this->shiftBooking($shiftId)));
+
+        $sides = static function ($choice): array {
+            $sides = shiftEmailChoice($choice);
+            sort($sides);
+
+            return $sides;
+        };
+
+        $changed = $was !== $lines
+            || $sides($before['p_email_to'] ?? '') !== $sides($after['p_email_to'] ?? '');
+
+        foreach (['p_job_title', 'p_hourly_rate', 'p_additional_details'] as $column) {
+            $changed = $changed || (string) ($before[$column] ?? '') !== (string) ($after[$column] ?? '');
+        }
+
+        if (! $changed) {
+            log_message('info', 'Shift-updated e-mail not sent for ' . $after['p_job_title'] . ': the save changed nothing.');
+
+            return;
+        }
+
+        $audience = $this->shiftStoreAudience($after, $owner, 'shift-updated');
+
+        $date    = dateFormat($after['p_dates']);
+        $subject = 'Your shift has been updated' . ($date !== '' ? ' : ' . $date : '');
+        $message = email_body('shift-updated', [
+            'name'        => trim(($owner->u_fname ?? '') . ' ' . ($owner->u_lname ?? '')),
+            'shift_title' => $after['p_job_title'],
+            'lines'       => $lines,
+            'was'         => $was,
+            'settings'    => $this->data['settings'],
+        ]);
+
+        foreach ($audience as $address) {
+            if (send_email($address, $subject, $message)) {
+                log_message('info', 'Shift-updated e-mail sent to ' . $address);
+            } else {
+                log_message('error', 'Shift-updated e-mail failed for ' . $address);
+            }
+        }
+    }
+
+    /**
+     * Who at a shift's store to write to about it: the sides ticked in its
+     * "Send shift e-mails to" boxes that can be reached and have not opted out
+     * of `$template`, then the fixed address, which is on every one.
+     *
+     * A ticked side that could not be reached is logged rather than dropped
+     * silently, so "the owner never got it" has an answer in the log.
+     *
+     * @param array<string, mixed> $shift the `post_job` row, after saving
+     * @param object|null          $owner the `users` row that owns the store
+     *
+     * @return array<int, string> addresses, the store's own first
+     */
+    private function shiftStoreAudience(array $shift, ?object $owner, string $template): array
+    {
+        $storeId = (int) ($shift['p_store_id'] ?? 0);
+        $manager = $storeId > 0 ? (storeManagers([$storeId])[$storeId] ?? null) : null;
+
+        $audience = shiftPostedRecipients(
+            $owner,
+            $manager,
+            $shift['p_email_to'] ?? '',
+            (string) config('AppSettings')->shiftEmailFallback,
+            $template
+        );
+
+        $which = $shift['p_job_title'] ?? ('shift ' . ($shift['p_id'] ?? '?'));
+
+        if ($audience['missing'] !== []) {
+            log_message('info', sprintf(
+                '%s e-mail for %s could not reach: %s (no such account, no address, or opted out).',
+                $template,
+                $which,
+                implode(', ', $audience['missing'])
+            ));
+        }
+
+        if ($audience['fellBack']) {
+            log_message('info', sprintf('%s e-mail for %s went to the fallback address only.', $template, $which));
+        }
+
+        return $audience['to'];
     }
 
     /**

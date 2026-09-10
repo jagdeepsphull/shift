@@ -47,6 +47,7 @@ class PreviewEmail extends BaseCommand
         'booking-employer',
         'shift-reminder',
         'booking-cancelled',
+        'shift-updated',
     ];
 
     /** Stages that describe an account, not a shift. */
@@ -101,6 +102,30 @@ class PreviewEmail extends BaseCommand
                 'shift_title' => $shift['p_job_title'],
                 'shift_date'  => dateFormat($shift['p_dates'] ?? null),
                 'store_name'  => (string) ($store->s_name ?? ''),
+            ]));
+
+            return EXIT_SUCCESS;
+        }
+
+        // The store's "your shift has been updated". There is no earlier row
+        // to compare with here, so the preview pretends the time was moved,
+        // to show how a changed line reads.
+        if ($template === 'shift-updated') {
+            $booked = $custom->db()->table('stu_saved_applied_jobs s')
+                ->select('u.*')
+                ->join('users u', 'u.u_id = s.u_id', 'inner')
+                ->where('s.p_id', $shiftId)
+                ->where('s.sj_is_approved', 1)
+                ->get()
+                ->getRow();
+
+            $lines = shiftSummaryLines($shift, $booked);
+
+            CLI::write(email_body('shift-updated', [
+                'name'        => trim($employer['u_fname'] . ' ' . $employer['u_lname']),
+                'shift_title' => $shift['p_job_title'],
+                'lines'       => $lines,
+                'was'         => ['Shift Time' => '09:00 - 17:00'] + $lines,
             ]));
 
             return EXIT_SUCCESS;

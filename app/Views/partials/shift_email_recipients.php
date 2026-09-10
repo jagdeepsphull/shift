@@ -4,11 +4,12 @@
  * "Send shift e-mail to" - the two sides of the store that can be told a shift
  * is live. On both admin shift forms, so the two cannot drift apart.
  *
- * Two e-mails obey it. `shift-posted` is sent at the moment the shift becomes
+ * Three e-mails obey it. `shift-posted` is sent at the moment the shift becomes
  * Open - when a new shift is saved as Open, or when an existing one is approved
- * - and `booking-employer` when an applicant is approved for it. Editing a
- * shift that is already live sends nothing, so changing these boxes afterwards
- * changes who the *next* message reaches, not who has already been written to.
+ * - `booking-employer` when an applicant is approved for it, and
+ * `shift-updated` when the edit form saves any other change. Ticking a box and
+ * saving counts as a change, so it is also how somebody left off an earlier
+ * message is sent the shift as it now stands.
  *
  * Neither box ticked is a real answer, not a mistake - some shifts are arranged
  * by phone and the pharmacy does not want the mail - and the shift still gets

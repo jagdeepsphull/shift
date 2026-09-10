@@ -2576,6 +2576,52 @@ if (! function_exists('shiftPostedRecipients')) {
     }
 }
 
+if (! function_exists('shiftSummaryLines')) {
+    /**
+     * A shift as the store is shown it in the "your shift has been updated"
+     * e-mail: label => printable value, in the order the e-mail lists them.
+     *
+     * Built the same way for the row before an edit and the row after it, so
+     * comparing the two arrays is how the e-mail knows which lines changed -
+     * compared as the reader sees them, not as the columns hold them, so a
+     * store swapped for one of the same name is not reported as a change.
+     *
+     * No rate, as on every other e-mail, and nothing from the agency's own
+     * notes. "Booked applicant" is only there while somebody is on the shift,
+     * so a booking appearing or going shows up as that line changing.
+     *
+     * @param array<string, mixed> $shift     a `post_job` row
+     * @param array|object|null    $applicant the `users` row booked on it
+     *
+     * @return array<string, string>
+     */
+    function shiftSummaryLines(array $shift, $applicant = null): array
+    {
+        $store    = shiftStore((object) $shift);
+        $statuses = (array) config('AppSettings')->approved;
+
+        $lines = [
+            'Store'               => $store
+                ? $store->s_name . (trim((string) $store->s_number) !== '' ? ' (no. ' . $store->s_number . ')' : '')
+                : '',
+            'Shift Date'          => dateFormat($shift['p_dates'] ?? null),
+            'Shift Time'          => (string) ($shift['p_shift_time'] ?? ''),
+            'Shift requested for' => getShiftForName($shift['p_shift_for'] ?? 0),
+            'Software'            => getSoftwareSkills($shift['p_skills'] ?? ''),
+            'Services'            => getStoreServices($shift['p_services'] ?? ''),
+            'Status'              => $statuses[(int) ($shift['p_approved'] ?? 0)] ?? '',
+        ];
+
+        if ($applicant) {
+            $applicant = (object) $applicant;
+
+            $lines['Booked applicant'] = trim($applicant->u_fname . ' ' . $applicant->u_lname);
+        }
+
+        return $lines;
+    }
+}
+
 if (! function_exists('testimonialPhoto')) {
     /**
      * The URL for a testimonial's uploaded photo, or the stand-in thumb.

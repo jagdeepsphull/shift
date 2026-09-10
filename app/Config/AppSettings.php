@@ -228,6 +228,7 @@ class AppSettings extends BaseConfig
         4 => ['template' => 'booking-applicant', 'label' => 'Booking confirmation (as applicant)', 'audience' => 'applicant'],
         5 => ['template' => 'booking-employer',  'label' => 'Booking confirmation (as employer)',  'audience' => 'employer'],
         6 => ['template' => 'shift-reminder',    'label' => 'Day-before shift reminder',           'audience' => 'applicant'],
+        7 => ['template' => 'shift-updated',     'label' => 'Shift updated by the agency',         'audience' => 'employer'],
     ];
 
     /**

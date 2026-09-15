@@ -17,8 +17,10 @@
  * @var string $mapUrl        current `s_map_url`
  * @var string $website       current `s_website`
  * @var bool   $showWebsite   false where the form has its own website field
+ * @var bool   $showHints     false to leave out the help line under each field
  */
 $showWebsite = $showWebsite ?? true;
+$showHints   = $showHints ?? true;
 ?>
 <div class="row">
     <div class="col-sm-6">
@@ -27,9 +29,11 @@ $showWebsite = $showWebsite ?? true;
             <input type="text" class="form-control" name="s_location_label"
                    placeholder="e.g. Inside Real Canadian Superstore"
                    value="<?= esc($locationLabel ?? '') ?>">
+            <?php if ($showHints) { ?>
             <small class="form-text text-muted">
                 What to call the spot when the street address alone will not find it.
             </small>
+            <?php } ?>
         </div>
     </div>
 
@@ -42,10 +46,12 @@ $showWebsite = $showWebsite ?? true;
             <input type="text" class="form-control" name="s_map_url"
                    placeholder="maps.app.goo.gl/..."
                    value="<?= esc($mapUrl ?? '') ?>">
+            <?php if ($showHints) { ?>
             <small class="form-text text-muted">
                 In Google Maps, find this store, then Share &gt; Copy link and paste it here.
                 Left blank, the shift page links to a search for the address above.
             </small>
+            <?php } ?>
         </div>
     </div>
 </div>
@@ -59,10 +65,12 @@ $showWebsite = $showWebsite ?? true;
             <input type="text" class="form-control" name="s_website"
                    placeholder="example.com"
                    value="<?= esc($website ?? '') ?>">
+            <?php if ($showHints) { ?>
             <small class="form-text text-muted">
                 Only if this location has a page of its own. Left blank, the employer's
                 website is used.
             </small>
+            <?php } ?>
         </div>
     </div>
 </div>

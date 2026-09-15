@@ -4,7 +4,7 @@
 	        <div class="dashboard-caption">
 
 	            <div class="dashboard-caption-header">
-	                <h4><i class="lni-files"></i>Documents</h4>
+	                <h4><i class="lni-files"></i>Document Center</h4>
 	            </div>
 
 	            <div class="dashboard-caption-wrap">

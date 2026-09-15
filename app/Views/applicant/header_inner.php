@@ -222,7 +222,7 @@
                                     <li class="<?php echo $sjcls; ?>"><a href="<?php echo base_url('applicant/saved_jobs'); ?>"><i class="lni-heart"></i>Saved Jobs</a></li>
                                     <li class="<?php echo $alcls; ?>"><a href="<?php echo base_url('applicant/alert_jobs'); ?>"><i class="lni-alarm"></i>Alert Jobs</a></li> */ ?>
                                     <li class="<?php echo $picls; ?>"><a href="<?php echo base_url('applicant/personal_info'); ?>"><i class="lni-user"></i>Edit Profile</a></li>
-                                    <li class="<?php echo $dccls; ?>"><a href="<?php echo base_url('applicant/documents'); ?>"><i class="lni-files"></i>Documents</a></li>
+                                    <li class="<?php echo $dccls; ?>"><a href="<?php echo base_url('applicant/documents'); ?>"><i class="lni-files"></i>Document Center</a></li>
                                     <li class="<?php echo $cpcls; ?>"><a href="<?php echo base_url('applicant/change_password'); ?>"><i class="lni-lock"></i>Change Password</a></li>
                                     <li class="ps-menu-out <?php echo $lgcls; ?>"><a href="<?php echo base_url('applicant/logout')?>"><i class="lni-power-switch"></i>Logout</a></li>
                                 </ul>

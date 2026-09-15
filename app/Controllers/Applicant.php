@@ -345,7 +345,7 @@ class Applicant extends BaseController
         }
 
         $documents = [
-            ['title' => 'Invoice', 'file' => 'Invoice_template_PAS_v5.xls'],
+            ['title' => 'Invoice Template', 'file' => 'Invoice_template_PAS_v5.xls'],
         ];
 
         foreach ($documents as &$doc) {

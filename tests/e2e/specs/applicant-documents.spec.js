@@ -46,23 +46,24 @@ test.beforeAll(() => {
 
 test.afterAll(removeFixtures);
 
-test('the side menu links to Documents, which offers the invoice for download', async ({ page }) => {
+test('the side menu links to the Document Center, which offers the invoice template for download', async ({ page }) => {
   await loginAsFrontUser(page, APPLICANT);
   await page.goto('applicant/applied_jobs');
   await settle(page);
 
-  const link = page.locator('.ps-menu-panel a', { hasText: 'Documents' });
-  await expect(link, 'the menu has a Documents link').toHaveCount(1);
+  const link = page.locator('.ps-menu-panel a', { hasText: 'Document Center' });
+  await expect(link, 'the menu has a Document Center link').toHaveCount(1);
   await expect(link).toHaveAttribute('href', /\/applicant\/documents$/);
 
   await page.goto('applicant/documents');
   await settle(page);
   await expectNoServerError(page);
 
-  await expect(page.locator('.ps-menu-panel li.active a')).toHaveText(/Documents/);
+  await expect(page.locator('.ps-menu-panel li.active a')).toHaveText(/Document Center/);
+  await expect(page.locator('.dashboard-caption-header h4')).toHaveText(/Document Center/);
 
-  const button = page.locator('.dashboard-body a.btn', { hasText: 'Invoice' });
-  await expect(button, 'an Invoice button').toHaveCount(1);
+  const button = page.locator('.dashboard-body a.btn', { hasText: 'Invoice Template' });
+  await expect(button, 'an Invoice Template button').toHaveCount(1);
   await expect(button).toHaveAttribute('href', new RegExp(`/uploads/documents/${INVOICE.replace(/\./g, '\\.')}$`));
 
   const [download] = await Promise.all([page.waitForEvent('download'), button.click()]);

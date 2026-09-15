@@ -90,7 +90,6 @@
 	                    <div class="row">
 	                        <div class="col-md-12 col-sm-12">
 	                            <h5 class="mt-2 mb-1">Shift defaults</h5>
-	                            <p class="text-muted small">Ticked here, these arrive already ticked on a new shift at this store - whether you post it or your manager does. Changing them on a shift affects that shift only; change them here to affect future ones.</p>
 	                        </div>
 	                        <div class="col-sm-4">
 	                            <?= view('partials/checkbox_grid', ['name' => 's_skills', 'label' => 'Software', 'items' => $software_skills, 'idKey' => 'ss_id', 'labelKey' => 'ss_name', 'selected' => $s_skills, 'required' => false,]) ?>
@@ -107,6 +106,7 @@
 	                        'locationLabel' => $s_location_label,
 	                        'mapUrl'        => $s_map_url,
 	                        'website'       => $s_website,
+	                        'showHints'     => false,
 	                    ]) ?>
 
 	                    <div class="row mrg-top-30">

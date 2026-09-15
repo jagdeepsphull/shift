@@ -302,6 +302,13 @@ somewhere to write. On an existing site they already hold real data:
 
 Upload *around* them, or exclude both from the transfer after the first deploy.
 
+The one exception is **`uploads/documents/`** — the files on the applicant's
+Documents page (the invoice template). They are the site's own, not anybody's
+upload, and the bundle carries them. Extracting the site zip adds them beside
+the live uploads and deletes nothing. If you exclude `uploads/` from a
+transfer, copy `uploads/documents/` up on its own, or the page's buttons show
+greyed out.
+
 ---
 
 ## What is locked down, and how to check it

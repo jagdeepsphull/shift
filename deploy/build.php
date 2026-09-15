@@ -223,6 +223,19 @@ copy($root . '/uploads/.htaccess', $out . '/uploads/.htaccess');
 
 echo "  writable/ + uploads/: skeleton created, both closed to the web\n";
 
+// The one part of uploads/ that is the site's rather than its users': the
+// files on the applicant's Documents page. Shipped so they arrive with the
+// page that links to them. Extracting the bundle adds them beside the live
+// uploads and removes nothing, so this is safe over an existing site too.
+if (! is_dir($root . '/uploads/documents')) {
+    fwrite(STDERR, "  ERROR: uploads/documents/ is missing - the applicant's Documents page links into it\n");
+    exit(1);
+}
+
+$docs = copyTree($root . '/uploads/documents', $out . '/uploads/documents');
+
+echo "  uploads/documents/: {$docs} file(s) for the Documents page\n";
+
 // ------------------------------------------------------------------ .env ----
 
 $env = file_get_contents($root . '/deploy/templates/env.' . $target);

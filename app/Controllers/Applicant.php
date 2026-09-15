@@ -329,6 +329,35 @@ class Applicant extends BaseController
         $this->load->applicant_inner_view('applied_jobs', $this->data);
     }
 
+    /**
+     * Files the agency hands every applicant - the invoice template, so far.
+     *
+     * They sit in uploads/documents/ and are downloaded straight from there by
+     * URL. A file missing from the folder (a server it was never copied to) is
+     * listed without a button rather than linked to a 404.
+     */
+    public function documents()
+    {
+        $this->setup();
+
+        if ($this->session->userdata('userType') != '2') {
+            ci_redirect('front/login');
+        }
+
+        $documents = [
+            ['title' => 'Invoice', 'file' => 'Invoice_template_PAS_v5.xls'],
+        ];
+
+        foreach ($documents as &$doc) {
+            $doc['available'] = is_file(FCPATH . 'uploads/documents/' . $doc['file']);
+        }
+        unset($doc);
+
+        $this->data['documents'] = $documents;
+
+        $this->load->applicant_inner_view('documents', $this->data);
+    }
+
     /*
      * `saved_jobs()` was removed on 4 Aug 2026. The "save a shift for later"
      * feature was never finished: there is no saved_jobs view, its query asked

@@ -24,6 +24,9 @@ writable/backups/
 # so it has to be in the repository.
 uploads/*
 !uploads/.htaccess
+# ...and the site's own downloads (the applicant's Documents page), which
+# nobody uploads - they are part of the site, so they live with the code.
+!uploads/documents/
 
 # Backup folders
 _backup*/

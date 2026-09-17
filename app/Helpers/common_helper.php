@@ -2526,12 +2526,21 @@ if (! function_exists('shiftPostedRecipients')) {
      * @param object|null $manager  the `users` row running it, if any
      * @param string      $template which e-mail this is, for the opt-out check
      *
-     * @return array{to: array<int, string>, missing: array<int, string>, fellBack: bool}
+     * `people` gives the account behind each address, so the caller can greet
+     * each one by their own name. Without it every address got a body written
+     * once for the owner, and a store's manager was sent "Hello, <the owner>".
+     * The row itself rather than a name, because the e-mails do not agree on
+     * which part of it they greet with - one uses the full name, the booking
+     * confirmation the first name alone. The fallback address is nobody's
+     * account, so it is not in there.
+     *
+     * @return array{to: array<int, string>, people: array<string, object>, missing: array<int, string>, fellBack: bool}
      */
     function shiftPostedRecipients(?object $owner, ?object $manager, $choice, string $fallback, string $template = 'shift-posted'): array
     {
         $wanted  = shiftEmailChoice($choice);
         $to      = [];
+        $people  = [];
         $missing = [];
 
         foreach ([['owner', $owner], ['manager', $manager]] as [$side, $user]) {
@@ -2556,6 +2565,10 @@ if (! function_exists('shiftPostedRecipients')) {
             }
 
             $to[] = $email;
+
+            // First side ticked wins the greeting where one login is both, so
+            // the name matches the `to` entry that survives the unique() below.
+            $people[$email] ??= $user;
         }
 
         // Both sides of a store can be the same login on a small chain.
@@ -2572,7 +2585,7 @@ if (! function_exists('shiftPostedRecipients')) {
             $to[] = $fallback;
         }
 
-        return ['to' => $to, 'missing' => $missing, 'fellBack' => $fellBack];
+        return ['to' => $to, 'people' => $people, 'missing' => $missing, 'fellBack' => $fellBack];
     }
 }
 

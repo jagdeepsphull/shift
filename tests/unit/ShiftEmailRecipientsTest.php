@@ -35,11 +35,13 @@ final class ShiftEmailRecipientsTest extends CIUnitTestCase
      * quietly turn these into database tests whose result depends on whatever
      * u_id 1 happens to be on the machine running them.
      */
-    private function user(string $email, string $blocked = '', ?string $unsubscribedAt = null): object
+    private function user(string $email, string $blocked = '', ?string $unsubscribedAt = null, string $fname = 'Given', string $lname = 'Family'): object
     {
         return (object) [
             'u_id'              => 1,
             'u_email'           => $email,
+            'u_fname'           => $fname,
+            'u_lname'           => $lname,
             'u_email_blocked'   => $blocked,
             'u_unsubscribed_at' => $unsubscribedAt,
         ];
@@ -265,5 +267,60 @@ final class ShiftEmailRecipientsTest extends CIUnitTestCase
         $booking = shiftPostedRecipients($owner, null, 'owner', '', 'booking-employer');
         $this->assertSame(['owner@example.com'], $booking['to']);
         $this->assertSame([], $booking['missing']);
+    }
+
+    /**
+     * Each address comes back with the account behind it, which is what lets
+     * the send sites greet a manager by their own name.
+     *
+     * QC found the three store e-mails building one body from the owner and
+     * sending it to everyone, so a store's manager opened "Hello, <the owner>".
+     * The fallback is the agency's own address and belongs to no account, so it
+     * is deliberately absent - the callers fall back to the owner for it.
+     */
+    public function testEachAddressCarriesTheAccountBehindIt(): void
+    {
+        $owner   = $this->user('owner@example.com', '', null, 'Ben', 'Limbong');
+        $manager = $this->user('manager@example.com', '', null, 'Arun', 'Mehta');
+
+        $audience = shiftPostedRecipients($owner, $manager, 'owner,manager', self::FALLBACK);
+
+        $this->assertSame('Ben', $audience['people']['owner@example.com']->u_fname);
+        $this->assertSame('Arun', $audience['people']['manager@example.com']->u_fname);
+        $this->assertArrayNotHasKey(self::FALLBACK, $audience['people']);
+    }
+
+    /**
+     * A side that was not ticked is nobody's greeting either: the manager is
+     * not in `people` when the shift says owner only, so nothing can address a
+     * message to somebody it was never sent to.
+     */
+    public function testAnUntickedSideIsNotGreeted(): void
+    {
+        $audience = shiftPostedRecipients(
+            $this->user('owner@example.com', '', null, 'Ben', 'Limbong'),
+            $this->user('manager@example.com', '', null, 'Arun', 'Mehta'),
+            'owner',
+            self::FALLBACK
+        );
+
+        $this->assertSame(['owner@example.com', self::FALLBACK], $audience['to']);
+        $this->assertArrayNotHasKey('manager@example.com', $audience['people']);
+    }
+
+    /**
+     * One login on both sides of a small chain is one address, and so one
+     * greeting - the name has to be the one belonging to the address that
+     * survived the de-duplication, not a second entry shadowing it.
+     */
+    public function testOneLoginOnBothSidesIsGreetedOnce(): void
+    {
+        $both = $this->user('both@example.com', '', null, 'Sam', 'Okafor');
+
+        $audience = shiftPostedRecipients($both, $both, 'owner,manager', self::FALLBACK);
+
+        $this->assertSame(['both@example.com', self::FALLBACK], $audience['to']);
+        $this->assertCount(1, $audience['people']);
+        $this->assertSame('Sam', $audience['people']['both@example.com']->u_fname);
     }
 }

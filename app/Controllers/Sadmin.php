@@ -62,7 +62,6 @@ class Sadmin extends BaseController
             $this->data['pendingReview'] = $this->pendingReviewCounts();
         }
 
-        $this->data['usersubtype']          = $this->config->item('usersubtype');
         $this->data['posttype']             = $this->config->item('posttype');
         $this->data['approved']             = $this->config->item('approved');
         $this->data['approvedSelectable']   = $this->config->item('approvedSelectable');

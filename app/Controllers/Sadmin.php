@@ -62,7 +62,6 @@ class Sadmin extends BaseController
             $this->data['pendingReview'] = $this->pendingReviewCounts();
         }
 
-        $this->data['usersubtype']          = $this->config->item('usersubtype');
         $this->data['posttype']             = $this->config->item('posttype');
         $this->data['approved']             = $this->config->item('approved');
         $this->data['approvedSelectable']   = $this->config->item('approvedSelectable');
@@ -3752,23 +3751,28 @@ class Sadmin extends BaseController
         // head office runs several and the shift number alone does not say.
         $store = shiftStore((object) $shift);
 
-        // The greeting is the store's owner either way. The manager is sent the
-        // same message rather than one addressed to them: this e-mail says a
-        // shift is live, and it reads the same to both sides of a store.
-        //
         // The subject names the site by its domain rather than by
         // `s_sitename`, because that is what the spec asks for and what a
         // pharmacy recognises in a crowded inbox.
         $subject = 'Your Shift is now live on ' . siteDomain();
-        $message = email_body('shift-posted', [
-            'name'        => trim(($owner->u_fname ?? '') . ' ' . ($owner->u_lname ?? '')),
-            'shift_title' => $shift['p_job_title'] ?? '',
-            'shift_date'  => $shift['p_dates'] ? dateFormat($shift['p_dates']) : '',
-            'store_name'  => (string) ($store->s_name ?? ''),
-            'settings'    => $this->data['settings'],
-        ]);
 
-        foreach ($audience as $address) {
+        // The body is built per recipient, because the greeting is theirs. It
+        // used to be built once from the owner and sent to everyone, so a
+        // store's manager opened "Hello, <the owner>" - their own name is on
+        // the account the e-mail was addressed to.
+        foreach ($audience['to'] as $address) {
+            // The agency's fixed address is nobody's account, so it keeps the
+            // owner's name: it is a copy of what the store was sent.
+            $to = $audience['people'][$address] ?? $owner;
+
+            $message = email_body('shift-posted', [
+                'name'        => trim(($to->u_fname ?? '') . ' ' . ($to->u_lname ?? '')),
+                'shift_title' => $shift['p_job_title'] ?? '',
+                'shift_date'  => $shift['p_dates'] ? dateFormat($shift['p_dates']) : '',
+                'store_name'  => (string) ($store->s_name ?? ''),
+                'settings'    => $this->data['settings'],
+            ]);
+
             if (send_email($address, $subject, $message)) {
                 log_message('info', 'Shift-posted e-mail sent to ' . $address);
             } else {
@@ -3838,15 +3842,20 @@ class Sadmin extends BaseController
 
         $date    = dateFormat($after['p_dates']);
         $subject = 'Your shift has been updated' . ($date !== '' ? ' : ' . $date : '');
-        $message = email_body('shift-updated', [
-            'name'        => trim(($owner->u_fname ?? '') . ' ' . ($owner->u_lname ?? '')),
-            'shift_title' => $after['p_job_title'],
-            'lines'       => $lines,
-            'was'         => $was,
-            'settings'    => $this->data['settings'],
-        ]);
 
-        foreach ($audience as $address) {
+        // Greeted by their own name - see sendShiftPostedEmail() for why the
+        // body is built inside the loop rather than once.
+        foreach ($audience['to'] as $address) {
+            $to = $audience['people'][$address] ?? $owner;
+
+            $message = email_body('shift-updated', [
+                'name'        => trim(($to->u_fname ?? '') . ' ' . ($to->u_lname ?? '')),
+                'shift_title' => $after['p_job_title'],
+                'lines'       => $lines,
+                'was'         => $was,
+                'settings'    => $this->data['settings'],
+            ]);
+
             if (send_email($address, $subject, $message)) {
                 log_message('info', 'Shift-updated e-mail sent to ' . $address);
             } else {
@@ -3866,7 +3875,10 @@ class Sadmin extends BaseController
      * @param array<string, mixed> $shift the `post_job` row, after saving
      * @param object|null          $owner the `users` row that owns the store
      *
-     * @return array<int, string> addresses, the store's own first
+     * `people` comes back with it so each recipient can be greeted by their own
+     * name; the fallback address is nobody's account and is not in there.
+     *
+     * @return array{to: array<int, string>, people: array<string, object>} addresses, the store's own first
      */
     private function shiftStoreAudience(array $shift, ?object $owner, string $template): array
     {
@@ -3896,7 +3908,7 @@ class Sadmin extends BaseController
             log_message('info', sprintf('%s e-mail for %s went to the fallback address only.', $template, $which));
         }
 
-        return $audience['to'];
+        return ['to' => $audience['to'], 'people' => $audience['people']];
     }
 
     /**
@@ -4311,17 +4323,23 @@ class Sadmin extends BaseController
         );
 
         $employer_subject = 'Applicant Approved for Shift Date : ' . dateFormat($shift_detail['p_dates']);
-        $employer_message = email_body('booking-employer', [
-            'name'           => $employer_detail['u_fname'] . ' ' . $employer_detail['u_lname'],
-            'first_name'     => $employer_detail['u_fname'],
-            'applicant_name' => $user_name,
-            'applicant'      => $user,
-            'shift'          => $shift_detail,
-            // A chain's head office needs telling which of their branches this
-            // booking is for.
-            'store'          => $store_detail,
-            'settings'       => $this->data['settings'],
-        ]);
+
+        // Addressed to whoever is reading it. The body used to be built once
+        // from the employer row and sent to every ticked side, so a store's
+        // manager was greeted by the owner's first name.
+        $employerBody = function ($person) use ($user_name, $user, $shift_detail, $store_detail) {
+            return email_body('booking-employer', [
+                'name'           => trim(($person->u_fname ?? '') . ' ' . ($person->u_lname ?? '')),
+                'first_name'     => (string) ($person->u_fname ?? ''),
+                'applicant_name' => $user_name,
+                'applicant'      => $user,
+                'shift'          => $shift_detail,
+                // A chain's head office needs telling which of their branches
+                // this booking is for.
+                'store'          => $store_detail,
+                'settings'       => $this->data['settings'],
+            ]);
+        };
 
         if ($audience['to'] === []) {
             // Nobody at the store is to be told - either the shift says so, or
@@ -4334,7 +4352,7 @@ class Sadmin extends BaseController
             ));
 
             if ($agency_copy) {
-                send_email($agency_copy, $employer_subject, $employer_message);
+                send_email($agency_copy, $employer_subject, $employerBody((object) $employer_detail));
             }
         } else {
             // The agency is copied once, on the first message only, so a store
@@ -4342,7 +4360,12 @@ class Sadmin extends BaseController
             $copy = $agency_copy;
 
             foreach ($audience['to'] as $address) {
-                if (send_email($address, $employer_subject, $employer_message, $copy)) {
+                // The agency's own address is nobody's account, so that copy
+                // keeps the employer's name.
+                $person  = $audience['people'][$address] ?? (object) $employer_detail;
+                $message = $employerBody($person);
+
+                if (send_email($address, $employer_subject, $message, $copy)) {
                     log_message('info', 'Booking e-mail sent to ' . $address);
                 } else {
                     log_message('error', 'Booking e-mail failed for ' . $address);

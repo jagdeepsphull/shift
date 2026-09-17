@@ -14,7 +14,7 @@
  * save that changed nothing the store is shown - the recipients, say, or the
  * job title - still sends the list, with no line marked.
  *
- * @var string                $name       the store owner's full name
+ * @var string                $name       full name of whoever this copy is for
  * @var string                $shift_title
  * @var array<string, string> $lines      shiftSummaryLines() after the save
  * @var array<string, string> $was        the same before it, for changed lines

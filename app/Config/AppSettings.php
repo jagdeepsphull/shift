@@ -79,16 +79,6 @@ class AppSettings extends BaseConfig
         3 => ['label' => 'Applicant', 'userType' => 2, 'empRole' => null],
     ];
 
-    /** Sub types of Applicant/Job seekers. */
-    public array $usersubtype = [
-        1 => 'Pharmacist',
-        2 => 'Pharmacy Assistant',
-        3 => 'Registered Pharmacy Technician',
-        4 => 'Physician',
-        5 => 'Nurse',
-        6 => 'Personal Support Worker',
-    ];
-
     public array $posttype = [
         0 => 'Shifts',
         1 => 'Full Time',

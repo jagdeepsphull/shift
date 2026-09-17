@@ -12,8 +12,11 @@
  * @var bool         $ready  false until the migration has been run
  */
 
-/** The account's kind, in words. Same wording as the Manage Email list. */
-$typeLabel = static function ($user) use ($usersubtype) {
+/**
+ * The account's kind, in words. Same wording as the Manage Email list, and
+ * the same `shift_for` lookup behind it.
+ */
+$typeLabel = static function ($user) {
     $usertype = (int) $user->u_usertype;
 
     if ($usertype === 0) {
@@ -21,7 +24,7 @@ $typeLabel = static function ($user) use ($usersubtype) {
     }
 
     if ($usertype === 2) {
-        $sub = $usersubtype[$user->u_usersubtype] ?? '';
+        $sub = trim((string) getShiftForName($user->u_usersubtype));
 
         return 'Applicant' . ($sub !== '' ? ' - ' . $sub : '');
     }

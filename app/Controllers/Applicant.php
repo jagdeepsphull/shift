@@ -76,7 +76,6 @@ class Applicant extends BaseController
         $this->stopIfAccountClosed($this->userinfo, 'front/login');
 
         $this->data['usertype']    = $this->config->item('usertype');
-        $this->data['usersubtype'] = $this->config->item('usersubtype');
         $this->data['posttype']    = $this->config->item('posttype');
 
         $this->data['gender']   = $this->config->item('gender');

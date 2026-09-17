@@ -43,7 +43,6 @@ class Front extends BaseController
         $this->data['shift_for'] = $this->custom->get_where_order('shift_for', ['sf_status' => 1], SHIFT_FOR_ORDER, '', false);
 
         $this->data['usertype']      = $this->config->item('usertype');
-        $this->data['usersubtype']   = $this->config->item('usersubtype');
         $this->data['posttype']      = $this->config->item('posttype');
         $this->data['qualification'] = $this->config->item('qualification');
     }

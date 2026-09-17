@@ -8,8 +8,15 @@
  * recipients. The User Type column is what tells them apart.
  */
 
-/** The account's kind, in words. */
-$typeLabel = static function ($user) use ($usersubtype) {
+/**
+ * The account's kind, in words.
+ *
+ * The applicant's own type comes from `shift_for` through getShiftForName(),
+ * the same lookup every other screen uses. It used to read a hard-coded list
+ * in AppSettings that had drifted from the table, printing labels - a
+ * "Personal Support Worker" among them - that exist nowhere else on the site.
+ */
+$typeLabel = static function ($user) {
     $usertype = (int) $user->u_usertype;
 
     if ($usertype === 0) {
@@ -17,7 +24,7 @@ $typeLabel = static function ($user) use ($usersubtype) {
     }
 
     if ($usertype === 2) {
-        $sub = $usersubtype[$user->u_usersubtype] ?? '';
+        $sub = trim((string) getShiftForName($user->u_usersubtype));
 
         return 'Applicant' . ($sub !== '' ? ' - ' . $sub : '');
     }
